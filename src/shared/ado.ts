@@ -1,6 +1,7 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CommonServiceIds, getClient, IExtensionDataService, IProjectPageService } from "azure-devops-extension-api";
 import { CoreRestClient } from "azure-devops-extension-api/Core";
+import { WorkRestClient } from "azure-devops-extension-api/Work";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
 import { IWorkItemFormService, WorkItemTrackingServiceIds } from "azure-devops-extension-api/WorkItemTracking/WorkItemTrackingServices";
 import { emptyConfig, ProjectConfig } from "../core/types";
@@ -31,6 +32,7 @@ const restOptions = () => {
 };
 export const witClient = () => getClient(WorkItemTrackingRestClient, restOptions());
 export const coreClient = () => getClient(CoreRestClient, restOptions());
+export const workClient = () => getClient(WorkRestClient, restOptions());
 
 export { withTimeout };
 

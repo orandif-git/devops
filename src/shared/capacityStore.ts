@@ -1,17 +1,24 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
-import { coreClient, dataManager, withTimeout } from "./ado";
+import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
+import { coreClient, dataManager, getProject, withTimeout, workClient } from "./ado";
 
 const COLLECTION = "wig-capacity";
 
 export interface TeamRef { id: string; name: string }
+/** Where capacity is maintained: this extension's register, or Azure DevOps team capacity (Boards → Sprints → Capacity). */
+export type CapacitySource = "register" | "teams";
+
 export interface CapacitySettings {
+  source: CapacitySource;
+  /** source = "teams": the teams whose iterations hold the capacity (e.g. one yearly iteration "Capacity 2026") */
+  capacityTeams: TeamRef[];
   /** members of these Azure DevOps teams may edit capacity (empty = any project member). Project administrators always may. */
   editorTeams: TeamRef[];
   /** hours per month for registered people who have no default of their own */
   defaultHours: number | null;
 }
-export const defaultSettings = (): CapacitySettings => ({ editorTeams: [], defaultHours: null });
+export const defaultSettings = (): CapacitySettings => ({ source: "register", capacityTeams: [], editorTeams: [], defaultHours: null });
 
 const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
@@ -46,8 +53,53 @@ export async function deleteRecord(projectId: string, key: string): Promise<void
   try { await (await dataManager()).deleteDocument(COLLECTION, recordId(projectId, key)); } catch (e) { if (!is404(e)) throw e; }
 }
 
+// ---------- capacity from Azure DevOps team capacity ----------
+let nativeCache: { key: string; at: number; value: { teams: NativeTeam[]; report: NativeReport[] } } | undefined;
+
+/** Read iterations, working days, per-person capacity and days off of the chosen teams. Cached for a minute. */
+export async function readNativeCapacity(teamRefs: TeamRef[], force = false): Promise<{ teams: NativeTeam[]; report: NativeReport[] }> {
+  const key = teamRefs.map(t => t.id).sort().join(",");
+  if (!force && nativeCache && nativeCache.key === key && Date.now() - nativeCache.at < 60000) return nativeCache.value;
+  const project = await getProject();
+  const work = await workClient();
+  const teams: NativeTeam[] = [];
+  for (const t of teamRefs) {
+    const ctx = { projectId: project.id, project: project.name, teamId: t.id, team: t.name } as never;
+    const settings = await withTimeout(work.getTeamSettings(ctx), `Reading the settings of team ${t.name}`);
+    const iterations = await withTimeout(work.getTeamIterations(ctx), `Reading the iterations of team ${t.name}`);
+    const team: NativeTeam = { teamName: t.name, workingDays: normalizeWorkingDays((settings.workingDays ?? []) as unknown[]), iterations: [] };
+    for (const it of iterations) {
+      const [caps, off] = await Promise.all([
+        withTimeout(work.getCapacitiesWithIdentityRefAndTotals(ctx, it.id), `Reading the capacity of ${it.name}`),
+        withTimeout(work.getTeamDaysOff(ctx, it.id), `Reading the team days off of ${it.name}`).catch(() => ({ daysOff: [] as { start: Date; end: Date }[] })),
+      ]);
+      team.iterations.push({
+        name: it.name, start: toIsoDate(it.attributes?.startDate), finish: toIsoDate(it.attributes?.finishDate),
+        teamDaysOff: (off.daysOff ?? []).map(d => ({ start: toIsoDate(d.start), end: toIsoDate(d.end) })),
+        members: (caps.teamMembers ?? []).map(m => ({
+          name: `${m.teamMember.displayName} <${m.teamMember.uniqueName}>`,
+          capacityPerDay: (m.activities ?? []).reduce((sum, a) => sum + (a.capacityPerDay || 0), 0),
+          daysOff: (m.daysOff ?? []).map(d => ({ start: toIsoDate(d.start), end: toIsoDate(d.end) })),
+        })),
+      });
+    }
+    teams.push(team);
+  }
+  const value = { teams, report: reportNative(teams) };
+  nativeCache = { key, at: Date.now(), value };
+  return value;
+}
+
+/** The people and their capacity, from whichever source is configured. */
+export async function loadCapacityRecords(projectId: string, settings?: CapacitySettings): Promise<{ records: CapacityRecord[]; source: CapacitySource }> {
+  const s = settings ?? await loadSettings(projectId);
+  if (s.source === "teams") return { records: recordsFromNative((await readNativeCapacity(s.capacityTeams)).teams), source: "teams" };
+  return { records: await listRecords(projectId), source: "register" };
+}
+
 export async function loadRegister(projectId: string): Promise<CapacityRegister> {
-  const [records, settings] = await Promise.all([listRecords(projectId), loadSettings(projectId)]);
+  const settings = await loadSettings(projectId);
+  const { records } = await loadCapacityRecords(projectId, settings);
   const reg = emptyRegister();
   reg.projectDefault = settings.defaultHours;
   for (const r of records) reg.resources[r.key] = r;
