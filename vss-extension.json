@@ -134,6 +134,39 @@
       }
     },
     {
+      "id": "readonly-value",
+      "type": "ms.vss-work-web.work-item-form-control",
+      "description": "Shows a field's value read-only, so users cannot edit values the extension calculates (calculation results, grid totals).",
+      "targets": [
+        "ms.vss-work-web.work-item-form"
+      ],
+      "properties": {
+        "name": "Read-only Value",
+        "uri": "dist/readonly/index.html",
+        "height": 34,
+        "inputs": [
+          {
+            "id": "FieldName",
+            "name": "Field",
+            "description": "The calculated field to show read-only (a calculation result or grid total).",
+            "type": "WorkItemField",
+            "properties": {
+              "workItemFieldTypes": [
+                "Integer",
+                "Double",
+                "String",
+                "PlainText"
+              ]
+            },
+            "validation": {
+              "dataType": "String",
+              "isRequired": true
+            }
+          }
+        ]
+      }
+    },
+    {
       "id": "rules-observer",
       "type": "ms.vss-work-web.work-item-notifications",
       "description": "Evaluates the configured rules and dependent-dropdown validation on work item forms.",

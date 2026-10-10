@@ -10,11 +10,13 @@ import { CapacityTab } from "./CapacityTab";
 import { CascadesTab } from "./CascadesTab";
 import { GridsTab } from "./GridsTab";
 import { MappingsTab } from "./MappingsTab";
+import { ReadOnlyTab } from "./ReadOnlyTab";
 import { RulesTab } from "./RulesTab";
 import { Ctx } from "./ui";
+import { writtenFields } from "../core/written";
 import { makeCatalog, validateProject } from "./validate";
 
-type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "json";
+type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "readonly" | "json";
 
 function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) {
   const [text, setText] = React.useState(() => JSON.stringify(p.config, null, 2));
@@ -126,7 +128,7 @@ function Hub(props: { projectId: string; projectName: string }) {
           </div>
         )}
         <div className="tabs">
-          {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["json", "JSON"]] as [Tab, string][])
+          {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => <button key={t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
         </div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}
@@ -134,6 +136,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "grids" && <GridsTab grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
         {tab === "mappings" && <MappingsTab config={config} issues={issues} onChange={(lookups, grids) => setConfig({ ...config, lookups, ...(grids ? { grids } : {}) })} />}
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
+        {tab === "readonly" && <ReadOnlyTab config={config} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (

@@ -26,3 +26,6 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .err { color: var(--err); }
 .ok { color: var(--ok); }
 .badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 8px; background: var(--hover); border: 1px solid var(--line); }
+.rov { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; padding: 3px 8px; background: var(--hover); border: 1px solid var(--line); border-radius: 2px; }
+.rov .val { font-weight: 600; }
+.rov .lock { opacity: .55; font-size: 12px; }
