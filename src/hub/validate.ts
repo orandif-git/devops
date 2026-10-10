@@ -221,7 +221,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         if (!g) add("error", w, `Input '${inp.name}' uses grid '${inp.source.grid}', which does not exist`);
         else {
           if (!g.columns.some(col => col.id === (inp.source as { column: string }).column)) add("error", w, `Input '${inp.name}': pick a column of grid '${inp.source.grid}'`);
-          if (!g.dataField) add("warn", w, `Grid '${inp.source.grid}' has no data field, so this input will always be ${inp.source.kind === "top" ? "blank" : "0"}`);
+          if (!g.dataField) add("error", w, `Grid '${inp.source.grid}' has no data field saved in its definition, so this calculation sees an empty grid (the result stays blank). Open Grids → ${inp.source.grid} and enter the same long-text Data field the form control uses, then Save.`);
           if (inp.source.kind === "top") {
             const gb = g.columns.find(col => col.id === (inp.source as { groupBy: string }).groupBy);
             if (!gb) add("error", w, `Input '${inp.name}': pick the column to group by`);

@@ -250,3 +250,14 @@ describe("Phase 2 validation", () => {
     expect(proj({ groupBy: "p", bucket: "month" }, "Custom.PeakTeam")).toBe("");
   });
 });
+
+describe("calculation on a grid without a saved data field", () => {
+  it("is reported as an error, not a warning", () => {
+    const x = emptyConfig();
+    x.grids.T = { columns: [{ id: "h", name: "H", type: "number" }] };            // no dataField in the definition
+    x.calculations = [{ id: "1", name: "Total", enabled: true, workItemTypes: [], formula: "S", resultField: "Custom.R", onEmpty: "blank", onDivZero: "blank", mode: "always",
+      inputs: [{ name: "S", source: { kind: "grid", grid: "T", column: "h", aggregate: "sum" } }] }];
+    const issues = validateProject(x, makeCatalog([], []));
+    expect(issues.find(i => /no data field saved/.test(i.message))?.level).toBe("error");
+  });
+});
