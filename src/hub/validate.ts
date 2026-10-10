@@ -2,6 +2,7 @@ import { validateConfig as validateGrid } from "../core/gridModel";
 import { checkFormula } from "../core/expr";
 import { ProjectConfig } from "../core/types";
 import { orderCalculations, undefinedVariables } from "../core/calc";
+import { lookupValues, resolvedGrids } from "../core/sharedLookups";
 import { FUNCTION_NAMES } from "../core/expr";
 
 export interface Issue { level: "error" | "warn"; where: string; message: string }
@@ -31,8 +32,10 @@ function lookup(cat: Catalog, ref: string, types: string[]): { fld?: Fld; missin
   return { fld, missingOn };
 }
 
-export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
+export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
   const out: Issue[] = [];
+  // shared mappings applied, so every check below sees the effective lookup tables
+  const cfg: ProjectConfig = { ...raw, grids: resolvedGrids(raw) };
   const add = (level: Issue["level"], where: string, message: string) => out.push({ level, where, message });
 
   const checkField = (where: string, ref: string, types: string[]) => {
@@ -95,6 +98,7 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
 
   for (const [name, g] of Object.entries(cfg.grids)) {
     const w = `Grid “${name}”`;
+    g.columns.forEach(c => { if (c.lookup?.table && !(raw.lookups ?? {})[c.lookup.table]) add("error", w, `'${c.id}' uses shared mapping '${c.lookup.table}', which does not exist`); });
     validateGrid(g).forEach(m => add("error", w, m));
     g.columns.forEach(c => { if (c.formula) { const e = checkFormula(c.formula); if (e) add("error", w, `Formula of '${c.id}': ${e}`); } });
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
@@ -119,7 +123,7 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
       if (f && !NUMERIC.test(f.type)) add("error", w, `${f.name} is not numeric; a total can only be written to an Integer/Decimal field`);
       if (f?.readOnly) add("warn", w, `${f.name} is read-only`);
       const wc = t.where && g.columns.find(x => x.id === t.where!.column);
-      const opts = wc?.options ?? (wc?.lookup ? Array.from(new Set(Object.values(wc.lookup.map))) : undefined);
+      const opts = wc?.options ?? (wc?.lookup ? lookupValues(wc) : undefined);
       if (t.where && opts?.length) for (const v of t.where.values) if (!opts.some(o => o.toLowerCase() === v.toLowerCase())) add("warn", w, `Filter value '${v}' is not an option of '${wc!.id}', so this total will be 0`);
     });
     (g.breakdowns ?? []).forEach(b => Object.entries(b.fields ?? {}).forEach(([grp, ref]) => {
@@ -132,6 +136,13 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
       if (!g.child.workItemType) add("error", w, "Child work item type is required");
       for (const ref of Object.values(g.child.fieldMap ?? {})) if (ref) checkField(w, ref, types);
     }
+  }
+
+  // ---- shared mappings
+  for (const [name, t] of Object.entries(raw.lookups ?? {})) {
+    const w = `Mapping “${name}”`;
+    if (!Object.keys(t.map).length && !t.fallback) add("error", w, "The mapping has no values and no fallback");
+    if (!Object.values(raw.grids).some(g => g.columns.some(c => c.lookup?.table === name))) add("warn", w, "No grid column uses this mapping");
   }
 
   // ---- calculations
@@ -170,7 +181,7 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
             if (!col) add("error", w, `Input '${inp.name}': a condition uses an unknown column`);
             else if (!cond.values.length) add("error", w, `Input '${inp.name}': a condition on '${col.name}' has no value`);
             else {
-              const opts = col.options ?? (col.lookup ? Array.from(new Set(Object.values(col.lookup.map))) : undefined);
+              const opts = col.options ?? (col.lookup ? lookupValues(col) : undefined);
               if (opts?.length) for (const v of cond.values) if (!opts.some(o => o.toLowerCase() === v.toLowerCase())) add("warn", w, `'${v}' is not a value of '${col.name}', so this input may always be 0`);
             }
           });

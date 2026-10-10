@@ -1,6 +1,7 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { Cascade, ProjectConfig, Rule } from "../core/types";
 import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
+import { resolvedGrids } from "../core/sharedLookups";
 import { cascadeApplies, cascadeErrors, evaluateRules, hintedParent, ruleApplies } from "../core/rules";
 import { getFormService, getProject, init, loadConfig } from "../shared/ado";
 
@@ -37,11 +38,12 @@ async function run(isLoad: boolean) {
     const rules = config.rules.filter(r => ruleApplies(r, type));
     const cascades = config.cascades.filter(c => cascadeApplies(c, type));
     const calcs = (config.calculations ?? []).filter(c => calcApplies(c, type));
+    const grids = resolvedGrids(config);
     if (!rules.length && !cascades.length && !calcs.length) { if (weSetError) { await svc.clearError(); weSetError = false; } return; }
     // only touch fields this work item type really has (a missing field must not break the whole run)
     if (!formFields) formFields = new Set((await svc.getFields()).map(f => f.referenceName));
     const known = formFields;
-    const refs = Array.from(new Set([...refsOf(rules, cascades), ...calcRefs(calcs, config.grids ?? {})])).filter(r => known.has(r));
+    const refs = Array.from(new Set([...refsOf(rules, cascades), ...calcRefs(calcs, grids)])).filter(r => known.has(r));
 
     let errors: string[] = [];
     for (let pass = 0; pass < 5; pass++) {          // let chained rules settle; cap prevents flip-flop loops
@@ -62,7 +64,7 @@ async function run(isLoad: boolean) {
       Object.assign(toSet, out.setValues);
       if (calcs.length) {
         const view = (f: string) => (f in toSet ? toSet[f] : get(f));
-        const c = evaluateCalculations(calcs, type, view, config.grids ?? {});
+        const c = evaluateCalculations(calcs, type, view, grids);
         for (const [f, v] of Object.entries(c.changes)) if (known.has(f)) (toSet as Record<string, unknown>)[f] = v;
         else console.warn(`[Grid & Rules] calculation result field ${f} is not on ${type}`);
         c.notes.forEach(n => console.debug("[Grid & Rules] calculation:", n));

@@ -4,7 +4,8 @@ import * as SDK from "azure-devops-extension-sdk";
 import "../shared/styles.css";
 import "./grid.css";
 import { Grid } from "./Grid";
-import { GridConfig, GridRow } from "../core/types";
+import { GridConfig, GridRow, LookupTable } from "../core/types";
+import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, serialize, validateConfig, validateRows } from "../core/gridModel";
 import { downloadFile, getFormService, getProject, init, loadConfig, witClient } from "../shared/ado";
 import { exportCsv, exportXlsx, importFile } from "../shared/excel";
@@ -13,15 +14,20 @@ interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
 
 async function resolveConfig(inputs: Inputs, projectId: string): Promise<GridConfig> {
   let cfg: GridConfig | undefined;
+  let lookups: Record<string, LookupTable> = {};
   if (inputs.ConfigJson && inputs.ConfigJson.trim()) {
     try { cfg = JSON.parse(inputs.ConfigJson); } catch { throw new Error("The 'Grid configuration (JSON)' input is not valid JSON."); }
   } else if (inputs.GridName) {
-    cfg = (await loadConfig(projectId)).grids[inputs.GridName.trim()];
+    const project = await loadConfig(projectId);
+    lookups = project.lookups ?? {};
+    cfg = project.grids[inputs.GridName.trim()];
     if (!cfg) throw new Error(`No grid named '${inputs.GridName}' is defined. Create it in Project settings → Grid & Rules.`);
   } else {
     throw new Error("Set the 'Grid name' (or 'Grid configuration (JSON)') input on this control in the process layout.");
   }
   if (!cfg || !Array.isArray(cfg.columns) || !cfg.columns.length) throw new Error("The grid has no columns.");
+  if (cfg.columns.some(c => c.lookup?.table) && !Object.keys(lookups).length) lookups = (await loadConfig(projectId)).lookups ?? {};
+  cfg = applySharedLookups(cfg, lookups);
   if (inputs.DataField) cfg = { ...cfg, dataField: inputs.DataField };
   if (!cfg.dataField) throw new Error("No data field set. Pick a long-text field in the 'Data field' input.");
   const problems = validateConfig(cfg);

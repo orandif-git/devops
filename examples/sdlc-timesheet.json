@@ -151,12 +151,8 @@
           "type": "string",
           "lookup": {
             "column": "team",
-            "map": {
-              "Vendor": "External",
-              "IT Contract": "External",
-              "Business": "Business"
-            },
-            "fallback": "Internal"
+            "map": {},
+            "table": "Resource type"
           }
         },
         {
@@ -275,8 +271,8 @@
       "mode": "always"
     },
     {
-      "id": "external-cap-hours",
-      "name": "External Cap Hours",
+      "id": "vendor-cap-hours",
+      "name": "Vendor Cap Hours",
       "enabled": true,
       "workItemTypes": [],
       "inputs": [
@@ -305,7 +301,7 @@
         }
       ],
       "formula": "Hours",
-      "resultField": "Custom.ExternalCapHours",
+      "resultField": "Custom.VendorCapHours",
       "decimals": 2,
       "onEmpty": "zero",
       "onDivZero": "blank",
@@ -348,5 +344,16 @@
       "onDivZero": "blank",
       "mode": "always"
     }
-  ]
+  ],
+  "lookups": {
+    "Resource type": {
+      "map": {
+        "Vendor": "External",
+        "IT Contract": "External",
+        "Business": "Business"
+      },
+      "fallback": "Internal",
+      "description": "Team -> Resource type (External / Business / Internal)"
+    }
+  }
 }

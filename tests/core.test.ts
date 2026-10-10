@@ -241,3 +241,48 @@ describe("resource type from team (category lookup with fallback)", () => {
     expect([sum("External"), sum("Internal"), sum("Business")]).toEqual([8, 10, 2]);
   });
 });
+
+import { applySharedLookups, resolvedGrids } from "../src/core/sharedLookups";
+
+describe("shared mappings", () => {
+  const project = () => { const c = emptyConfig();
+    c.lookups = { "Resource type": { map: { Vendor: "External", "IT Contract": "External" }, fallback: "Internal" } };
+    c.grids.G = { dataField: "Custom.G", columns: [
+      { id: "team", name: "Team", type: "dropdown", options: ["Eng", "Vendor", "IT Contract"] },
+      { id: "rt", name: "Resource type", type: "string", lookup: { column: "team", map: {}, table: "Resource type" } },
+      { id: "h", name: "Hours", type: "number" }] };
+    c.grids.H = { columns: [{ id: "team", name: "Team", type: "string" }, { id: "rt", name: "RT", type: "string", lookup: { column: "team", map: {}, table: "Resource type" } }] };
+    return c; };
+  it("resolves the shared table into every grid that uses it", () => {
+    const g = resolvedGrids(project());
+    expect(normalizeRow({ team: "IT Contract" }, g.G).rt).toBe("External");
+    expect(normalizeRow({ team: "Eng" }, g.H).rt).toBe("Internal");
+  });
+  it("one edit of the shared mapping changes all grids", () => {
+    const c = project(); c.lookups["Resource type"].map["Offshore"] = "External";
+    expect(normalizeRow({ team: "Offshore" }, resolvedGrids(c).H).rt).toBe("External");
+  });
+  it("unknown table resolves to an empty mapping and is reported", () => {
+    const c = project(); c.lookups = {};
+    expect(applySharedLookups(c.grids.G, c.lookups).columns[1].lookup!.map).toEqual({});
+    const cat = makeCatalog([{ referenceName: "Custom.G", name: "G", type: "plainText", readOnly: false }], []);
+    expect(validateProject(c, cat).map(i => i.message).join("|")).toMatch(/shared mapping 'Resource type', which does not exist/);
+  });
+  it("unused / empty mappings are flagged; a used one is clean", () => {
+    const cat = makeCatalog([{ referenceName: "Custom.G", name: "G", type: "plainText", readOnly: false }], []);
+    const c = project(); c.lookups.Orphan = { map: {} };
+    const msgs = validateProject(c, cat).map(i => `${i.where}:${i.message}`).join("|");
+    expect(msgs).toMatch(/Mapping “Orphan”:The mapping has no values/);
+    expect(msgs).toMatch(/Mapping “Orphan”:No grid column uses this mapping/);
+    expect(msgs).not.toMatch(/Mapping “Resource type”/);
+  });
+  it("calculation conditions are validated against the effective mapping values", () => {
+    const cat = makeCatalog([{ referenceName: "Custom.G", name: "G", type: "plainText", readOnly: false }, { referenceName: "Custom.R", name: "R", type: "double", readOnly: false }], []);
+    const c = project();
+    c.calculations = [{ id: "x", name: "Ext", enabled: true, workItemTypes: [], formula: "H", resultField: "Custom.R", onEmpty: "zero", onDivZero: "blank", mode: "always",
+      inputs: [{ name: "H", source: { kind: "grid", grid: "G", column: "h", aggregate: "sum", where: [{ column: "rt", values: ["Externl"] }] } }] }];
+    expect(validateProject(c, cat).map(i => i.message).join("|")).toMatch(/'Externl' is not a value of 'Resource type'/);
+    c.calculations[0].inputs[0].source = { kind: "grid", grid: "G", column: "h", aggregate: "sum", where: [{ column: "rt", values: ["External", "Internal"] }] };
+    expect(validateProject(c, cat).filter(i => /not a value/.test(i.message))).toEqual([]);
+  });
+});

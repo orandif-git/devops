@@ -1,10 +1,11 @@
 import * as React from "react";
 import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
+import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
-import { groupsToMap, mapToGroups, unassigned } from "../core/lookupGroups";
-import { csv, delAt, FieldInput, setAt } from "./ui";
+import { LookupEditor } from "./LookupEditor";
+import { csv, Ctx, delAt, FieldInput, setAt } from "./ui";
 import { Issue } from "./validate";
 
 const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity"];
@@ -15,33 +16,37 @@ const textToMap = (t: string) => Object.fromEntries(t.split("\n").map(l => l.tri
   const i = l.indexOf(":"); return i < 0 ? [l, []] : [l.slice(0, i).trim(), csv(l.slice(i + 1))];
 }));
 
-function LookupEditor(p: { col: ColumnDef; source?: ColumnDef; onChange(l: NonNullable<ColumnDef["lookup"]>): void }) {
+function LookupPanel(p: { col: ColumnDef; source?: ColumnDef; onChange(l: NonNullable<ColumnDef["lookup"]>): void }) {
+  const { lookups, setLookups } = React.useContext(Ctx);
   const l = p.col.lookup!;
-  // draft keeps empty categories alive while typing; the saved map only holds filled ones
-  const [groups, setDraft] = React.useState(() => mapToGroups(l.map));
+  const [newName, setNewName] = React.useState("");
   const srcOptions = p.source?.options ?? (p.source?.dependsOn ? Array.from(new Set(Object.values(p.source.dependsOn.map).flat())) : []);
-  const rest = unassigned(srcOptions, l.map);
-  const setGroups = (g: ReturnType<typeof mapToGroups>) => { setDraft(g); p.onChange({ ...l, map: groupsToMap(g) }); };
+  const names = Object.keys(lookups);
+  const shared = l.table ? lookups[l.table] : undefined;
   return (
-    <div className="card">
-      <div className="help">Group the values of “{p.source?.name ?? l.column}” by category. Anything not listed gets the “all other values” category, so a new value you add later needs no change unless it belongs to another category.</div>
-      {groups.map((g, k) => (
-        <div className="row" key={k}>
-          <input className="fixed" style={{ width: 150, fontWeight: 600 }} defaultValue={g.category} key={"c" + k + g.category} placeholder="Category"
-            onBlur={e => setGroups(setAt(groups, k, { ...g, category: e.target.value }))} />
-          <span className="fixed">←</span>
-          <input defaultValue={g.values.join(", ")} key={"v" + k + g.values.join()} placeholder="values in this category, comma separated"
-            onBlur={e => setGroups(setAt(groups, k, { ...g, values: csv(e.target.value) }))} />
-          <button className="btn icon danger fixed" onClick={() => setGroups(delAt(groups, k))}>✕</button>
+    <div>
+      <label className="field"><span>Mapping</span>
+        <select value={l.table ?? ""} onChange={e => p.onChange(e.target.value ? { column: l.column, map: {}, table: e.target.value } : { column: l.column, map: l.table ? { ...(lookups[l.table]?.map ?? {}) } : l.map, fallback: l.table ? lookups[l.table]?.fallback : l.fallback })}>
+          <option value="">Custom – defined only for this column</option>
+          {names.map(n => <option key={n} value={n}>Shared: {n}</option>)}
+          {l.table && !names.includes(l.table) && <option value={l.table}>Shared: {l.table} (missing)</option>}
+        </select></label>
+      {l.table ? (
+        <div className="card">
+          <div className="help">Using the shared mapping “{l.table}”. Edit it once in the <b>Mappings</b> tab and every grid using it follows.</div>
+          {shared ? <div>{Object.entries(shared.map).length} value(s) mapped · all other values → <b>{shared.fallback || "(blank)"}</b></div> : <div className="err">This mapping does not exist.</div>}
         </div>
-      ))}
-      <button className="btn" onClick={() => setGroups([...groups, { category: "", values: [] }])}>+ Add category</button>
-      <div className="row" style={{ marginTop: 8 }}>
-        <span className="fixed">All other values →</span>
-        <input style={{ maxWidth: 200 }} placeholder="e.g. Internal" value={l.fallback ?? ""} onChange={e => p.onChange({ ...l, fallback: e.target.value || undefined })} />
-      </div>
-      {srcOptions.length > 0 && (
-        <div className="help">{rest.length ? <>Currently receiving “{l.fallback || "(blank)"}”: {rest.join(", ")}</> : "Every value of the source column is listed in a category."}</div>
+      ) : (
+        <>
+          <LookupEditor value={{ map: l.map, fallback: l.fallback }} sourceName={p.source?.name ?? l.column} sourceOptions={srcOptions}
+            onChange={v => p.onChange({ ...l, map: v.map, fallback: v.fallback })} />
+          <div className="row">
+            <input placeholder="Share this mapping as… (e.g. Resource type)" value={newName} onChange={e => setNewName(e.target.value)} />
+            <button className="btn fixed" disabled={!newName.trim() || names.includes(newName.trim())} onClick={() => {
+              const name = newName.trim(); setLookups({ ...lookups, [name]: { map: l.map, fallback: l.fallback } }); p.onChange({ column: l.column, map: {}, table: name }); setNewName("");
+            }}>Make shared</button>
+          </div>
+        </>
       )}
     </div>
   );
@@ -76,10 +81,10 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
             {c.type !== "identity" && c.type !== "boolean" && (
               <>
                 <label className="field"><span>Auto-fill from another column (read-only; the user does not pick a value)</span>
-                  <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { column: e.target.value, map: c.lookup?.map ?? {} } : undefined })}>
+                  <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { ...(c.lookup ?? { map: {} }), column: e.target.value } : undefined })}>
                     <option value="">— none (user enters the value) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
                   </select></label>
-                {c.lookup && <LookupEditor key={JSON.stringify(c.lookup.map)} col={c} source={p.others.find(o => o.id === c.lookup!.column)} onChange={lookup => set({ lookup })} />}
+                {c.lookup && <LookupPanel key={(c.lookup.table ?? "") + "|" + c.lookup.column} col={c} source={p.others.find(o => o.id === c.lookup!.column)} onChange={lookup => set({ lookup })} />}
               </>
             )}
             {c.type === "identity" && (
@@ -105,7 +110,9 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
   );
 }
 
-function Preview({ cfg }: { cfg: GridConfig }) {
+function Preview({ cfg: raw }: { cfg: GridConfig }) {
+  const { lookups } = React.useContext(Ctx);
+  const cfg = React.useMemo(() => applySharedLookups(raw, lookups), [raw, lookups]);
   const [rows, setRows] = React.useState<GridRow[]>([]);
   React.useEffect(() => { setRows(r => r.length ? r : cfg.columns.length ? [newRow(cfg), newRow(cfg)] : []); }, [cfg]);
   return <Grid cfg={{ ...cfg, readOnly: false }} rows={rows} readOnly={false} projectId="" busyChildren={false} status="" onChange={setRows}
@@ -114,6 +121,8 @@ function Preview({ cfg }: { cfg: GridConfig }) {
 
 function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void; issues: Issue[] }) {
   const g = p.g;
+  const { lookups } = React.useContext(Ctx);
+  const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
   return (
     <div>
@@ -161,8 +170,8 @@ function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void;
       <div className="help">Shows one figure per value, e.g. “Sum of Hours by Treatment: Expense 12 · Capitalizable 30”, and can write each one to its own work item field.</div>
       {(g.breakdowns ?? []).map((b, i) => {
         const setB = (patch: Partial<Breakdown>) => p.onChange({ ...g, breakdowns: setAt(g.breakdowns!, i, { ...b, ...patch }) });
-        const by = g.columns.find(c => c.id === b.by);
-        const known = by ? Array.from(new Set(by.options ?? (by.lookup ? Object.values(by.lookup.map) : by.dependsOn ? Object.values(by.dependsOn.map).flat() : []))) : [];
+        const by = effective.columns.find(c => c.id === b.by);
+        const known = by ? Array.from(new Set(by.options ?? (by.lookup ? lookupValues(by) : by.dependsOn ? Object.values(by.dependsOn.map).flat() : []))) : [];
         const fields = b.fields ?? {};
         const setField = (group: string, field: string) => { const f = { ...fields }; if (field) f[group] = field; else delete f[group]; setB({ fields: f }); };
         const extra = Object.keys(fields).filter(k => !known.some(x => x.toLowerCase() === k.toLowerCase()));

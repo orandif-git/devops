@@ -22,7 +22,13 @@ export interface ColumnDef {
    * Auto-fill: value is looked up from another column of the same row (read-only, computed).
    * e.g. Phase = lookup of "SDLC Activity": { "Idea generation": "Discovery", ... }
    */
-  lookup?: { column: string; map: Record<string, string>; fallback?: string };
+  lookup?: {
+    column: string;
+    map: Record<string, string>;
+    fallback?: string;
+    /** name of a shared Mapping (project level); when set, map/fallback come from it */
+    table?: string;
+  };
   /** identity columns: also search groups (default true) */
   identityGroups?: boolean;
 }
@@ -164,12 +170,22 @@ export interface Calculation {
   mode: "always" | "whenEmpty";
 }
 
+/** Shared mapping maintained once per project, e.g. Team -> Resource type. */
+export interface LookupTable {
+  map: Record<string, string>;
+  /** category for values not listed in the map */
+  fallback?: string;
+  description?: string;
+}
+
 export interface ProjectConfig {
   version: 1;
+  /** shared mappings referenced by grid columns (ColumnDef.lookup.table) */
+  lookups: Record<string, LookupTable>;
   rules: Rule[];
   cascades: Cascade[];
   grids: Record<string, GridConfig>;
   calculations: Calculation[];
 }
 
-export const emptyConfig = (): ProjectConfig => ({ version: 1, rules: [], cascades: [], grids: {}, calculations: [] });
+export const emptyConfig = (): ProjectConfig => ({ version: 1, rules: [], cascades: [], grids: {}, calculations: [], lookups: {} });

@@ -1,12 +1,15 @@
 import * as React from "react";
+import { LookupTable } from "../core/types";
 import { Fld } from "./validate";
 
 export interface HubCtx {
   projectName: string;
   types: string[];
   fields: Fld[];
+  lookups: Record<string, LookupTable>;
+  setLookups(l: Record<string, LookupTable>): void;
 }
-export const Ctx = React.createContext<HubCtx>({ projectName: "", types: [], fields: [] });
+export const Ctx = React.createContext<HubCtx>({ projectName: "", types: [], fields: [], lookups: {}, setLookups: () => undefined });
 
 /** Immutable array helpers */
 export const setAt = <T,>(a: T[], i: number, v: T) => a.map((x, j) => (j === i ? v : x));
