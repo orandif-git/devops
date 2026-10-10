@@ -47,7 +47,7 @@ describe("grid model", () => {
     const row = normalizeRow({ cat: "HW", item: "Laptop" }, cfg);
     expect(row.item).toBe("Laptop");
     row.cat = "SW"; recompute(row, cfg);
-    expect(row.item).toBe("");
+    expect(row.item).toBe("IDE");                    // only one option -> auto-selected
     expect(optionsFor(cfg.columns[4], row)).toEqual(["IDE"]);
   });
   it("reads legacy array and html wrapped JSON", () => {
@@ -128,5 +128,22 @@ describe("hub validation against real fields", () => {
     const c = emptyConfig();
     c.cascades.push({ id: "c", parent: "Custom.Species", child: "Custom.Breed", workItemTypes: [], map: { Cat: ["Siamese"], Dog: ["Husky", "Lab"] } });
     expect(validateProject(c, cat).filter(i => i.level === "error")).toEqual([]);
+  });
+});
+
+describe("auto-select single dependent option", () => {
+  const c: GridConfig = { columns: [
+    { id: "phase", name: "Phase", type: "dropdown", options: ["Discovery", "Build"] },
+    { id: "act", name: "Activity", type: "dropdown", dependsOn: { column: "phase", map: { Discovery: ["Idea", "Study"], Build: ["Coding"] } } },
+    { id: "tr", name: "Treatment", type: "dropdown", dependsOn: { column: "act", map: { Idea: ["Expense"], Study: ["Expense"], Coding: ["Capitalizable"] } } },
+  ] };
+  it("chains phase -> activity -> treatment", () => {
+    const r = normalizeRow({ phase: "Build" }, c);
+    expect(r.act).toBe("Coding");               // only one activity in Build
+    expect(r.tr).toBe("Capitalizable");
+    r.phase = "Discovery"; recompute(r, c);
+    expect(r.act).toBe(""); expect(r.tr).toBe("");   // two activities: user must choose
+    r.act = "Idea"; recompute(r, c);
+    expect(r.tr).toBe("Expense");
   });
 });

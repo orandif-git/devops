@@ -38,7 +38,7 @@ describe("Grid component", () => {
     const itemOpts = Array.from(selects[1].querySelectorAll("option")).map(o => o.textContent);
     expect(itemOpts).toEqual(["", "Laptop"]);                                     // only HW items offered
     act(() => { const s = selects[0] as HTMLSelectElement; s.value = "SW"; Simulate.change(s); });
-    expect(m.rows[0].item).toBe("");                                              // invalid dependent cleared
+    expect(m.rows[0].item).toBe("IDE");                                           // old value cleared, single option auto-selected
     const price = m.host.querySelectorAll("tbody input[type=number]")[1] as HTMLInputElement;
     act(() => { price.value = "7"; Simulate.change(price); });
     expect(m.rows[0].amt).toBe(14);

@@ -85,10 +85,15 @@ export function optionsFor(col: ColumnDef, row: GridRow): string[] {
 
 /** Recalculate formula columns and clear dependent values that are no longer valid. Mutates & returns row. */
 export function recompute(row: GridRow, cfg: GridConfig): GridRow {
+  const changed = new Set<string>(); // columns reset or auto-filled during this pass; their dependants must be re-derived
   for (const c of cfg.columns) {
     if (c.dependsOn && c.type === "dropdown") {
-      const v = String(row[c.id] ?? "");
-      if (v && !optionsFor(c, row).includes(v)) row[c.id] = "";
+      const opts = optionsFor(c, row);
+      let v = String(row[c.id] ?? "");
+      if (v && (!opts.includes(v) || changed.has(c.dependsOn.column))) { row[c.id] = ""; v = ""; changed.add(c.id); }
+      // exactly one valid option for this parent value -> pick it (e.g. Activity -> its default treatment)
+      const parent = String(row[c.dependsOn.column] ?? "");
+      if (!v && parent && c.dependsOn.map[parent]?.length === 1) { row[c.id] = c.dependsOn.map[parent][0]; changed.add(c.id); }
     }
   }
   // formulas may reference other formulas: iterate a few passes

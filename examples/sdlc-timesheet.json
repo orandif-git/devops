@@ -1,0 +1,236 @@
+{
+  "version": 1,
+  "rules": [],
+  "cascades": [],
+  "grids": {
+    "SDLC Timesheet": {
+      "dataField": "Custom.GridData",
+      "columns": [
+        {
+          "id": "phase",
+          "name": "Phase",
+          "type": "dropdown",
+          "required": true,
+          "options": [
+            "Discovery",
+            "Initiation",
+            "Requirements",
+            "Design",
+            "Build",
+            "SIT",
+            "UAT",
+            "Deployment",
+            "Hypercare",
+            "Closure"
+          ]
+        },
+        {
+          "id": "sdlcactivity",
+          "name": "SDLC Activity",
+          "type": "dropdown",
+          "required": true,
+          "dependsOn": {
+            "column": "phase",
+            "map": {
+              "Discovery": [
+                "Idea generation",
+                "Strategic assessment",
+                "Discovery workshops",
+                "Feasibility study"
+              ],
+              "Initiation": [
+                "Business case preparation",
+                "RFP preparation",
+                "Vendor evaluation and selection"
+              ],
+              "Requirements": [
+                "Preliminary requirements",
+                "Detailed functional requirements",
+                "Detailed business analysis"
+              ],
+              "Design": [
+                "Functional design",
+                "Technical design",
+                "Solution architecture"
+              ],
+              "Build": [
+                "Development and coding",
+                "System configuration",
+                "Interface development",
+                "Integration development",
+                "Data migration development",
+                "Data cleansing",
+                "Unit testing"
+              ],
+              "SIT": [
+                "System integration testing",
+                "Security testing",
+                "Performance testing"
+              ],
+              "UAT": [
+                "User acceptance testing"
+              ],
+              "Deployment": [
+                "Production deployment",
+                "Cutover execution",
+                "Go-live validation",
+                "User training",
+                "Change management and communications"
+              ],
+              "Hypercare": [
+                "Hypercare",
+                "Production support",
+                "Routine defect correction"
+              ],
+              "Closure": [
+                "Project closure"
+              ]
+            }
+          }
+        },
+        {
+          "id": "treatment",
+          "name": "Default treatment",
+          "type": "dropdown",
+          "required": true,
+          "dependsOn": {
+            "column": "sdlcactivity",
+            "map": {
+              "Idea generation": [
+                "Expense"
+              ],
+              "Strategic assessment": [
+                "Expense"
+              ],
+              "Discovery workshops": [
+                "Expense"
+              ],
+              "Feasibility study": [
+                "Expense"
+              ],
+              "Business case preparation": [
+                "Expense"
+              ],
+              "RFP preparation": [
+                "Expense"
+              ],
+              "Vendor evaluation and selection": [
+                "Expense"
+              ],
+              "Preliminary requirements": [
+                "Expense"
+              ],
+              "Detailed functional requirements": [
+                "Conditional"
+              ],
+              "Detailed business analysis": [
+                "Conditional"
+              ],
+              "Functional design": [
+                "Capitalizable"
+              ],
+              "Technical design": [
+                "Capitalizable"
+              ],
+              "Solution architecture": [
+                "Capitalizable"
+              ],
+              "Development and coding": [
+                "Capitalizable"
+              ],
+              "System configuration": [
+                "Capitalizable"
+              ],
+              "Interface development": [
+                "Capitalizable"
+              ],
+              "Integration development": [
+                "Capitalizable"
+              ],
+              "Data migration development": [
+                "Capitalizable"
+              ],
+              "Data cleansing": [
+                "Expense"
+              ],
+              "Unit testing": [
+                "Capitalizable"
+              ],
+              "System integration testing": [
+                "Capitalizable"
+              ],
+              "Security testing": [
+                "Capitalizable"
+              ],
+              "Performance testing": [
+                "Capitalizable"
+              ],
+              "User acceptance testing": [
+                "Conditional"
+              ],
+              "Production deployment": [
+                "Capitalizable"
+              ],
+              "Cutover execution": [
+                "Conditional"
+              ],
+              "Go-live validation": [
+                "Capitalizable"
+              ],
+              "User training": [
+                "Expense"
+              ],
+              "Change management and communications": [
+                "Expense"
+              ],
+              "Hypercare": [
+                "Expense"
+              ],
+              "Production support": [
+                "Expense"
+              ],
+              "Routine defect correction": [
+                "Expense"
+              ],
+              "Project closure": [
+                "Expense"
+              ]
+            }
+          }
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "type": "dropdown",
+          "required": true,
+          "options": [
+            "Team A",
+            "Team B",
+            "Team C"
+          ]
+        },
+        {
+          "id": "resource",
+          "name": "Resource",
+          "type": "identity",
+          "required": true
+        },
+        {
+          "id": "period",
+          "name": "Period",
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "Hours",
+          "name": "Hours",
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "total": "sum"
+        }
+      ],
+      "totals": []
+    }
+  }
+}
