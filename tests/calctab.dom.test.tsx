@@ -2,7 +2,8 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("../src/shared/ado", () => ({ witClient: () => Promise.reject(new Error("no host")), listFields: () => Promise.resolve([]) }));
 import { CalculationsTab } from "../src/hub/CalculationsTab";
 import { Calculation } from "../src/core/types";
 
@@ -16,7 +17,7 @@ describe("Calculations tab", () => {
     expect(calcs).toHaveLength(1);
     expect(calcs[0].formula).toBe("CapexHours / TotalHours * 100");
     const boxes = () => Array.from(host.querySelectorAll(".card .card label.field input")) as HTMLInputElement[];
-    const result = () => host.textContent!.match(/Result: ([^–]*)/)![1].trim();
+    const result = () => Array.from(host.querySelectorAll("div")).find(d => d.firstChild?.textContent?.startsWith("Result:"))!.querySelector("strong")!.textContent!.trim();
     expect(result()).toBe("(blank)");                                                  // nothing typed -> blank
     act(() => { boxes()[0].value = "30"; Simulate.change(boxes()[0]); });
     act(() => { boxes()[1].value = "120"; Simulate.change(boxes()[1]); });
