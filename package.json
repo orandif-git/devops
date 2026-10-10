@@ -1,6 +1,6 @@
 {
   "name": "workitem-grid-rules",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Azure DevOps extension: smart grid control, conditional rules engine, dependent dropdowns and visual rule builder",
   "scripts": {
@@ -8,7 +8,8 @@
     "build:dev": "webpack --mode development",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "package": "npm run build && tfx extension create --manifest-globs vss-extension.json --output-path out",
+    "bump": "node scripts/bump-version.js",
+    "package": "npm run bump && npm run build && tfx extension create --manifest-globs vss-extension.json --output-path out",
     "package:dev": "npm run build:dev && tfx extension create --manifest-globs vss-extension.json --overrides-file vss-extension.dev.json --output-path out"
   },
   "dependencies": {
