@@ -163,3 +163,90 @@ describe("calculation validation in the hub", () => {
     expect(validateProject(x, cat).map(i => i.message).join("|")).toMatch(/'Capital' is not a value of 'Treatment'/);
   });
 });
+
+import { bucketValue, topGroup } from "../src/core/calc";
+
+describe("Phase 2: top group by sum", () => {
+  const g: GridConfig = { dataField: "Custom.G", columns: [
+    { id: "team", name: "Team", type: "string" }, { id: "period", name: "Period", type: "date" },
+    { id: "phase", name: "Phase", type: "string" }, { id: "tr", name: "Treatment", type: "string" }, { id: "h", name: "Hours", type: "number" }] };
+  const R = (team: string, period: string, phase: string, tr: string, h: number | null) => normalizeRow({ team, period, phase, tr, h }, g);
+  // Alpha 10+20=30, Beta 25+3=28, Gamma 5   |  by month: Jan 35, Feb 25, Apr 3  |  by phase: Build 35, SIT 25, UAT 3
+  const rows = [
+    R("Alpha", "2026-01-10", "Build", "Capitalizable", 10), R("Beta", "2026-01-20", "Build", "Expense", 25),
+    R("Alpha", "2026-02-05", "SIT", "Capitalizable", 20), R("Gamma", "2026-02-07", "SIT", "Expense", 5),
+    R("Beta", "2026-04-01", "UAT", "Capitalizable", 3)];
+  const top = (o: Record<string, unknown> = {}, r = rows) => topGroup(r, { kind: "top", grid: "G", groupBy: "team", column: "h", aggregate: "sum", ...o } as never);
+  it("returns the group with the greatest total, or its figure", () => {
+    expect(top()).toBe("Alpha");
+    expect(top({ return: "value" })).toBe(30);
+    expect(top({ pick: "min" })).toBe("Gamma");
+  });
+  it("buckets dates into month / quarter / year", () => {
+    expect(bucketValue("2026-02-05", "month")).toBe("2026-02");
+    expect(bucketValue("2026-05-05", "quarter")).toBe("2026-Q2");
+    expect(bucketValue("2026-05-05", "year")).toBe("2026");
+    expect(bucketValue("2026-05-05", "day")).toBe("2026-05-05");
+    expect(bucketValue("Build", "month")).toBe("Build");
+    expect(top({ groupBy: "period", bucket: "month" })).toBe("2026-01");
+    expect(top({ groupBy: "period", bucket: "month", return: "value" })).toBe(35);
+    expect(top({ groupBy: "period", bucket: "quarter" })).toBe("2026-Q1");
+  });
+  it("applies filters first (peak team among Capitalizable only)", () => {
+    expect(top({ where: [{ column: "tr", values: ["Expense"] }] })).toBe("Beta");        // Beta 25 vs Gamma 5
+    expect(top({ groupBy: "phase", where: [{ column: "tr", values: ["Capitalizable"] }] })).toBe("SIT");   // SIT 20, Build 10, UAT 3
+  });
+  it("ties go to the alphabetically first group, regardless of row order", () => {
+    const tie = [R("Zed", "2026-01-01", "", "", 5), R("Amy", "2026-01-01", "", "", 5)];
+    expect(top({}, tie)).toBe("Amy"); expect(top({}, [...tie].reverse())).toBe("Amy");
+  });
+  it("blank when there is nothing to rank", () => {
+    expect(top({}, [])).toBeNull();
+    expect(top({}, [R("A", "2026-01-01", "", "", 0), R("B", "2026-01-01", "", "", null)])).toBeNull();   // max of 0 is no peak
+    expect(top({ pick: "min" }, [R("A", "2026-01-01", "", "", 0)])).toBe("A");
+    expect(top({ where: [{ column: "tr", values: ["Nope"] }] })).toBeNull();
+    expect(top({ groupBy: "phase" }, [R("A", "2026-01-01", "", "", 4)])).toBeNull();                    // rows without a group value are ignored
+  });
+  it("end to end: text result written to a text field, cleared when data disappears", () => {
+    const calc = mk({ id: "pt", name: "Peak Demand Team", formula: "Peak", resultField: "Custom.PeakDemandTeam", inputs: [
+      { name: "Peak", source: { kind: "top", grid: "G", groupBy: "team", column: "h", aggregate: "sum" } }] });
+    const f: Record<string, unknown> = { "Custom.G": serialize(rows), "Custom.PeakDemandTeam": "" };
+    expect(evaluateCalculations([calc], "Epic", k => f[k], { G: g }).changes).toEqual({ "Custom.PeakDemandTeam": "Alpha" });
+    f["Custom.PeakDemandTeam"] = "Alpha";
+    expect(evaluateCalculations([calc], "Epic", k => f[k], { G: g }).changes).toEqual({});           // unchanged -> no write
+    f["Custom.G"] = serialize([]);
+    expect(evaluateCalculations([calc], "Epic", k => f[k], { G: g }).changes).toEqual({ "Custom.PeakDemandTeam": null });
+  });
+  it("works on a lookup-derived column (peak SDLC phase from activity)", () => {
+    const g2: GridConfig = { dataField: "Custom.G", columns: [
+      { id: "act", name: "Activity", type: "string" }, { id: "phase", name: "Phase", type: "string", lookup: { column: "act", map: { Coding: "Build", Testing: "SIT" } } }, { id: "h", name: "Hours", type: "number" }] };
+    const r2 = [normalizeRow({ act: "Coding", h: 4 }, g2), normalizeRow({ act: "Testing", h: 9 }, g2)];
+    expect(topGroup(r2, { kind: "top", grid: "G", groupBy: "phase", column: "h", aggregate: "sum" })).toBe("SIT");
+  });
+});
+
+describe("Phase 2 validation", () => {
+  const cat = makeCatalog([
+    { referenceName: "Custom.G", name: "G", type: "plainText", readOnly: false },
+    { referenceName: "Custom.PeakTeam", name: "Peak team", type: "string", readOnly: false },
+    { referenceName: "Custom.PeakNum", name: "Peak num", type: "double", readOnly: false },
+  ], []);
+  const proj = (source: Record<string, unknown>, resultField: string) => {
+    const x = emptyConfig();
+    x.grids.G = { dataField: "Custom.G", columns: [{ id: "team", name: "Team", type: "string" }, { id: "p", name: "Period", type: "date" }, { id: "h", name: "Hours", type: "number" }, { id: "n", name: "Note", type: "string" }] };
+    x.calculations = [{ id: "1", name: "Peak", enabled: true, workItemTypes: [], formula: "Peak", resultField, onEmpty: "blank", onDivZero: "blank", mode: "always",
+      inputs: [{ name: "Peak", source: { kind: "top", grid: "G", groupBy: "team", column: "h", aggregate: "sum", ...source } as never }] }];
+    return validateProject(x, cat).map(i => `${i.level}:${i.message}`).join("|");
+  };
+  it("accepts a good peak-team calculation", () => { expect(proj({}, "Custom.PeakTeam")).toBe(""); });
+  it("rejects a text result into a numeric field, but not the figure", () => {
+    expect(proj({}, "Custom.PeakNum")).toMatch(/returns a group name \(text\) but Custom.PeakNum is numeric/);
+    expect(proj({ return: "value" }, "Custom.PeakNum")).toBe("");
+  });
+  it("flags missing group column, non-number value column, month bucket on non-date", () => {
+    expect(proj({ groupBy: "" }, "Custom.PeakTeam")).toMatch(/pick the column to group by/);
+    expect(proj({ column: "n" }, "Custom.PeakTeam")).toMatch(/'Note' is not a number column/);
+    expect(proj({ bucket: "month" }, "Custom.PeakTeam")).toMatch(/only applies to date columns/);
+    expect(proj({ groupBy: "p", bucket: "month" }, "Custom.PeakTeam")).toBe("");
+  });
+});

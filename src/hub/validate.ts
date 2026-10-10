@@ -175,7 +175,17 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         if (!g) add("error", w, `Input '${inp.name}' uses grid '${inp.source.grid}', which does not exist`);
         else {
           if (!g.columns.some(col => col.id === (inp.source as { column: string }).column)) add("error", w, `Input '${inp.name}': pick a column of grid '${inp.source.grid}'`);
-          if (!g.dataField) add("warn", w, `Grid '${inp.source.grid}' has no data field, so this input will always be 0`);
+          if (!g.dataField) add("warn", w, `Grid '${inp.source.grid}' has no data field, so this input will always be ${inp.source.kind === "top" ? "blank" : "0"}`);
+          if (inp.source.kind === "top") {
+            const gb = g.columns.find(col => col.id === (inp.source as { groupBy: string }).groupBy);
+            if (!gb) add("error", w, `Input '${inp.name}': pick the column to group by`);
+            const vc = g.columns.find(col => col.id === (inp.source as { column: string }).column);
+            if (vc && vc.type !== "number" && inp.source.aggregate !== "count") add("warn", w, `Input '${inp.name}': '${vc.name}' is not a number column, so its ${inp.source.aggregate} will be 0`);
+            if (inp.source.bucket && inp.source.bucket !== "day" && gb && gb.type !== "date") add("warn", w, `Input '${inp.name}': grouping by month/quarter/year only applies to date columns ('${gb.name}' is ${gb.type})`);
+            const rtype = c.resultField ? cat.all.get(c.resultField)?.type ?? "" : "";
+            if (inp.source.return !== "value" && NUMERIC.test(rtype) && c.formula.trim().toLowerCase() === inp.name.toLowerCase())
+              add("error", w, `Input '${inp.name}' returns a group name (text) but ${c.resultField} is numeric – choose “the figure” instead, or a text field`);
+          }
           (inp.source.where ?? []).forEach(cond => {
             const col = g.columns.find(x => x.id === cond.column);
             if (!col) add("error", w, `Input '${inp.name}': a condition uses an unknown column`);

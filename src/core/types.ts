@@ -140,7 +140,17 @@ export type EmptyHandling = "inherit" | "blank" | "zero";
 export type CalcSource =
   | { kind: "field"; field: string }
   /** figure from a Smart Grid on the same work item; `where` conditions are ANDed */
-  | { kind: "grid"; grid: string; column: string; aggregate: Aggregate; where?: RowFilter[] };
+  | { kind: "grid"; grid: string; column: string; aggregate: Aggregate; where?: RowFilter[] }
+  /**
+   * Group rows by `groupBy`, aggregate `column` per group, and return the group (text) or its figure
+   * of the highest / lowest group. e.g. "Team with the most Hours".
+   */
+  | {
+      kind: "top"; grid: string; groupBy: string; column: string; aggregate: Aggregate; where?: RowFilter[];
+      pick?: "max" | "min"; return?: "group" | "value";
+      /** group a date column by month / quarter / year / day (default day) */
+      bucket?: "day" | "month" | "quarter" | "year";
+    };
 
 export interface CalcInput {
   /** variable name used in the formula, e.g. CapexHours */

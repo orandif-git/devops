@@ -343,6 +343,85 @@
       "onEmpty": "zero",
       "onDivZero": "blank",
       "mode": "always"
+    },
+    {
+      "id": "peak-demand-team",
+      "name": "Peak Demand Team",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "team",
+            "column": "Hours",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakDemandTeam",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-demand-period",
+      "name": "Peak Demand Period",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "period",
+            "column": "Hours",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group",
+            "bucket": "month"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakDemandPeriod",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-sdlc-phase",
+      "name": "Peak SDLC Phase",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "phase",
+            "column": "Hours",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakSDLCPhase",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
     }
   ],
   "lookups": {

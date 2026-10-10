@@ -28,6 +28,41 @@ export function gridFigure(rows: GridRow[], src: Extract<CalcInput["source"], { 
   return aggregate(hit.map(r => r[src.column]), src.aggregate);
 }
 
+type TopSource = Extract<CalcInput["source"], { kind: "top" }>;
+
+/** "2026-03-14" -> "2026-03" / "2026-Q1" / "2026" depending on the bucket; other values unchanged. */
+export function bucketValue(v: unknown, bucket: TopSource["bucket"]): string {
+  const s = String(v ?? "").trim();
+  const m = /^(\d{4})-(\d{2})/.exec(s);
+  if (!m || !bucket || bucket === "day") return s;
+  if (bucket === "year") return m[1];
+  if (bucket === "month") return `${m[1]}-${m[2]}`;
+  return `${m[1]}-Q${Math.ceil(parseInt(m[2], 10) / 3)}`;
+}
+
+/**
+ * Group with the highest (or lowest) aggregate. Ties go to the alphabetically first group so the result
+ * does not depend on row order. Nothing to rank (no rows, or a "max" of 0) gives no value.
+ */
+export function topGroup(rows: GridRow[], src: TopSource): InputValue {
+  const hit = rows.filter(r => rowMatchesAll(r, src.where) && String(r[src.groupBy] ?? "").trim() !== "");
+  if (!hit.length) return null;
+  const groups = new Map<string, unknown[]>();
+  for (const r of hit) {
+    const key = bucketValue(r[src.groupBy], src.bucket);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r[src.column]);
+  }
+  const scored = Array.from(groups, ([group, vals]) => ({ group, value: aggregate(vals, src.aggregate) }));
+  if (!scored.length) return null;
+  const min = src.pick === "min";
+  scored.sort((a, b) => (min ? a.value - b.value : b.value - a.value) || a.group.localeCompare(b.group));
+  const best = scored[0];
+  if (!min && best.value <= 0) return null;
+  return src.return === "value" ? best.value : best.group;
+}
+
 export interface Sources {
   getField(refName: string): unknown;
   getRows(gridName: string): GridRow[];
@@ -36,7 +71,9 @@ export interface Sources {
 export function resolveInputs(calc: Calculation, src: Sources): Record<string, InputValue> {
   const out: Record<string, InputValue> = {};
   for (const i of calc.inputs) {
-    out[i.name] = i.source.kind === "field" ? toInputValue(src.getField(i.source.field)) : gridFigure(src.getRows(i.source.grid), i.source);
+    out[i.name] = i.source.kind === "field" ? toInputValue(src.getField(i.source.field))
+      : i.source.kind === "top" ? topGroup(src.getRows(i.source.grid), i.source)
+      : gridFigure(src.getRows(i.source.grid), i.source);
   }
   return out;
 }

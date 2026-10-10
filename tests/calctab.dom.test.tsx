@@ -28,3 +28,23 @@ describe("Calculations tab", () => {
     expect(result()).toBe("0");
   });
 });
+
+describe("Top group input editor", () => {
+  it("switching an input to 'Top group' shows the group-by editor and the date bucket for date columns", () => {
+    const host = document.createElement("div"); document.body.appendChild(host);
+    const grids = { G: { dataField: "Custom.G", columns: [{ id: "team", name: "Team", type: "string" as const }, { id: "p", name: "Period", type: "date" as const }, { id: "h", name: "Hours", type: "number" as const }] } };
+    let calcs: Calculation[] = [];
+    const render = () => ReactDOM.render(<CalculationsTab calcs={calcs} grids={grids} issues={[]} onChange={c => { calcs = c; render(); }} />, host);
+    act(() => { render(); });
+    act(() => { Simulate.click(host.querySelector("button.primary")!); });
+    const kind = Array.from(host.querySelectorAll("select")).find(s => s.textContent?.includes("Top group")) as HTMLSelectElement;
+    act(() => { kind.value = "top"; Simulate.change(kind); });
+    const src = calcs[0].inputs[0].source;
+    expect(src).toMatchObject({ kind: "top", grid: "G", pick: "max", return: "group" });
+    expect(host.textContent).toContain("with the");
+    expect(host.textContent).not.toContain("group dates by");
+    const gb = Array.from(host.querySelectorAll("select")).find(s => s.previousElementSibling?.textContent === "the") as HTMLSelectElement;
+    act(() => { gb.value = "p"; Simulate.change(gb); });
+    expect(host.textContent).toContain("group dates by");
+  });
+});

@@ -18,17 +18,26 @@ const starter = (): Calculation => ({
 
 function InputCard(p: { input: CalcInput; grids: Record<string, GridConfig>; onChange(i: CalcInput): void; onDelete(): void }) {
   const i = p.input, src = i.source;
-  const grid = src.kind === "grid" ? p.grids[src.grid] : undefined;
+  const grid = src.kind !== "field" ? p.grids[src.grid] : undefined;
   const setSrc = (s: CalcInput["source"]) => p.onChange({ ...i, source: s });
-  const where = src.kind === "grid" ? src.where ?? [] : [];
-  const setWhere = (w: RowFilter[]) => src.kind === "grid" && setSrc({ ...src, where: w });
+  const where = src.kind !== "field" ? src.where ?? [] : [];
+  const setWhere = (w: RowFilter[]) => src.kind !== "field" && setSrc({ ...src, where: w });
+  const firstGrid = Object.keys(p.grids)[0] ?? "";
+  const groupCol = src.kind === "top" ? grid?.columns.find(c => c.id === src.groupBy) : undefined;
+  const cols = (value: string, onChange: (v: string) => void) => (
+    <select value={value} onChange={e => onChange(e.target.value)}><option value="" />{grid?.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+  );
   return (
     <div className="card">
       <div className="row">
         <input className="fixed" style={{ width: 150, fontWeight: 600 }} value={i.name} placeholder="VariableName" onChange={e => p.onChange({ ...i, name: e.target.value.replace(/[^A-Za-z0-9_]/g, "") })} />
         <span className="fixed">=</span>
-        <select className="fixed" value={src.kind} onChange={e => setSrc(e.target.value === "field" ? { kind: "field", field: "" } : { kind: "grid", grid: Object.keys(p.grids)[0] ?? "", column: "", aggregate: "sum", where: [] })}>
-          <option value="field">Work item field</option><option value="grid">Grid figure</option>
+        <select className="fixed" value={src.kind} onChange={e => {
+          const k = e.target.value;
+          setSrc(k === "field" ? { kind: "field", field: "" } : k === "grid" ? { kind: "grid", grid: firstGrid, column: "", aggregate: "sum", where: [] }
+            : { kind: "top", grid: firstGrid, groupBy: "", column: "", aggregate: "sum", pick: "max", return: "group", where: [] });
+        }}>
+          <option value="field">Work item field</option><option value="grid">Grid figure</option><option value="top">Top group (highest / lowest)</option>
         </select>
         {src.kind === "field" && <FieldInput value={src.field} onChange={field => setSrc({ kind: "field", field })} placeholder="Pick any field of the work item…" />}
         <select className="fixed" title="When this input has no value" value={i.onEmpty ?? "inherit"} onChange={e => p.onChange({ ...i, onEmpty: e.target.value as EmptyHandling })}>
@@ -37,19 +46,42 @@ function InputCard(p: { input: CalcInput; grids: Record<string, GridConfig>; onC
         <button className="btn icon danger fixed" onClick={p.onDelete}>✕</button>
       </div>
       {src.kind === "grid" && (
+        <div className="row">
+          <select className="fixed" value={src.aggregate} onChange={e => setSrc({ ...src, aggregate: e.target.value as Aggregate })}>{AGG.map(a => <option key={a}>{a}</option>)}</select>
+          <span className="fixed">of</span>{cols(src.column, column => setSrc({ ...src, column }))}
+          <span className="fixed">in grid</span>
+          <select value={src.grid} onChange={e => setSrc({ ...src, grid: e.target.value, column: "", where: [] })}><option value="" />{Object.keys(p.grids).map(g => <option key={g}>{g}</option>)}</select>
+        </div>
+      )}
+      {src.kind === "top" && (
         <>
           <div className="row">
+            <span className="fixed">the</span>{cols(src.groupBy, groupBy => setSrc({ ...src, groupBy }))}
+            <span className="fixed">with the</span>
+            <select className="fixed" value={src.pick ?? "max"} onChange={e => setSrc({ ...src, pick: e.target.value as "max" | "min" })}><option value="max">highest</option><option value="min">lowest</option></select>
             <select className="fixed" value={src.aggregate} onChange={e => setSrc({ ...src, aggregate: e.target.value as Aggregate })}>{AGG.map(a => <option key={a}>{a}</option>)}</select>
-            <span className="fixed">of</span>
-            <select value={src.column} onChange={e => setSrc({ ...src, column: e.target.value })}><option value="" />{grid?.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-            <span className="fixed">in grid</span>
-            <select value={src.grid} onChange={e => setSrc({ ...src, grid: e.target.value, column: "", where: [] })}>
-              <option value="" />{Object.keys(p.grids).map(g => <option key={g}>{g}</option>)}</select>
+            <span className="fixed">of</span>{cols(src.column, column => setSrc({ ...src, column }))}
           </div>
+          <div className="row">
+            <span className="fixed">in grid</span>
+            <select value={src.grid} onChange={e => setSrc({ ...src, grid: e.target.value, groupBy: "", column: "", where: [] })}><option value="" />{Object.keys(p.grids).map(g => <option key={g}>{g}</option>)}</select>
+            <span className="fixed">give me</span>
+            <select className="fixed" value={src.return ?? "group"} onChange={e => setSrc({ ...src, return: e.target.value as "group" | "value" })}><option value="group">the group name (text)</option><option value="value">the figure (number)</option></select>
+            {groupCol?.type === "date" && <>
+              <span className="fixed">group dates by</span>
+              <select className="fixed" value={src.bucket ?? "day"} onChange={e => setSrc({ ...src, bucket: e.target.value as "day" | "month" | "quarter" | "year" })}>
+                <option value="day">day</option><option value="month">month (2026-03)</option><option value="quarter">quarter (2026-Q1)</option><option value="year">year</option></select>
+            </>}
+          </div>
+          <div className="help">If two groups tie, the alphabetically first one wins. With no rows (or a highest of 0) the result is blank.</div>
+        </>
+      )}
+      {src.kind !== "field" && (
+        <>
           {where.map((w, k) => (
             <div className="row" key={k}>
               <span className="fixed">{k === 0 ? "only rows where" : "and where"}</span>
-              <select className="fixed" value={w.column} onChange={e => setWhere(setAt(where, k, { ...w, column: e.target.value }))}><option value="" />{grid?.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              {cols(w.column, column => setWhere(setAt(where, k, { ...w, column })))}
               <span className="fixed">is</span>
               <input defaultValue={w.values.join(", ")} placeholder="value, or several separated by commas (any of)" onBlur={e => setWhere(setAt(where, k, { ...w, values: csv(e.target.value) }))} />
               <button className="btn icon danger fixed" onClick={() => setWhere(delAt(where, k))}>✕</button>
