@@ -29,6 +29,8 @@ export interface ColumnDef {
     /** name of a shared Mapping (project level); when set, map/fallback come from it */
     table?: string;
   };
+  /** Derived grids: value is the person's available hours for that month, looked up in the central Capacity register (read-only). */
+  capacity?: { resource: string; period: string };
   /** calculated columns: decimals of numeric results (default 2) */
   decimals?: number;
   /** calculated columns: an empty numeric input blanks the result (default) or counts as 0 */

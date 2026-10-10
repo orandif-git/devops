@@ -93,12 +93,23 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; sourceCols?: ColumnDe
               <div className="card">
                 <div className="row">
                   <label className="field" style={{ flex: 1 }}><span>Where does this column's value come from?</span>
-                    <select value={c.derive?.role ?? ""} onChange={e => set({ derive: e.target.value ? { role: e.target.value as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: e.target.value === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined })}>
+                    <select value={c.capacity ? "register" : c.derive?.role ?? ""} onChange={e => {
+                      const v = e.target.value;
+                      if (v === "register") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); }
+                      else set({ capacity: undefined, derive: v ? { role: v as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: v === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined });
+                    }}>
                       <option value="">Entered by the user / calculated here</option>
+                      <option value="register">From the Capacity register (hours available for the person and month)</option>
                       <option value="key">Source column – KEY (one row per distinct value)</option>
                       <option value="first">Source column – first value in the group</option>
                       <option value="agg">Source column – aggregate (sum, …)</option>
                     </select></label>
+                  {c.capacity && <>
+                    <label className="field" style={{ flex: 1 }}><span>Person column (key)</span>
+                      <select value={c.capacity.resource} onChange={e => set({ capacity: { ...c.capacity!, resource: e.target.value } })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
+                    <label className="field" style={{ flex: 1 }}><span>Month column (key, grouped by month)</span>
+                      <select value={c.capacity.period} onChange={e => set({ capacity: { ...c.capacity!, period: e.target.value } })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
+                  </>}
                   {c.derive && <label className="field" style={{ flex: 1 }}><span>Source column</span>
                     <select value={c.derive.source} onChange={e => set({ derive: { ...c.derive!, source: e.target.value } })}><option value="" />{p.sourceCols.map(sc => <option key={sc.id} value={sc.id}>{sc.name} ({sc.id})</option>)}</select></label>}
                   {c.derive?.role === "agg" && <label className="field" style={{ width: 100 }}><span>Aggregate</span>
@@ -154,6 +165,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
   const source = g.derived ? p.grids[g.derived.source] : undefined;
   const [pick, setPick] = React.useState({ resource: "", period: "", hours: "", team: "" });
+  const [fromRegister, setFromRegister] = React.useState(true);
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
@@ -176,13 +188,14 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           {source && (
             <>
               <div className="help"><b>Quick start – Resource capacity:</b> choose the source columns and generate the standard columns (Resource, Period by month, Team, Hours, Available Capacity, “This Epic %”, Over capacity).</div>
+              <label><input type="checkbox" checked={fromRegister} onChange={e => setFromRegister(e.target.checked)} /> Take Available Capacity from the central <b>Capacity register</b> (recommended – managers enter it once on the Capacity page)</label>
               <div className="row">
                 {([["resource", "Resource"], ["period", "Period (date)"], ["hours", "Hours"], ["team", "Team (optional)"]] as const).map(([k, label]) => (
                   <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
                     <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{source.columns.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
                 ))}
                 <button className="btn fixed" disabled={!pick.resource || !pick.period || !pick.hours}
-                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }) })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
+                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }) })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
               </div>
             </>
           )}

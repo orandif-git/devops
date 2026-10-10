@@ -27,14 +27,14 @@ export const coreClient = () => getClient(CoreRestClient);
 // ---------- config storage (extension data service, one document per project) ----------
 const COLLECTION = "wig-config";
 
-async function manager() {
+export async function dataManager() {
   const svc = await SDK.getService<IExtensionDataService>(CommonServiceIds.ExtensionDataService);
   return svc.getExtensionDataManager(SDK.getExtensionContext().id, await SDK.getAccessToken());
 }
 
 export async function loadConfig(projectId: string): Promise<ProjectConfig> {
   try {
-    const m = await manager();
+    const m = await dataManager();
     const doc = await m.getDocument(COLLECTION, `project-${projectId}`);
     const c = doc?.config as ProjectConfig | undefined;
     return c ? { ...emptyConfig(), ...c } : emptyConfig();
@@ -46,7 +46,7 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
 }
 
 export async function saveConfig(projectId: string, config: ProjectConfig): Promise<void> {
-  const m = await manager();
+  const m = await dataManager();
   // __etag -1 = overwrite whatever version is stored (last save wins); without it a second save fails with 1660003
   await m.setDocument(COLLECTION, { id: `project-${projectId}`, config, __etag: -1 });
 }

@@ -251,9 +251,11 @@
           "id": "capacity",
           "name": "Available Capacity",
           "type": "number",
-          "min": 0,
-          "defaultValue": 160,
-          "total": "sum"
+          "total": "sum",
+          "capacity": {
+            "resource": "resource",
+            "period": "period"
+          }
         },
         {
           "id": "epicshare",

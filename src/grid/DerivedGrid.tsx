@@ -1,7 +1,9 @@
 import * as React from "react";
 import { sameRows, syncDerived } from "../core/derived";
 import { parseStored, serialize } from "../core/gridModel";
+import { CapacityRegister } from "../core/capacity";
 import { GridConfig, GridRow } from "../core/types";
+import { loadRegister } from "../shared/capacityStore";
 import { downloadFile, getFormService } from "../shared/ado";
 import { exportCsv, exportXlsx } from "../shared/excel";
 import { Grid } from "./Grid";
@@ -16,6 +18,9 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [loaded, setLoaded] = React.useState(false);
   const [warn, setWarn] = React.useState("");
+  const usesRegister = cfg.columns.some(c => c.capacity);
+  const [register, setRegister] = React.useState<CapacityRegister>();
+  const [registerTried, setRegisterTried] = React.useState(!usesRegister);
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastWritten = React.useRef<string | null>(null);
   const timer = React.useRef<number>();
@@ -46,12 +51,19 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
     return () => { off(); window.clearTimeout(timer.current); };
   }, [cfg, read]);
 
+  // central Capacity register (read once when the work item opens)
+  React.useEffect(() => {
+    if (!usesRegister) return;
+    loadRegister(p.projectId).then(r => { setRegister(r); setRegisterTried(true); })
+      .catch(e => { setWarn(`Could not load the Capacity register: ${e.message}. Capacity values shown may be out of date.`); setRegisterTried(true); });
+  }, [usesRegister, p.projectId]);
+
   // keep the rows in step with the source grid (waits until both sides have been read from the form)
   React.useEffect(() => {
-    if (!loaded || !p.sourceReady) return;
-    const next = syncDerived(p.sourceRows, cfg, rowsRef.current);
+    if (!loaded || !p.sourceReady || !registerTried) return;
+    const next = syncDerived(p.sourceRows, cfg, rowsRef.current, register);
     if (!sameRows(next, rowsRef.current)) apply(next);
-  }, [p.sourceRows, p.sourceReady, loaded, cfg, apply]);
+  }, [p.sourceRows, p.sourceReady, loaded, cfg, apply, register, registerTried]);
 
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
   return (

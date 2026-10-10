@@ -1,15 +1,12 @@
 import { bucketValue } from "./calc";
+import { capacityFor, CapacityRegister, monthKey } from "./capacity";
+import { keyNorm } from "./keys";
 import { aggregate, defaultFor, newId, recomputeAll } from "./gridModel";
 import { ColumnDef, GridConfig, GridRow } from "./types";
 
-/** Comparable form of a key value: "Aman S <A.M@x.com>" -> "a.m@x.com"; other text -> trimmed lower case. */
-export function keyNorm(v: unknown): string {
-  const s = String(v ?? "").trim();
-  const m = /<([^<>]+)>\s*$/.exec(s);
-  return (m ? m[1] : s).trim().toLowerCase();
-}
+export { keyNorm };
 
-const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || c.type === "calculated";
+const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || c.type === "calculated";
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
@@ -25,7 +22,7 @@ const keyOfDerived = (row: GridRow, keys: ColumnDef[]) => keys.map(k => keyNorm(
  *  - manual columns (e.g. Available Capacity) keep what the user entered, matched by key
  *  - a row whose key is no longer in the source disappears, unless it holds manual data (then it stays, with 0 hours)
  */
-export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, existing: GridRow[]): GridRow[] {
+export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister): GridRow[] {
   const keys = keyColumns(derivedCfg);
   if (!keys.length) return existing;
   const derivedCols = derivedCfg.columns.filter(c => c.derive);
@@ -46,6 +43,12 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
       else if (d.role === "first") row[c.id] = members.map(m => m[d.source]).find(v => v !== "" && v !== null && v !== undefined) ?? "";
       else row[c.id] = aggregate(members.map(m => m[d.source]), d.aggregate ?? "sum");
     }
+    fillCapacity(row);
+  };
+  // Available Capacity comes from the central register (when it could be loaded; otherwise keep what is stored)
+  const fillCapacity = (row: GridRow) => {
+    if (!register) return;
+    for (const c of derivedCfg.columns) if (c.capacity) row[c.id] = capacityFor(register, row[c.capacity.resource], monthKey(row[c.capacity.period]));
   };
 
   const out: GridRow[] = [];
@@ -60,6 +63,7 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
     if (groups.has(key) || !hasManualData(prev, derivedCfg)) continue;
     const row = { ...prev };
     for (const c of derivedCols) if (c.derive!.role === "agg") row[c.id] = 0;      // no hours any more, but keep the manual entry
+    fillCapacity(row);
     out.push(row);
   }
   const display = (r: GridRow) => keys.map(k => String(r[k.id] ?? "")).join("\u0001");
@@ -77,7 +81,7 @@ export interface CapacityPicks { resource: string; period: string; hours: string
  * Resource + Period(month) as keys, Team carried, Hours summed, Available Capacity, "This Epic %" and Over-capacity calculated.
  * (Step D adds Other-Epics hours, Total hours and the all-Epics Utilization %.)
  */
-export function capacityTemplate(picks: CapacityPicks): ColumnDef[] {
+export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: boolean } = {}): ColumnDef[] {
   const cols: ColumnDef[] = [
     { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: picks.resource }, width: 220 },
     { id: "period", name: "Period", type: "string", derive: { role: "key", source: picks.period, bucket: "month" } },
@@ -85,7 +89,9 @@ export function capacityTemplate(picks: CapacityPicks): ColumnDef[] {
   if (picks.team) cols.push({ id: "team", name: "Team", type: "string", derive: { role: "first", source: picks.team } });
   cols.push(
     { id: "hours", name: "Hours", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum" }, total: "sum" },
-    { id: "capacity", name: "Available Capacity", type: "number", min: 0, defaultValue: 160, total: "sum" },
+    opts.fromRegister
+      ? { id: "capacity", name: "Available Capacity", type: "number", capacity: { resource: "resource", period: "period" }, total: "sum" }
+      : { id: "capacity", name: "Available Capacity", type: "number", min: 0, defaultValue: 160, total: "sum" },
     { id: "epicshare", name: "This Epic % of capacity", type: "calculated", formula: "hours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
     { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(epicshare > 100, "Yes", "No")', onEmpty: "blank" },
   );

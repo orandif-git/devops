@@ -1,0 +1,25 @@
+.capacity { padding: 4px 0; }
+.capacity .scroll { overflow: auto; border: 1px solid var(--line); max-height: 70vh; }
+.capacity table { border-collapse: collapse; width: 100%; }
+.capacity th, .capacity td { border-bottom: 1px solid var(--line); padding: 2px 3px; text-align: left; white-space: nowrap; }
+.capacity th { position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.capacity tfoot td { position: sticky; bottom: 0; background: var(--bg); border-top: 2px solid var(--line); font-weight: 600; }
+.capacity td input { width: 62px; text-align: right; border-color: transparent; background: transparent; }
+.capacity td input:hover:not(:disabled), .capacity td input:focus { border-color: var(--line); background: var(--bg); }
+.capacity td input.ovr { font-weight: 700; border-color: var(--accent); }
+.capacity td.name { min-width: 220px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
+.capacity td.tot { text-align: right; font-weight: 600; }
+.capacity tr.sel { background: var(--hover); }
+.capacity .empty { text-align: center; padding: 16px; }
+.capacity .addrow { align-items: center; margin: 4px 0 8px; }
+.capacity .addrow .grow { flex: 1; min-width: 260px; }
+.capacity .addrow .grow input { width: 100%; }
+.capacity .hist { margin: 6px 0 0; padding-left: 18px; max-height: 180px; overflow: auto; }
+.capacity .help { font-size: 12px; color: var(--fg2); margin-top: 6px; }
+.idpop { position: fixed; z-index: 50; margin: 0; padding: 2px 0; list-style: none; max-height: 260px; overflow: auto; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.idpop li { padding: 4px 8px; display: flex; gap: 6px; align-items: baseline; cursor: pointer; white-space: nowrap; }
+.idpop li.on { background: var(--accent); color: var(--accent-fg); }
+.idpop li .dt { opacity: .7; font-size: 11px; }
+.idpop li.muted { cursor: default; color: var(--fg2); }
+.card { border: 1px solid var(--line); padding: 8px 12px; margin-top: 10px; }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }

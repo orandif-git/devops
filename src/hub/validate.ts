@@ -119,12 +119,19 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       else if (g.dataField === src?.dataField) add("error", w, "A derived grid needs a different data field than its source grid");
       if (!g.columns.some(c => c.derive?.role === "key")) add("error", w, "Mark at least one column as a KEY (e.g. Resource, Period) so rows can be created");
       g.columns.forEach(c => {
+        if (c.capacity) {
+          const keyIds = g.columns.filter(x => x.derive?.role === "key").map(x => x.id);
+          if (!keyIds.includes(c.capacity.resource)) add("error", w, `Column '${c.id}': the person column must be one of the KEY columns`);
+          if (!keyIds.includes(c.capacity.period)) add("error", w, `Column '${c.id}': the month column must be one of the KEY columns`);
+          else if (g.columns.find(x => x.id === c.capacity!.period)?.derive?.bucket !== "month") add("warn", w, `Column '${c.id}': the month column should group dates by month`);
+        }
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
         else if (src && !src.columns.some(x => x.id === c.derive!.source)) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
         else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
-    } else if (g.columns.some(c => c.derive)) add("warn", w, "Some columns have a source set, but this grid is not marked as derived, so they are ignored");
+    } else if (g.columns.some(c => c.capacity)) add("warn", w, "A column takes its value from the Capacity register, but this grid is not derived, so it is ignored");
+    else if (g.columns.some(c => c.derive)) add("warn", w, "Some columns have a source set, but this grid is not marked as derived, so they are ignored");
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
     if (!g.dataField) add("warn", w, "No data field set – it must then be set on the form control");
     else {

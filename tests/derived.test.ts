@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { capacityTemplate, keyNorm, sameRows, syncDerived } from "../src/core/derived";
+import { newRecord } from "../src/core/capacity";
 import { normalizeRow, parseStored, recomputeAll, serialize, validateConfig } from "../src/core/gridModel";
 import { checkFormula, extractRefs } from "../src/core/expr";
 import { GridConfig, GridRow } from "../src/core/types";
@@ -158,7 +159,8 @@ describe("shipped example", () => {
       normalizeRow({ sdlcactivity: "Development and coding", team: "Engineering", resource: "Ann Lee <ann@x.com>", period: "2026-03-02", Hours: 100 }, ts),
       normalizeRow({ sdlcactivity: "Unit testing", team: "Engineering", resource: "Ann Lee <ann@x.com>", period: "2026-03-20", Hours: 80 }, ts),
       normalizeRow({ sdlcactivity: "Feasibility study", team: "Vendor", resource: "Vic Ray <vic@x.com>", period: "2026-03-05", Hours: 100 }, ts)];
-    const derived = syncDerived(rows, cap, []);
+    const register = { projectDefault: null, resources: { "ann@x.com": newRecord("Ann Lee <ann@x.com>", 160), "vic@x.com": newRecord("Vic Ray <vic@x.com>", 160) } };
+    const derived = syncDerived(rows, cap, [], register);
     expect(derived.map(r => [String(r.resource).split(" <")[0], r.period, r.hours, r.capacity, r.epicshare, r.resourcetype])).toEqual([
       ["Ann Lee", "2026-03", 180, 160, 112.5, "Internal"], ["Vic Ray", "2026-03", 100, 160, 62.5, "External"]]);
     expect(derived[0].overcapacity).toBe("Yes"); expect(derived[1].overcapacity).toBe("No");
