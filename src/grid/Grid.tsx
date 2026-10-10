@@ -78,7 +78,7 @@ export function Grid(p: GridProps) {
 
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
-    const dis = readOnly || !!c.formula || !!c.lookup || !!c.derive || !!c.capacity || c.type === "calculated";
+    const dis = readOnly || !!c.formula || !!c.lookup || !!c.derive || !!c.capacity || !!c.others || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id);
     switch (c.type) {
@@ -87,6 +87,7 @@ export function Grid(p: GridProps) {
       case "boolean":
         return <input type="checkbox" disabled={dis} checked={!!v} onChange={e => update(r._id, c.id, e.target.checked)} />;
       case "number":
+        if (c.others) return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} title="Hours this person has on all other Epics that month" />;
         if (c.capacity) return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} placeholder="not registered" title={v === null || v === undefined ? "No capacity registered for this person and month (Capacity page)" : "From the Capacity register"} />;
         return <input className={cls} title={title} type="number" disabled={dis} value={v === null || v === undefined ? "" : String(v)}
           min={c.min} max={c.max} onChange={e => update(r._id, c.id, e.target.value === "" ? null : parseFloat(e.target.value))} />;

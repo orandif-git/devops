@@ -1,6 +1,9 @@
 import * as React from "react";
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityEditor } from "../capacity/CapacityEditor";
+import { Overview } from "../capacity/Overview";
+import { loadLiveAllocations } from "../shared/allocationStore";
+import { listRecords as listCapacityRecords, loadRegister } from "../shared/capacityStore";
 import "../capacity/capacity.css";
 import { CapacitySettings, defaultSettings, deleteRecord, listRecords, listTeams, loadSettings, saveRecord, saveSettings, TeamRef } from "../shared/capacityStore";
 
@@ -19,6 +22,10 @@ export function CapacityTab(p: { projectId: string }) {
     listTeams(p.projectId).then(setTeams).catch(e => setMsg("Could not list teams: " + e.message));
   }, [p.projectId]);
 
+  const load = React.useCallback(async () => {
+    const [records, register, docs] = await Promise.all([listCapacityRecords(p.projectId), loadRegister(p.projectId), loadLiveAllocations(p.projectId)]);
+    return { records, register, docs };
+  }, [p.projectId]);
   const dirty = JSON.stringify(settings) !== saved;
   const toggle = (t: TeamRef) => setSettings(s => ({ ...s, editorTeams: s.editorTeams.some(x => x.id === t.id) ? s.editorTeams.filter(x => x.id !== t.id) : [...s.editorTeams, t] }));
   const save = async () => { try { await saveSettings(p.projectId, settings); setSaved(JSON.stringify(settings)); setMsg("Capacity settings saved."); } catch (e) { setMsg("Save failed: " + (e as Error).message); } };
@@ -38,6 +45,8 @@ export function CapacityTab(p: { projectId: string }) {
           <button className="btn primary" disabled={!dirty} onClick={save}>Save settings</button><span className="muted">{msg}</span>
         </div>
       </div>
+      <h3>Utilization overview (all Epics)</h3>
+      <Overview load={load} />
       <h3>Capacity register</h3>
       <CapacityEditor api={api} canEdit projectId={p.projectId} actor={SDK.getUser().displayName} reason="You are a project administrator, so you can always edit." />
     </div>

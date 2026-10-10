@@ -74,3 +74,25 @@ describe("Capacity editor", () => {
     expect(removed).toHaveLength(1);
   });
 });
+
+import { Overview } from "../src/capacity/Overview";
+import { emptyRegister } from "../src/core/capacity";
+
+describe("Utilization overview", () => {
+  it("shows allocated / capacity per person and month and flags people over capacity", async () => {
+    const y = new Date().getFullYear();
+    const reg = emptyRegister(); const ann = { ...newRecord("Ann Lee <ann@x.com>", 160) }; const bob = { ...newRecord("Bob <bob@x.com>", 100) };
+    reg.resources[ann.key] = ann; reg.resources[bob.key] = bob;
+    const docs = [{ workItemId: 1, updatedAt: "", entries: { [`ann@x.com|${y}-03`]: 120, [`bob@x.com|${y}-03`]: 20 } }, { workItemId: 2, updatedAt: "", entries: { [`ann@x.com|${y}-03`]: 60 } }];
+    const host = document.createElement("div"); document.body.appendChild(host);
+    await act(async () => { ReactDOM.render(<Overview load={async () => ({ records: [ann, bob], register: reg, docs })} />, host); await tick(); });
+    const cells = Array.from(host.querySelectorAll("tbody tr")).map(tr => Array.from(tr.querySelectorAll("td")).map(td => td.textContent));
+    expect(cells[0][0]).toContain("Ann Lee");
+    expect(cells[0][3]).toContain("180"); expect(cells[0][3]).toContain("112.5%");              // 180 of 160
+    expect(host.querySelectorAll("td.over")).toHaveLength(1);
+    expect(host.textContent).toContain("2 Epic(s)");
+    const only = host.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    await act(async () => { only.checked = true; Simulate.change(only); });
+    expect(host.querySelectorAll("tbody tr")).toHaveLength(1);                                    // Bob (20 of 100) is hidden
+  });
+});

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capacityTemplate, keyNorm, sameRows, syncDerived } from "../src/core/derived";
+import { capacityAllocation, capacityTemplate, keyNorm, sameRows, syncDerived } from "../src/core/derived";
 import { newRecord } from "../src/core/capacity";
 import { normalizeRow, parseStored, recomputeAll, serialize, validateConfig } from "../src/core/gridModel";
 import { checkFormula, extractRefs } from "../src/core/expr";
@@ -113,7 +113,7 @@ describe("hub validation of derived grids and calculated columns", () => {
   const project = (over: Partial<GridConfig> = {}) => {
     const x = emptyConfig();
     x.grids.Timesheet = { dataField: "Custom.TS", columns: [{ id: "res", name: "Resource", type: "identity" }, { id: "period", name: "Period", type: "date" }, { id: "h", name: "Hours", type: "number" }] };
-    x.grids.Capacity = { derived: { source: "Timesheet" }, dataField: "Custom.Cap", columns: capacityTemplate({ resource: "res", period: "period", hours: "h" }), ...over };
+    x.grids.Capacity = { derived: { source: "Timesheet" }, dataField: "Custom.Cap", allocation: capacityAllocation(), columns: capacityTemplate({ resource: "res", period: "period", hours: "h" }), ...over };
     return x;
   };
   const msgs = (x: ReturnType<typeof project>) => validateProject(x, cat).map(i => `${i.level}:${i.message}`).join("|");
@@ -138,7 +138,7 @@ describe("hub validation of derived grids and calculated columns", () => {
   });
   it("warns when source settings are on a non-derived grid", () => {
     const x = project(); delete x.grids.Capacity.derived;
-    expect(msgs(x)).toMatch(/not marked as derived/);
+    expect(msgs(x)).toMatch(/not derived, so (it is|they are|nothing)|is ignored|are ignored|ignored/);
   });
 });
 

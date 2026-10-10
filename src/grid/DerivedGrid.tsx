@@ -1,8 +1,10 @@
 import * as React from "react";
 import { sameRows, syncDerived } from "../core/derived";
 import { parseStored, serialize } from "../core/gridModel";
+import { entriesFromRows, sameEntries, sumAllocations } from "../core/allocations";
 import { CapacityRegister } from "../core/capacity";
 import { GridConfig, GridRow } from "../core/types";
+import { loadLiveAllocations, saveAllocation } from "../shared/allocationStore";
 import { loadRegister } from "../shared/capacityStore";
 import { downloadFile, getFormService } from "../shared/ado";
 import { exportCsv, exportXlsx } from "../shared/excel";
@@ -21,6 +23,11 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
   const usesRegister = cfg.columns.some(c => c.capacity);
   const [register, setRegister] = React.useState<CapacityRegister>();
   const [registerTried, setRegisterTried] = React.useState(!usesRegister);
+  const usesOthers = cfg.columns.some(c => c.others);
+  const [others, setOthers] = React.useState<Record<string, number>>();
+  const [othersTried, setOthersTried] = React.useState(!usesOthers);
+  const published = React.useRef<Record<string, number> | null>(null);
+  const publishedOnce = React.useRef(false);
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastWritten = React.useRef<string | null>(null);
   const timer = React.useRef<number>();
@@ -58,12 +65,38 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
       .catch(e => { setWarn(`Could not load the Capacity register: ${e.message}. Capacity values shown may be out of date.`); setRegisterTried(true); });
   }, [usesRegister, p.projectId]);
 
+  // hours on all other Epics (central allocation store), excluding this work item
+  React.useEffect(() => {
+    if (!usesOthers) return;
+    (async () => {
+      const id = await (await getFormService()).getId();
+      setOthers(sumAllocations(await loadLiveAllocations(p.projectId), id || undefined));
+    })().catch(e => setWarn(`Could not load the hours of other Epics: ${e.message}. "Hours (other Epics)" may be out of date.`)).finally(() => setOthersTried(true));
+  }, [usesOthers, p.projectId]);
+
+  // publish this Epic's hours (per person and month) so other Epics can count them; only the saved state is published
+  const publish = React.useCallback(async () => {
+    if (!cfg.allocation) return;
+    try {
+      const svc = await getFormService();
+      const id = await svc.getId();
+      if (!id) return;                                           // not saved yet: published right after the first save
+      const entries = entriesFromRows(rowsRef.current, cfg.allocation);
+      if (published.current && sameEntries(published.current, entries)) return;
+      await saveAllocation(p.projectId, { workItemId: id, title: String((await svc.getFieldValue("System.Title")) ?? ""), updatedAt: new Date().toISOString(), entries });
+      published.current = entries;
+    } catch (e) { setWarn(`Could not publish this Epic's hours for other Epics: ${(e as Error).message}`); }
+  }, [cfg.allocation, p.projectId]);
+
+  React.useEffect(() => onFormEvent(e => { if (e.type === "saved") window.setTimeout(() => { publish(); }, 700); }), [publish]);
+
   // keep the rows in step with the source grid (waits until both sides have been read from the form)
   React.useEffect(() => {
-    if (!loaded || !p.sourceReady || !registerTried) return;
-    const next = syncDerived(p.sourceRows, cfg, rowsRef.current, register);
+    if (!loaded || !p.sourceReady || !registerTried || !othersTried) return;
+    const next = syncDerived(p.sourceRows, cfg, rowsRef.current, register, others);
     if (!sameRows(next, rowsRef.current)) apply(next);
-  }, [p.sourceRows, p.sourceReady, loaded, cfg, apply, register, registerTried]);
+    if (!publishedOnce.current) { publishedOnce.current = true; publish(); }    // first load: make sure the store reflects the saved Epic
+  }, [p.sourceRows, p.sourceReady, loaded, cfg, apply, register, registerTried, others, othersTried, publish]);
 
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
   return (

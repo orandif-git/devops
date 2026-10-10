@@ -2,7 +2,7 @@ import * as React from "react";
 import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
-import { capacityTemplate } from "../core/derived";
+import { capacityAllocation, capacityTemplate } from "../core/derived";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
@@ -93,23 +93,25 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; sourceCols?: ColumnDe
               <div className="card">
                 <div className="row">
                   <label className="field" style={{ flex: 1 }}><span>Where does this column's value come from?</span>
-                    <select value={c.capacity ? "register" : c.derive?.role ?? ""} onChange={e => {
+                    <select value={c.capacity ? "register" : c.others ? "others" : c.derive?.role ?? ""} onChange={e => {
                       const v = e.target.value;
+                      if (v === "others") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: undefined, others: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); return; }
                       if (v === "register") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); }
-                      else set({ capacity: undefined, derive: v ? { role: v as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: v === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined });
+                      else set({ capacity: undefined, others: undefined, derive: v ? { role: v as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: v === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined });
                     }}>
                       <option value="">Entered by the user / calculated here</option>
                       <option value="register">From the Capacity register (hours available for the person and month)</option>
+                      <option value="others">Hours on all OTHER Epics (person and month, from the central store)</option>
                       <option value="key">Source column – KEY (one row per distinct value)</option>
                       <option value="first">Source column – first value in the group</option>
                       <option value="agg">Source column – aggregate (sum, …)</option>
                     </select></label>
-                  {c.capacity && <>
+                  {(c.capacity || c.others) && (() => { const ref = (c.capacity ?? c.others)!; const upd = (patch: Partial<{ resource: string; period: string }>) => set(c.capacity ? { capacity: { ...ref, ...patch } } : { others: { ...ref, ...patch } }); return (<>
                     <label className="field" style={{ flex: 1 }}><span>Person column (key)</span>
-                      <select value={c.capacity.resource} onChange={e => set({ capacity: { ...c.capacity!, resource: e.target.value } })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
+                      <select value={ref.resource} onChange={e => upd({ resource: e.target.value })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
                     <label className="field" style={{ flex: 1 }}><span>Month column (key, grouped by month)</span>
-                      <select value={c.capacity.period} onChange={e => set({ capacity: { ...c.capacity!, period: e.target.value } })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
-                  </>}
+                      <select value={ref.period} onChange={e => upd({ period: e.target.value })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
+                  </>); })()}
                   {c.derive && <label className="field" style={{ flex: 1 }}><span>Source column</span>
                     <select value={c.derive.source} onChange={e => set({ derive: { ...c.derive!, source: e.target.value } })}><option value="" />{p.sourceCols.map(sc => <option key={sc.id} value={sc.id}>{sc.name} ({sc.id})</option>)}</select></label>}
                   {c.derive?.role === "agg" && <label className="field" style={{ width: 100 }}><span>Aggregate</span>
@@ -185,9 +187,20 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
               <select value={g.derived.source} onChange={e => p.onChange({ ...g, derived: { source: e.target.value } })}><option value="" />{sourceNames.map(n => <option key={n}>{n}</option>)}</select></label>
           </div>
           <div className="help">The source grid's control shows this grid below it. Mark which columns are <b>keys</b> (one row per distinct combination), carried or summed from the source; other columns stay manual or calculated. It needs its own long-text data field.</div>
+          <div className="card">
+            <label><input type="checkbox" checked={!!g.allocation} onChange={e => p.onChange({ ...g, allocation: e.target.checked ? capacityAllocation() : undefined })} /> <b>Publish this grid's hours</b> (per person and month) so other Epics can count them in “Hours (other Epics)”. Published when the work item is saved.</label>
+            {g.allocation && (
+              <div className="row">
+                {([["resource", "Person column"], ["period", "Month column"], ["hours", "Hours column"]] as const).map(([k, label]) => (
+                  <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
+                    <select value={g.allocation![k]} onChange={e => p.onChange({ ...g, allocation: { ...g.allocation!, [k]: e.target.value } })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
+                ))}
+              </div>
+            )}
+          </div>
           {source && (
             <>
-              <div className="help"><b>Quick start – Resource capacity:</b> choose the source columns and generate the standard columns (Resource, Period by month, Team, Hours, Available Capacity, “This Epic %”, Over capacity).</div>
+              <div className="help"><b>Quick start – Resource capacity:</b> choose the source columns and generate the standard columns (Resource, Period by month, Team, Hours this Epic / other Epics / total, Available Capacity, Utilization % across all Epics, This Epic %, Over capacity) and turn on publishing of this Epic's hours.</div>
               <label><input type="checkbox" checked={fromRegister} onChange={e => setFromRegister(e.target.checked)} /> Take Available Capacity from the central <b>Capacity register</b> (recommended – managers enter it once on the Capacity page)</label>
               <div className="row">
                 {([["resource", "Resource"], ["period", "Period (date)"], ["hours", "Hours"], ["team", "Team (optional)"]] as const).map(([k, label]) => (
@@ -195,7 +208,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
                     <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{source.columns.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
                 ))}
                 <button className="btn fixed" disabled={!pick.resource || !pick.period || !pick.hours}
-                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }) })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
+                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }), allocation: capacityAllocation() })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
               </div>
             </>
           )}

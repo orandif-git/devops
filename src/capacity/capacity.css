@@ -23,3 +23,10 @@
 .idpop li.muted { cursor: default; color: var(--fg2); }
 .card { border: 1px solid var(--line); padding: 8px 12px; margin-top: 10px; }
 .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.capacity td.ov { text-align: right; min-width: 78px; vertical-align: top; }
+.capacity td.ov .pct { font-size: 11px; color: var(--fg2); }
+.capacity td.ov.over { background: rgba(209,52,56,.14); }
+.capacity td.ov.over .pct { color: var(--err); font-weight: 700; }
+.capacity .subtabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 6px 0 10px; }
+.capacity .subtab { padding: 5px 12px; background: none; border: 0; border-bottom: 2px solid transparent; cursor: pointer; }
+.capacity .subtab.on { border-bottom-color: var(--accent); font-weight: 600; }

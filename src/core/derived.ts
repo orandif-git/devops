@@ -1,12 +1,13 @@
 import { bucketValue } from "./calc";
 import { capacityFor, CapacityRegister, monthKey } from "./capacity";
+import { allocKey } from "./allocations";
 import { keyNorm } from "./keys";
 import { aggregate, defaultFor, newId, recomputeAll } from "./gridModel";
 import { ColumnDef, GridConfig, GridRow } from "./types";
 
 export { keyNorm };
 
-const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || c.type === "calculated";
+const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.others || c.type === "calculated";
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
@@ -22,7 +23,7 @@ const keyOfDerived = (row: GridRow, keys: ColumnDef[]) => keys.map(k => keyNorm(
  *  - manual columns (e.g. Available Capacity) keep what the user entered, matched by key
  *  - a row whose key is no longer in the source disappears, unless it holds manual data (then it stays, with 0 hours)
  */
-export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister): GridRow[] {
+export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister, others?: Record<string, number>): GridRow[] {
   const keys = keyColumns(derivedCfg);
   if (!keys.length) return existing;
   const derivedCols = derivedCfg.columns.filter(c => c.derive);
@@ -44,6 +45,12 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
       else row[c.id] = aggregate(members.map(m => m[d.source]), d.aggregate ?? "sum");
     }
     fillCapacity(row);
+    fillOthers(row);
+  };
+  // hours the same person has on all other Epics that month (from the central allocation store, when it could be loaded)
+  const fillOthers = (row: GridRow) => {
+    if (!others) return;
+    for (const c of derivedCfg.columns) if (c.others) row[c.id] = others[allocKey(row[c.others.resource], row[c.others.period])] ?? 0;
   };
   // Available Capacity comes from the central register (when it could be loaded; otherwise keep what is stored)
   const fillCapacity = (row: GridRow) => {
@@ -64,6 +71,7 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
     const row = { ...prev };
     for (const c of derivedCols) if (c.derive!.role === "agg") row[c.id] = 0;      // no hours any more, but keep the manual entry
     fillCapacity(row);
+    fillOthers(row);
     out.push(row);
   }
   const display = (r: GridRow) => keys.map(k => String(r[k.id] ?? "")).join("\u0001");
@@ -88,12 +96,18 @@ export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: bo
   ];
   if (picks.team) cols.push({ id: "team", name: "Team", type: "string", derive: { role: "first", source: picks.team } });
   cols.push(
-    { id: "hours", name: "Hours", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum" }, total: "sum" },
+    { id: "hours", name: "Hours (this Epic)", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum" }, total: "sum" },
+    { id: "otherhours", name: "Hours (other Epics)", type: "number", defaultValue: 0, others: { resource: "resource", period: "period" } },
+    { id: "totalhours", name: "Total hours", type: "calculated", formula: "hours + otherhours", decimals: 2, onEmpty: "zero" },
     opts.fromRegister
       ? { id: "capacity", name: "Available Capacity", type: "number", capacity: { resource: "resource", period: "period" }, total: "sum" }
       : { id: "capacity", name: "Available Capacity", type: "number", min: 0, defaultValue: 160, total: "sum" },
+    { id: "utilization", name: "Utilization % (all Epics)", type: "calculated", formula: "totalhours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
     { id: "epicshare", name: "This Epic % of capacity", type: "calculated", formula: "hours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
-    { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(epicshare > 100, "Yes", "No")', onEmpty: "blank" },
+    { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(utilization > 100, "Yes", "No")', onEmpty: "blank" },
   );
   return cols;
 }
+
+/** Which columns of the capacity template publish hours to the central store. */
+export const capacityAllocation = () => ({ resource: "resource", period: "period", hours: "hours" });

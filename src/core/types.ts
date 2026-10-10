@@ -29,6 +29,8 @@ export interface ColumnDef {
     /** name of a shared Mapping (project level); when set, map/fallback come from it */
     table?: string;
   };
+  /** Derived grids: hours the same person has on ALL OTHER Epics in that month (from the central allocation store). Read-only. */
+  others?: { resource: string; period: string };
   /** Derived grids: value is the person's available hours for that month, looked up in the central Capacity register (read-only). */
   capacity?: { resource: string; period: string };
   /** calculated columns: decimals of numeric results (default 2) */
@@ -87,6 +89,8 @@ export interface GridConfig {
   breakdowns?: Breakdown[];
   /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
   derived?: { source: string };
+  /** publish this grid's hours (per person and month) to the central store so other Epics can see them */
+  allocation?: { resource: string; period: string; hours: string };
   /** field that stores the JSON; falls back to the control's DataField input */
   dataField?: string;
   totals?: TotalMapping[];

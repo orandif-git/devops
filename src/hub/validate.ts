@@ -117,6 +117,15 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       else if (g.derived.source === name) add("error", w, "A grid cannot be derived from itself");
       if (!g.dataField) add("error", w, "A derived grid needs its own data field (a long-text field) to remember manual entries");
       else if (g.dataField === src?.dataField) add("error", w, "A derived grid needs a different data field than its source grid");
+      if (g.allocation) {
+        for (const [k, label] of [["resource", "person"], ["period", "month"], ["hours", "hours"]] as const) {
+          const colId = g.allocation[k];
+          const col = g.columns.find(x => x.id === colId);
+          if (!col) add("error", w, `Publishing: pick the ${label} column`);
+          else if (k !== "hours" && col.derive?.role !== "key") add("error", w, `Publishing: the ${label} column must be a KEY column`);
+          else if (k === "hours" && col.type !== "number") add("warn", w, "Publishing: the hours column should be a number column");
+        }
+      }
       if (!g.columns.some(c => c.derive?.role === "key")) add("error", w, "Mark at least one column as a KEY (e.g. Resource, Period) so rows can be created");
       g.columns.forEach(c => {
         if (c.capacity) {
@@ -125,12 +134,18 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
           if (!keyIds.includes(c.capacity.period)) add("error", w, `Column '${c.id}': the month column must be one of the KEY columns`);
           else if (g.columns.find(x => x.id === c.capacity!.period)?.derive?.bucket !== "month") add("warn", w, `Column '${c.id}': the month column should group dates by month`);
         }
+        if (c.others) {
+          const keyIds = g.columns.filter(x => x.derive?.role === "key").map(x => x.id);
+          if (!keyIds.includes(c.others.resource) || !keyIds.includes(c.others.period)) add("error", w, `Column '${c.id}': the person and month columns must be KEY columns`);
+          if (!Object.values(cfg.grids).some(x => x.allocation)) add("warn", w, `Column '${c.id}' shows hours of other Epics, but no grid publishes its hours yet – turn on “Publish this grid's hours”`);
+        }
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
         else if (src && !src.columns.some(x => x.id === c.derive!.source)) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
         else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
-    } else if (g.columns.some(c => c.capacity)) add("warn", w, "A column takes its value from the Capacity register, but this grid is not derived, so it is ignored");
+    } else if (g.allocation) add("warn", w, "This grid is set to publish hours, but it is not derived, so nothing is published");
+    else if (g.columns.some(c => c.capacity || c.others)) add("warn", w, "A column takes its value from the Capacity register, but this grid is not derived, so it is ignored");
     else if (g.columns.some(c => c.derive)) add("warn", w, "Some columns have a source set, but this grid is not marked as derived, so they are ignored");
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
     if (!g.dataField) add("warn", w, "No data field set – it must then be set on the form control");

@@ -238,7 +238,7 @@
         },
         {
           "id": "hours",
-          "name": "Hours",
+          "name": "Hours (this Epic)",
           "type": "number",
           "derive": {
             "role": "agg",
@@ -248,14 +248,41 @@
           "total": "sum"
         },
         {
-          "id": "capacity",
-          "name": "Available Capacity",
+          "id": "otherhours",
+          "name": "Hours (other Epics)",
           "type": "number",
-          "total": "sum",
-          "capacity": {
+          "defaultValue": 0,
+          "others": {
             "resource": "resource",
             "period": "period"
           }
+        },
+        {
+          "id": "totalhours",
+          "name": "Total hours",
+          "type": "calculated",
+          "formula": "hours + otherhours",
+          "decimals": 2,
+          "onEmpty": "zero"
+        },
+        {
+          "id": "capacity",
+          "name": "Available Capacity",
+          "type": "number",
+          "capacity": {
+            "resource": "resource",
+            "period": "period"
+          },
+          "total": "sum"
+        },
+        {
+          "id": "utilization",
+          "name": "Utilization % (all Epics)",
+          "type": "calculated",
+          "formula": "totalhours / capacity * 100",
+          "decimals": 1,
+          "onEmpty": "blank",
+          "onDivZero": "blank"
         },
         {
           "id": "epicshare",
@@ -270,11 +297,16 @@
           "id": "overcapacity",
           "name": "Over capacity",
           "type": "calculated",
-          "formula": "IF(epicshare > 100, \"Yes\", \"No\")",
+          "formula": "IF(utilization > 100, \"Yes\", \"No\")",
           "onEmpty": "blank"
         }
       ],
-      "totals": []
+      "totals": [],
+      "allocation": {
+        "resource": "resource",
+        "period": "period",
+        "hours": "hours"
+      }
     }
   },
   "calculations": [
@@ -566,7 +598,7 @@
     },
     {
       "id": "peak-utilization",
-      "name": "Peak Capacity Utilization",
+      "name": "Peak Capacity Utilization (all Epics)",
       "enabled": true,
       "workItemTypes": [],
       "inputs": [
@@ -575,7 +607,7 @@
           "source": {
             "kind": "grid",
             "grid": "Resource Capacity",
-            "column": "epicshare",
+            "column": "utilization",
             "aggregate": "max"
           }
         }
