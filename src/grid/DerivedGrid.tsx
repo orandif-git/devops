@@ -5,6 +5,7 @@ import { entriesFromRows, sameEntries, sumAllocations } from "../core/allocation
 import { CapacityRegister } from "../core/capacity";
 import { GridConfig, GridRow } from "../core/types";
 import { loadLiveAllocations, saveAllocation } from "../shared/allocationStore";
+import { applyCalculations } from "../shared/calcRunner";
 import { loadRegister } from "../shared/capacityStore";
 import { downloadFile, getFormService } from "../shared/ado";
 import { exportCsv, exportXlsx } from "../shared/excel";
@@ -36,7 +37,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       lastWritten.current = serialize(next);
-      writeGrid(cfg, next).then(setWarn).catch(e => setWarn(`Could not store ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field on this work item type?`));
+      writeGrid(cfg, next).then(w => { setWarn(w); return applyCalculations(); }).catch(e => setWarn(`Could not store ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field on this work item type?`));
     }, 250);
   }, [cfg]);
 

@@ -6,6 +6,7 @@ import "./grid.css";
 import { Grid } from "./Grid";
 import { DerivedGrid } from "./DerivedGrid";
 import { emitFormEvent } from "./formWriter";
+import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
 import { GridConfig, GridRow, LookupTable } from "../core/types";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, serialize, validateConfig, validateRows } from "../core/gridModel";
@@ -97,19 +98,22 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const commit = React.useCallback((next: GridRow[]) => {
     rowsRef.current = next; setRows(next);
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => { writeNow(rowsRef.current).catch(e => setWarn(`Could not store the rows in ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field that is on this work item type?`)); }, 250);
+    timer.current = window.setTimeout(() => {
+      writeNow(rowsRef.current).then(() => applyCalculations())
+        .catch(e => setWarn(`Could not store the rows in ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field that is on this work item type?`));
+    }, 250);
   }, [writeNow, cfg.dataField]);
 
   // register with the work item form
   React.useEffect(() => {
     SDK.register(SDK.getContributionId(), () => ({
-      onLoaded: () => { readField().then(() => setReady(true)); emitFormEvent({ type: "loaded" }); },
+      onLoaded: () => { resetCalcRunner(); readField().then(() => { setReady(true); applyCalculations(); }); emitFormEvent({ type: "loaded" }); },
       onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
       onSaved: () => { readField(); emitFormEvent({ type: "saved" }); },
       onReset: () => { lastWritten.current = null; readField(); emitFormEvent({ type: "reset" }); },
       onRefreshed: () => { readField(); emitFormEvent({ type: "refreshed" }); },
     }));
-    readField().then(() => setReady(true)).catch(e => flash(e.message));
+    readField().then(() => { setReady(true); applyCalculations(); }).catch(e => flash(e.message));
     // block save while rows are invalid
     return () => window.clearTimeout(timer.current);
   }, [cfg, readField]);

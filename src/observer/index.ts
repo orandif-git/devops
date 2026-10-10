@@ -3,7 +3,7 @@ import { Cascade, ProjectConfig, Rule } from "../core/types";
 import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { cascadeApplies, cascadeErrors, evaluateRules, hintedParent, ruleApplies } from "../core/rules";
-import { getFormService, getProject, init, loadConfig } from "../shared/ado";
+import { getFormService, getProject, loadConfig } from "../shared/ado";
 
 /**
  * Rules observer: runs invisibly on every work item form.
@@ -17,6 +17,7 @@ let weSetError = false;
 let running = false;
 let again = false;
 let formFields: Set<string> | undefined;
+let startupRetries = 0;
 
 const refsOf = (rules: Rule[], cascades: Cascade[]) => {
   const s = new Set<string>(["System.WorkItemType", "System.AreaPath"]);
@@ -32,6 +33,7 @@ async function run(isLoad: boolean) {
   if (running) { again = true; return; }
   running = true;
   try {
+    if (!projectId) projectId = (await getProject()).id;
     if (!config) config = await loadConfig(projectId);
     const svc = await getFormService();
     const type = String(await svc.getFieldValue("System.WorkItemType"));
@@ -88,6 +90,7 @@ async function run(isLoad: boolean) {
     else if (weSetError) { await svc.clearError(); weSetError = false; }
   } catch (e) {
     console.warn("[Grid & Rules] observer error", e);
+    if (isLoad && startupRetries < 3) { startupRetries++; window.setTimeout(() => { config = undefined; formFields = undefined; run(true); }, 1500 * startupRetries); }
   } finally {
     running = false;
     if (again) { again = false; run(false); }
@@ -95,8 +98,9 @@ async function run(isLoad: boolean) {
 }
 
 async function main() {
-  await init(true);
-  projectId = (await getProject()).id;
+  // Register for form events FIRST, so the "work item loaded" event is never missed while we look things up.
+  await SDK.init({ loaded: false, applyTheme: true });
+  await SDK.ready();
   SDK.register(SDK.getContributionId(), () => ({
     onLoaded: () => { config = undefined; formFields = undefined; run(true); },
     onFieldChanged: () => { run(false); },
@@ -104,5 +108,8 @@ async function main() {
     onReset: () => { run(false); },
     onRefreshed: () => { run(false); },
   }));
+  await SDK.notifyLoadSucceeded();
+  console.info("[Grid & Rules] observer started");
+  run(true);                       // the form may already be loaded before we started listening
 }
 main();
