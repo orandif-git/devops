@@ -3,6 +3,7 @@ import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, Total
 import { newRow } from "../core/gridModel";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
+import { groupsToMap, mapToGroups, unassigned } from "../core/lookupGroups";
 import { csv, delAt, FieldInput, setAt } from "./ui";
 import { Issue } from "./validate";
 
@@ -13,6 +14,38 @@ const mapToText = (m: Record<string, string[]>) => Object.entries(m).map(([k, v]
 const textToMap = (t: string) => Object.fromEntries(t.split("\n").map(l => l.trim()).filter(Boolean).map(l => {
   const i = l.indexOf(":"); return i < 0 ? [l, []] : [l.slice(0, i).trim(), csv(l.slice(i + 1))];
 }));
+
+function LookupEditor(p: { col: ColumnDef; source?: ColumnDef; onChange(l: NonNullable<ColumnDef["lookup"]>): void }) {
+  const l = p.col.lookup!;
+  // draft keeps empty categories alive while typing; the saved map only holds filled ones
+  const [groups, setDraft] = React.useState(() => mapToGroups(l.map));
+  const srcOptions = p.source?.options ?? (p.source?.dependsOn ? Array.from(new Set(Object.values(p.source.dependsOn.map).flat())) : []);
+  const rest = unassigned(srcOptions, l.map);
+  const setGroups = (g: ReturnType<typeof mapToGroups>) => { setDraft(g); p.onChange({ ...l, map: groupsToMap(g) }); };
+  return (
+    <div className="card">
+      <div className="help">Group the values of “{p.source?.name ?? l.column}” by category. Anything not listed gets the “all other values” category, so a new value you add later needs no change unless it belongs to another category.</div>
+      {groups.map((g, k) => (
+        <div className="row" key={k}>
+          <input className="fixed" style={{ width: 150, fontWeight: 600 }} defaultValue={g.category} key={"c" + k + g.category} placeholder="Category"
+            onBlur={e => setGroups(setAt(groups, k, { ...g, category: e.target.value }))} />
+          <span className="fixed">←</span>
+          <input defaultValue={g.values.join(", ")} key={"v" + k + g.values.join()} placeholder="values in this category, comma separated"
+            onBlur={e => setGroups(setAt(groups, k, { ...g, values: csv(e.target.value) }))} />
+          <button className="btn icon danger fixed" onClick={() => setGroups(delAt(groups, k))}>✕</button>
+        </div>
+      ))}
+      <button className="btn" onClick={() => setGroups([...groups, { category: "", values: [] }])}>+ Add category</button>
+      <div className="row" style={{ marginTop: 8 }}>
+        <span className="fixed">All other values →</span>
+        <input style={{ maxWidth: 200 }} placeholder="e.g. Internal" value={l.fallback ?? ""} onChange={e => p.onChange({ ...l, fallback: e.target.value || undefined })} />
+      </div>
+      {srcOptions.length > 0 && (
+        <div className="help">{rest.length ? <>Currently receiving “{l.fallback || "(blank)"}”: {rest.join(", ")}</> : "Every value of the source column is listed in a category."}</div>
+      )}
+    </div>
+  );
+}
 
 function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
@@ -46,9 +79,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
                   <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { column: e.target.value, map: c.lookup?.map ?? {} } : undefined })}>
                     <option value="">— none (user enters the value) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
                   </select></label>
-                {c.lookup && <label className="field"><span>One line per source value – <code>Source value: value to fill</code></span>
-                  <textarea rows={Math.min(14, Math.max(4, Object.keys(c.lookup.map).length + 1))} defaultValue={Object.entries(c.lookup.map).map(([k, v]) => `${k}: ${v}`).join("\n")}
-                    onBlur={e => set({ lookup: { ...c.lookup!, column: c.lookup!.column, map: Object.fromEntries(e.target.value.split("\n").map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf(":"); return i < 0 ? [l, ""] : [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })) } })} /></label>}
+                {c.lookup && <LookupEditor key={JSON.stringify(c.lookup.map)} col={c} source={p.others.find(o => o.id === c.lookup!.column)} onChange={lookup => set({ lookup })} />}
               </>
             )}
             {c.type === "identity" && (

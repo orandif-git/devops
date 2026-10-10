@@ -109,7 +109,7 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
       const known = src?.options ?? (src?.dependsOn ? Object.values(src.dependsOn.map).flat() : undefined);
       if (known?.length) {
         const missing = known.filter(o => !Object.keys(c.lookup!.map).some(k => k.toLowerCase() === o.toLowerCase()));
-        if (missing.length) add("warn", w, `'${c.id}' has no auto-fill value for ${missing.length} option(s) of '${src!.id}': ${missing.slice(0, 4).join(", ")}${missing.length > 4 ? "…" : ""}`);
+        if (missing.length && !c.lookup!.fallback) add("warn", w, `'${c.id}' has no auto-fill value for ${missing.length} option(s) of '${src!.id}': ${missing.slice(0, 4).join(", ")}${missing.length > 4 ? "…" : ""}`);
         const extra = Object.keys(c.lookup!.map).filter(k => !known.some(o => o.toLowerCase() === k.toLowerCase()));
         if (extra.length) add("warn", w, `'${c.id}' lookup lists value(s) that '${src!.id}' does not offer: ${extra.slice(0, 4).join(", ")}`);
       }

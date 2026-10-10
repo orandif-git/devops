@@ -212,3 +212,32 @@ describe("rich-text (HTML) field round trips", () => {
   });
   it("unreadable text yields no rows (and the UI warns)", () => { expect(parseStored("hello world", hc)).toEqual([]); });
 });
+
+import { groupsToMap, mapToGroups, unassigned } from "../src/core/lookupGroups";
+
+describe("resource type from team (category lookup with fallback)", () => {
+  const cfgR: GridConfig = { columns: [
+    { id: "team", name: "Team", type: "dropdown", options: ["Engineering", "Vendor", "IT Contract", "Business"] },
+    { id: "rt", name: "Resource type", type: "string", lookup: { column: "team", map: groupsToMap([{ category: "External", values: ["Vendor", "IT Contract"] }, { category: "Business", values: ["Business"] }]), fallback: "Internal" } },
+    { id: "h", name: "H", type: "number" }] };
+  it("external / business teams are mapped, everything else is internal", () => {
+    expect(["Vendor", "IT Contract", "Business", "Engineering", "Brand new team"].map(t => normalizeRow({ team: t }, cfgR).rt)).toEqual(["External", "External", "Business", "Internal", "Internal"]);
+  });
+  it("adding a team to a category needs only the list edit", () => {
+    const g = mapToGroups(cfgR.columns[1].lookup!.map);
+    g.find(x => x.category === "External")!.values.push("Offshore Partner");
+    const next = { ...cfgR, columns: [cfgR.columns[0], { ...cfgR.columns[1], lookup: { ...cfgR.columns[1].lookup!, map: groupsToMap(g) } }, cfgR.columns[2]] };
+    expect(normalizeRow({ team: "offshore partner" }, next).rt).toBe("External");
+  });
+  it("group helpers round trip and report unassigned values", () => {
+    const map = cfgR.columns[1].lookup!.map;
+    expect(groupsToMap(mapToGroups(map))).toEqual(map);
+    expect(unassigned(["Engineering", "Vendor"], map)).toEqual(["Engineering"]);
+    expect(groupsToMap([{ category: "", values: ["x"] }, { category: "A", values: ["", "y"] }, { category: "B", values: ["y"] }])).toEqual({ y: "A" });
+  });
+  it("hours by resource type via grid filters", () => {
+    const rows = [normalizeRow({ team: "Vendor", h: 5 }, cfgR), normalizeRow({ team: "IT Contract", h: 3 }, cfgR), normalizeRow({ team: "Engineering", h: 10 }, cfgR), normalizeRow({ team: "Business", h: 2 }, cfgR)];
+    const sum = (v: string) => summaries(rows, { ...cfgR, breakdowns: [{ by: "rt", column: "h", aggregate: "sum" }] }).groups[0].lines.find(l => l.label === v)?.value;
+    expect([sum("External"), sum("Internal"), sum("Business")]).toEqual([8, 10, 2]);
+  });
+});

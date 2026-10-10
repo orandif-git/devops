@@ -139,10 +139,25 @@
           "type": "dropdown",
           "required": true,
           "options": [
-            "Team A",
-            "Team B",
-            "Team C"
+            "Engineering",
+            "Vendor",
+            "IT Contract",
+            "Business"
           ]
+        },
+        {
+          "id": "resourcetype",
+          "name": "Resource type",
+          "type": "string",
+          "lookup": {
+            "column": "team",
+            "map": {
+              "Vendor": "External",
+              "IT Contract": "External",
+              "Business": "Business"
+            },
+            "fallback": "Internal"
+          }
         },
         {
           "id": "resource",
@@ -219,6 +234,117 @@
       "resultField": "Custom.CapitalizationPercent",
       "decimals": 2,
       "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "internal-cap-hours",
+      "name": "Internal Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "Internal"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.InternalCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "external-cap-hours",
+      "name": "External Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "External"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.ExternalCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "business-cap-hours",
+      "name": "Business Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "Business"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.BusinessCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
       "onDivZero": "blank",
       "mode": "always"
     }
