@@ -47,7 +47,8 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
 
 export async function saveConfig(projectId: string, config: ProjectConfig): Promise<void> {
   const m = await manager();
-  await m.setDocument(COLLECTION, { id: `project-${projectId}`, config });
+  // __etag -1 = overwrite whatever version is stored (last save wins); without it a second save fails with 1660003
+  await m.setDocument(COLLECTION, { id: `project-${projectId}`, config, __etag: -1 });
 }
 
 // ---------- field helpers ----------
