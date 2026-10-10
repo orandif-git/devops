@@ -1,0 +1,157 @@
+import * as React from "react";
+import { Aggregate, ColumnDef, ColumnType, GridConfig, GridRow } from "../core/types";
+import { newRow } from "../core/gridModel";
+import { Grid } from "../grid/Grid";
+import "../grid/grid.css";
+import { csv, delAt, FieldInput, setAt } from "./ui";
+import { Issue } from "./validate";
+
+const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity"];
+const AGG: (Aggregate | "")[] = ["", "sum", "avg", "min", "max", "count"];
+
+const mapToText = (m: Record<string, string[]>) => Object.entries(m).map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n");
+const textToMap = (t: string) => Object.fromEntries(t.split("\n").map(l => l.trim()).filter(Boolean).map(l => {
+  const i = l.indexOf(":"); return i < 0 ? [l, []] : [l.slice(0, i).trim(), csv(l.slice(i + 1))];
+}));
+
+function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
+  const c = p.c;
+  const [open, setOpen] = React.useState(false);
+  const set = (patch: Partial<ColumnDef>) => p.onChange({ ...c, ...patch });
+  return (
+    <>
+      <tr>
+        <td><input value={c.id} onChange={e => set({ id: e.target.value.replace(/[^A-Za-z0-9_]/g, "") })} /></td>
+        <td><input value={c.name} onChange={e => set({ name: e.target.value })} /></td>
+        <td><select value={c.type} onChange={e => set({ type: e.target.value as ColumnType })}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></td>
+        <td style={{ textAlign: "center" }}><input type="checkbox" checked={!!c.required} onChange={e => set({ required: e.target.checked })} /></td>
+        <td><select value={c.total ?? ""} onChange={e => set({ total: (e.target.value || undefined) as Aggregate | undefined })}>{AGG.map(a => <option key={a} value={a}>{a || "—"}</option>)}</select></td>
+        <td><button className="btn icon" onClick={() => setOpen(!open)}>{open ? "▾" : "▸"}</button><button className="btn icon danger" onClick={p.onDelete}>✕</button></td>
+      </tr>
+      {open && (
+        <tr><td colSpan={6}>
+          <div className="card">
+            <div className="row">
+              <label className="field" style={{ flex: 1 }}><span>Default value</span><input value={c.defaultValue === undefined ? "" : String(c.defaultValue)} onChange={e => set({ defaultValue: e.target.value === "" ? undefined : e.target.value })} /></label>
+              <label className="field" style={{ flex: 1 }}><span>Formula (makes column computed)</span><input placeholder="[qty] * [price]" value={c.formula ?? ""} onChange={e => set({ formula: e.target.value || undefined })} /></label>
+              {c.type === "number" && <>
+                <label className="field" style={{ width: 80 }}><span>Min</span><input type="number" value={c.min ?? ""} onChange={e => set({ min: e.target.value === "" ? undefined : +e.target.value })} /></label>
+                <label className="field" style={{ width: 80 }}><span>Max</span><input type="number" value={c.max ?? ""} onChange={e => set({ max: e.target.value === "" ? undefined : +e.target.value })} /></label>
+              </>}
+              <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
+            </div>
+            {c.type === "dropdown" && (
+              <>
+                <label className="field"><span>Options (comma separated){c.dependsOn ? " – ignored while “depends on” is set" : ""}</span>
+                  <input defaultValue={(c.options ?? []).join(", ")} onBlur={e => set({ options: csv(e.target.value) })} /></label>
+                <label className="field"><span>Depends on column</span>
+                  <select value={c.dependsOn?.column ?? ""} onChange={e => set({ dependsOn: e.target.value ? { column: e.target.value, map: c.dependsOn?.map ?? {} } : undefined })}>
+                    <option value="">— none (independent) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
+                  </select></label>
+                {c.dependsOn && <label className="field"><span>One line per parent value – <code>ParentValue: option1, option2</code></span>
+                  <textarea rows={Math.max(3, Object.keys(c.dependsOn.map).length + 1)} defaultValue={mapToText(c.dependsOn.map)}
+                    onBlur={e => set({ dependsOn: { column: c.dependsOn!.column, map: textToMap(e.target.value) } })} /></label>}
+              </>
+            )}
+          </div>
+        </td></tr>
+      )}
+    </>
+  );
+}
+
+function Preview({ cfg }: { cfg: GridConfig }) {
+  const [rows, setRows] = React.useState<GridRow[]>([]);
+  React.useEffect(() => { setRows(r => r.length ? r : cfg.columns.length ? [newRow(cfg), newRow(cfg)] : []); }, [cfg]);
+  return <Grid cfg={{ ...cfg, readOnly: false }} rows={rows} readOnly={false} projectId="" busyChildren={false} status="" onChange={setRows}
+    onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />;
+}
+
+function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void; issues: Issue[] }) {
+  const g = p.g;
+  const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
+  return (
+    <div>
+      <div className="row">
+        <label className="field" style={{ flex: 1 }}><span>Data field (long-text field that stores the rows as JSON)</span><FieldInput value={g.dataField ?? ""} onChange={dataField => p.onChange({ ...g, dataField })} placeholder="Custom.GridData" /></label>
+        <label className="fixed"><input type="checkbox" checked={!!g.readOnly} onChange={e => p.onChange({ ...g, readOnly: e.target.checked })} /> Read-only</label>
+      </div>
+      <h3>Columns</h3>
+      <table className="cols">
+        <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
+        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+      </table>
+      <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
+      <h3>Push totals to work item fields</h3>
+      <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>
+      {(g.totals ?? []).map((t, i) => (
+        <div className="row" key={i}>
+          <select className="fixed" value={t.aggregate} onChange={e => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, aggregate: e.target.value as Aggregate }) })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select>
+          <span className="fixed">of</span>
+          <select className="fixed" value={t.column} onChange={e => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, column: e.target.value }) })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+          <span className="fixed">→</span>
+          <FieldInput value={t.field} onChange={field => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, field }) })} placeholder="Microsoft.VSTS.Scheduling.OriginalEstimate" />
+          <button className="btn icon danger fixed" onClick={() => p.onChange({ ...g, totals: delAt(g.totals!, i) })}>✕</button>
+        </div>
+      ))}
+      <button className="btn" onClick={() => p.onChange({ ...g, totals: [...(g.totals ?? []), { column: g.columns[0]?.id ?? "", aggregate: "sum", field: "" }] })}>+ Add total mapping</button>
+      <h3>Create child work items from rows</h3>
+      <label><input type="checkbox" checked={child.enabled} onChange={e => p.onChange({ ...g, child: { ...child, enabled: e.target.checked } })} /> Enable “create work item” buttons</label>
+      {child.enabled && (
+        <div className="card">
+          <div className="row">
+            <label className="field" style={{ flex: 1 }}><span>Child work item type</span><input value={child.workItemType} onChange={e => p.onChange({ ...g, child: { ...child, workItemType: e.target.value } })} /></label>
+            <label className="field" style={{ flex: 1 }}><span>Title column</span>
+              <select value={child.titleColumn} onChange={e => p.onChange({ ...g, child: { ...child, titleColumn: e.target.value } })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          </div>
+          <div className="help">Map other columns to child fields (e.g. Owner → System.AssignedTo, Hours → Microsoft.VSTS.Scheduling.OriginalEstimate). Area/Iteration path are copied from the parent; the child is linked as a child of the parent.</div>
+          {g.columns.filter(c => c.id !== child.titleColumn).map(c => (
+            <div className="row" key={c.id}><span className="fixed" style={{ width: 140 }}>{c.name}</span><span className="fixed">→</span>
+              <FieldInput value={child.fieldMap[c.id] ?? ""} placeholder="(not mapped)" onChange={v => p.onChange({ ...g, child: { ...child, fieldMap: { ...child.fieldMap, [c.id]: v } } })} /></div>
+          ))}
+        </div>
+      )}
+      <h3>Preview</h3>
+      <Preview cfg={g} />
+      {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
+      <div className="help" style={{ marginTop: 10 }}>Use it: Organization settings → Process → your work item type → Layout → add the <b>Smart Grid</b> custom control, set <b>Grid name</b> to <code>{p.name}</code> and pick the data field.</div>
+    </div>
+  );
+}
+
+export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[] }) {
+  const names = Object.keys(p.grids);
+  const [sel, setSel] = React.useState(names[0] ?? "");
+  const cur = names.includes(sel) ? sel : names[0];
+  const add = () => {
+    let n = 1; while (p.grids["Grid " + n]) n++;
+    const name = "Grid " + n;
+    p.onChange({ ...p.grids, [name]: { columns: [{ id: "name", name: "Name", type: "string", required: true }, { id: "hours", name: "Hours", type: "number", total: "sum" }], totals: [] } });
+    setSel(name);
+  };
+  const rename = (from: string, to: string) => {
+    if (!to || to === from || p.grids[to]) return;
+    const out: Record<string, GridConfig> = {}; for (const k of names) out[k === from ? to : k] = p.grids[k];
+    p.onChange(out); setSel(to);
+  };
+  return (
+    <div className="split">
+      <div>
+        <div className="list">
+          {names.map(n => <div key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
+            <span className="name">{n}</span>{p.issues.some(x => x.where === `Grid “${n}”` && x.level === "error") && <span className="badge err">!</span>}</div>)}
+          {!names.length && <div className="item muted">No grids yet</div>}
+        </div>
+        <div className="toolbar"><button className="btn primary" onClick={add}>+ New grid</button>
+          {cur && <button className="btn danger" onClick={() => { const o = { ...p.grids }; delete o[cur]; p.onChange(o); }}>Delete</button>}</div>
+      </div>
+      <div className="card">
+        {cur ? <>
+          <label className="field"><span>Grid name (referenced by the form control)</span>
+            <input defaultValue={cur} key={cur} onBlur={e => rename(cur, e.target.value.trim())} /></label>
+          <Editor name={cur} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”`)} />
+        </> : <div className="muted">Create a grid to define columns, formulas, totals and child item creation.</div>}
+      </div>
+    </div>
+  );
+}

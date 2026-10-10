@@ -1,0 +1,37 @@
+{
+  "name": "workitem-grid-rules",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azure DevOps extension: smart grid control, conditional rules engine, dependent dropdowns and visual rule builder",
+  "scripts": {
+    "build": "webpack --mode production",
+    "build:dev": "webpack --mode development",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "package": "npm run build && tfx extension create --manifest-globs vss-extension.json --output-path out",
+    "package:dev": "npm run build:dev && tfx extension create --manifest-globs vss-extension.json --overrides-file vss-extension.dev.json --output-path out"
+  },
+  "dependencies": {
+    "azure-devops-extension-api": "^4.270.0",
+    "azure-devops-extension-sdk": "^4.2.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "read-excel-file": "^9.3.12",
+    "write-excel-file": "^4.1.1"
+  },
+  "devDependencies": {
+    "@types/react": "^17.0.93",
+    "@types/react-dom": "^17.0.26",
+    "copy-webpack-plugin": "^14.0.0",
+    "css-loader": "^7.1.5",
+    "html-webpack-plugin": "^5.6.8",
+    "jsdom": "^29.1.1",
+    "style-loader": "^4.0.0",
+    "tfx-cli": "^0.24.2",
+    "ts-loader": "^9.6.2",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^5.1.4"
+  }
+}

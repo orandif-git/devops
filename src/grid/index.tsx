@@ -1,0 +1,173 @@
+import * as React from "react";
+import * as ReactDOM from "react-dom";
+import * as SDK from "azure-devops-extension-sdk";
+import "../shared/styles.css";
+import "./grid.css";
+import { Grid } from "./Grid";
+import { GridConfig, GridRow } from "../core/types";
+import { mappedTotals, parseStored, serialize, validateConfig, validateRows } from "../core/gridModel";
+import { downloadFile, getFormService, getProject, init, loadConfig, witClient } from "../shared/ado";
+import { exportCsv, exportXlsx, importFile } from "../shared/excel";
+
+interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
+
+async function resolveConfig(inputs: Inputs, projectId: string): Promise<GridConfig> {
+  let cfg: GridConfig | undefined;
+  if (inputs.ConfigJson && inputs.ConfigJson.trim()) {
+    try { cfg = JSON.parse(inputs.ConfigJson); } catch { throw new Error("The 'Grid configuration (JSON)' input is not valid JSON."); }
+  } else if (inputs.GridName) {
+    cfg = (await loadConfig(projectId)).grids[inputs.GridName.trim()];
+    if (!cfg) throw new Error(`No grid named '${inputs.GridName}' is defined. Create it in Project settings → Grid & Rules.`);
+  } else {
+    throw new Error("Set the 'Grid name' (or 'Grid configuration (JSON)') input on this control in the process layout.");
+  }
+  if (!cfg || !Array.isArray(cfg.columns) || !cfg.columns.length) throw new Error("The grid has no columns.");
+  if (inputs.DataField) cfg = { ...cfg, dataField: inputs.DataField };
+  if (!cfg.dataField) throw new Error("No data field set. Pick a long-text field in the 'Data field' input.");
+  const problems = validateConfig(cfg);
+  if (problems.length) throw new Error("Invalid grid configuration: " + problems.join("; "));
+  return cfg;
+}
+
+function App(props: { cfg: GridConfig; projectId: string; projectName: string }) {
+  const { cfg } = props;
+  const [rows, setRows] = React.useState<GridRow[]>([]);
+  const [ready, setReady] = React.useState(false);
+  const [status, setStatus] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const rowsRef = React.useRef<GridRow[]>([]);
+  const lastWritten = React.useRef<string | null>(null);
+  const timer = React.useRef<number>();
+  const rootRef = React.useRef<HTMLDivElement>(null);
+
+  const flash = (m: string) => { setStatus(m); window.setTimeout(() => setStatus(s => (s === m ? "" : s)), 6000); };
+
+  const readField = React.useCallback(async () => {
+    const svc = await getFormService();
+    const raw = await svc.getFieldValue(cfg.dataField!);
+    if (raw !== null && lastWritten.current !== null && String(raw) === lastWritten.current) return;
+    const parsed = parseStored(raw, cfg);
+    rowsRef.current = parsed; setRows(parsed);
+  }, [cfg]);
+
+  const writeNow = React.useCallback(async (next: GridRow[]) => {
+    const svc = await getFormService();
+    const text = serialize(next);
+    lastWritten.current = text;
+    const fields: Record<string, Object> = { [cfg.dataField!]: text };
+    Object.assign(fields, mappedTotals(next, cfg));
+    await svc.setFieldValues(fields);
+  }, [cfg]);
+
+  const commit = React.useCallback((next: GridRow[]) => {
+    rowsRef.current = next; setRows(next);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => { writeNow(rowsRef.current).catch(e => flash("Could not update the work item: " + e.message)); }, 250);
+  }, [writeNow]);
+
+  // register with the work item form
+  React.useEffect(() => {
+    SDK.register(SDK.getContributionId(), () => ({
+      onLoaded: () => { readField().then(() => setReady(true)); },
+      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); },
+      onSaved: () => { readField(); },
+      onReset: () => { lastWritten.current = null; readField(); },
+      onRefreshed: () => { lastWritten.current = null; readField(); },
+    }));
+    readField().then(() => setReady(true)).catch(e => flash(e.message));
+    // block save while rows are invalid
+    return () => window.clearTimeout(timer.current);
+  }, [cfg, readField]);
+
+  // keep the iframe height in sync with the content
+  React.useEffect(() => {
+    if (!rootRef.current) return;
+    const ro = new ResizeObserver(() => SDK.resize(undefined, Math.min(rootRef.current!.scrollHeight + 8, 700)));
+    ro.observe(rootRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  // surface validation problems on the form (prevents save), like the rules observer does
+  React.useEffect(() => {
+    if (!ready) return;
+    const errs = validateRows(rows, cfg);
+    getFormService().then(s => (errs.length ? s.setError(`Grid: ${errs[0].message}${errs.length > 1 ? ` (+${errs.length - 1} more)` : ""}`) : s.clearError())).catch(() => undefined);
+  }, [rows, ready, cfg]);
+
+  const createChildren = async (ids: string[]) => {
+    const child = cfg.child!;
+    setBusy(true);
+    try {
+      const svc = await getFormService();
+      if (await svc.isNew()) { flash("Save the work item first, then create child items."); return; }
+      const parentUrl = await svc.getWorkItemResourceUrl(await svc.getId());
+      const inherit = await svc.getFieldValues(["System.AreaPath", "System.IterationPath"]);
+      const client = await witClient();
+      let next = [...rowsRef.current], made = 0;
+      for (const id of ids) {
+        const row = next.find(r => r._id === id);
+        if (!row || row._childId) continue;
+        const title = String(row[child.titleColumn] ?? "").trim();
+        if (!title) { flash("A row has no title – skipped."); continue; }
+        const doc: { op: string; path: string; value: unknown }[] = [
+          { op: "add", path: "/fields/System.Title", value: title },
+          { op: "add", path: "/fields/System.AreaPath", value: inherit["System.AreaPath"] },
+          { op: "add", path: "/fields/System.IterationPath", value: inherit["System.IterationPath"] },
+        ];
+        for (const [col, ref] of Object.entries(child.fieldMap ?? {})) {
+          const v = row[col];
+          if (ref && ref !== "System.Title" && v !== "" && v !== null && v !== undefined) doc.push({ op: "add", path: `/fields/${ref}`, value: v });
+        }
+        doc.push({ op: "add", path: "/relations/-", value: { rel: "System.LinkTypes.Hierarchy-Reverse", url: parentUrl } });
+        const wi = await client.createWorkItem(doc as never, props.projectName, child.workItemType);
+        next = next.map(r => (r._id === id ? { ...r, _childId: wi.id } : r));
+        made++;
+      }
+      commit(next);
+      if (made) flash(`Created ${made} ${child.workItemType}${made > 1 ? "s" : ""}. Save the work item to keep the links in the grid.`);
+    } catch (e) {
+      flash("Create failed: " + (e as Error).message);
+    } finally { setBusy(false); }
+  };
+
+  const onImport = async (file: File) => {
+    try {
+      const { rows: imported, unmatched } = await importFile(file, cfg);
+      if (!imported.length) { flash("Nothing to import – is the first row a header row?"); return; }
+      commit([...rowsRef.current, ...imported]);
+      flash(`Imported ${imported.length} row(s)` + (unmatched.length ? `; no matching header for: ${unmatched.join(", ")}` : ""));
+    } catch (e) { flash("Import failed: " + (e as Error).message); }
+  };
+
+  const onExport = async (kind: "csv" | "xlsx") => {
+    try {
+      if (kind === "csv") downloadFile("grid.csv", "﻿" + exportCsv(rowsRef.current, cfg), "text/csv;charset=utf-8");
+      else downloadFile("grid.xlsx", await exportXlsx(rowsRef.current, cfg));
+    } catch (e) { flash("Export failed: " + (e as Error).message); }
+  };
+
+  return (
+    <div ref={rootRef}>
+      <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
+        onChange={commit} onImport={onImport} onExport={onExport}
+        onCreateChild={id => createChildren([id])}
+        onCreateAllChildren={() => createChildren(rowsRef.current.filter(r => !r._childId).map(r => r._id))} />
+    </div>
+  );
+}
+
+async function main() {
+  await init(false);
+  const root = document.getElementById("root")!;
+  try {
+    const inputs = (SDK.getConfiguration().witInputs ?? {}) as Inputs;
+    const project = await getProject();
+    const cfg = await resolveConfig(inputs, project.id);
+    ReactDOM.render(<App cfg={cfg} projectId={project.id} projectName={project.name} />, root);
+  } catch (e) {
+    root.innerHTML = `<div style="padding:8px" class="err">${String((e as Error).message).replace(/</g, "&lt;")}</div>`;
+    SDK.resize(undefined, 80);
+  }
+  await SDK.notifyLoadSucceeded();
+}
+main();

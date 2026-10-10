@@ -1,0 +1,28 @@
+:root {
+  --bg: var(--background-color, #fff);
+  --fg: var(--text-primary-color, rgba(0,0,0,.9));
+  --fg2: var(--text-secondary-color, rgba(0,0,0,.6));
+  --accent: var(--communication-background, #0078d4);
+  --accent-fg: #fff;
+  --line: var(--palette-neutral-10, rgba(0,0,0,.12));
+  --hover: var(--palette-neutral-4, rgba(0,0,0,.05));
+  --err: #d13438;
+  --ok: #107c10;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: transparent; color: var(--fg); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
+button, input, select, textarea { font: inherit; color: inherit; }
+input, select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 2px; padding: 3px 6px; min-width: 0; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.btn { background: var(--bg); border: 1px solid var(--line); border-radius: 2px; padding: 4px 10px; cursor: pointer; }
+.btn:hover:not(:disabled) { background: var(--hover); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.btn.danger { color: var(--err); }
+.btn.icon { padding: 2px 6px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 0 8px; }
+.toolbar .spacer { flex: 1; }
+.muted { color: var(--fg2); }
+.err { color: var(--err); }
+.ok { color: var(--ok); }
+.badge { display: inline-block; font-size: 11px; padding: 0 6px; border-radius: 8px; background: var(--hover); border: 1px solid var(--line); }
