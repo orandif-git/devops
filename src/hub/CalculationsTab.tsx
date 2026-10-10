@@ -1,7 +1,7 @@
 import * as React from "react";
 import { compute, explainCalculation, toInputValue, undefinedVariables } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
-import { listFields, witClient } from "../shared/ado";
+import { listFields, witClient, withTimeout } from "../shared/ado";
 import { Aggregate, CalcInput, Calculation, EmptyHandling, GridConfig, RowFilter } from "../core/types";
 import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid } from "./ui";
 import { Issue } from "./validate";
@@ -106,7 +106,7 @@ function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig> }) 
     if (!n) { setOut("Enter a work item id."); return; }
     setOut("Loading…");
     try {
-      const wi = await (await witClient()).getWorkItem(n);
+      const wi = await withTimeout((await witClient()).getWorkItem(n), `Reading work item ${n}`);
       const fields = (wi.fields ?? {}) as Record<string, unknown>;
       const type = String(fields["System.WorkItemType"] ?? "");
       const onType = new Set((await listFields(projectName, type)).map(f => f.referenceName));

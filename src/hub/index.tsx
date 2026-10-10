@@ -52,13 +52,17 @@ function Hub(props: { projectId: string; projectName: string }) {
   const [fields, setFields] = React.useState<FieldInfo[]>([]);
   const [byType, setByType] = React.useState<Record<string, FieldInfo[]>>({});
   const [msg, setMsg] = React.useState("");
+  const [loadErrors, setLoadErrors] = React.useState<string[]>([]);
+  const [attempt, setAttempt] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
+    setLoadErrors([]);
+    const fail = (e: Error) => setLoadErrors(list => (list.includes(e.message) ? list : [...list, e.message]));
     loadConfig(props.projectId).then(c => { setConfig(c); setSaved(JSON.stringify(c)); }).catch(e => setMsg("Could not load configuration: " + e.message));
-    listWorkItemTypes(props.projectName).then(setTypes).catch(e => setMsg("Could not load work item types: " + e.message));
-    listFields(props.projectName).then(setFields).catch(e => setMsg("Could not load fields: " + e.message));
-  }, [props.projectId, props.projectName]);
+    listWorkItemTypes(props.projectName).then(setTypes).catch(fail);
+    listFields(props.projectName).then(setFields).catch(fail);
+  }, [props.projectId, props.projectName, attempt]);
 
   // load real per-type fields (incl. allowed values) for every type the config refers to
   const usedTypes = React.useMemo(() => {
@@ -101,7 +105,7 @@ function Hub(props: { projectId: string; projectName: string }) {
   };
 
   return (
-    <Ctx.Provider value={{ projectName: props.projectName, types, fields: pickerFields, lookups: config.lookups ?? {}, setLookups: lookups => setConfig({ ...config, lookups }) }}>
+    <Ctx.Provider value={{ projectName: props.projectName, types, fields: pickerFields, loadError: loadErrors[0], lookups: config.lookups ?? {}, setLookups: lookups => setConfig({ ...config, lookups }) }}>
       <div className="hub">
         <h2>Grid &amp; Rules</h2>
         <div className="muted">Project “{props.projectName}” · conditional rules, dependent dropdowns and smart grids</div>
@@ -114,6 +118,13 @@ function Hub(props: { projectId: string; projectName: string }) {
           {dirty && <span className="badge">unsaved</span>}
           <span className="spacer" style={{ flex: 1 }} /><span className="muted">{msg}</span>
         </div>
+        {loadErrors.length > 0 && (
+          <div className="err" style={{ border: "1px solid var(--err)", padding: "6px 10px", margin: "8px 0" }}>
+            <strong>Could not read your process from Azure DevOps.</strong> Field suggestions, work item type choices and live checks need it.
+            <ul style={{ margin: "4px 0 4px 18px" }}>{loadErrors.map(e => <li key={e}>{e}</li>)}</ul>
+            <button className="btn" onClick={() => setAttempt(a => a + 1)}>Retry</button>
+          </div>
+        )}
         <div className="tabs">
           {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => <button key={t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}

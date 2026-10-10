@@ -6,6 +6,8 @@ export interface HubCtx {
   projectName: string;
   types: string[];
   fields: Fld[];
+  /** set when loading the work item types / fields failed (shown instead of an endless "Loading…") */
+  loadError?: string;
   lookups: Record<string, LookupTable>;
   setLookups(l: Record<string, LookupTable>): void;
 }
@@ -46,13 +48,13 @@ export function ValueInput(p: { field: string; value: string; onChange(v: string
 }
 
 export function TypeChips(p: { value: string[]; onChange(v: string[]): void }) {
-  const { types } = React.useContext(Ctx);
+  const { types, loadError } = React.useContext(Ctx);
   const toggle = (t: string) => p.onChange(p.value.includes(t) ? p.value.filter(x => x !== t) : [...p.value, t]);
   return (
     <div>
       <div className="chips">
         {types.map(t => <span key={t} className={"chip" + (p.value.includes(t) ? " on" : "")} onClick={() => toggle(t)}>{t}</span>)}
-        {!types.length && <span className="muted">Loading work item types…</span>}
+        {!types.length && (loadError ? <span className="err">Could not load the work item types (see the red message at the top of the page).</span> : <span className="muted">Loading work item types…</span>)}
       </div>
       <div className="help">{p.value.length ? "Applies only to the selected types." : "Applies to all work item types."}</div>
     </div>

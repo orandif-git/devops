@@ -1,5 +1,5 @@
 import { AllocationDoc } from "../core/allocations";
-import { dataManager, witClient } from "./ado";
+import { dataManager, witClient, withTimeout } from "./ado";
 
 const COLLECTION = "wig-allocations";
 const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e));
@@ -24,7 +24,7 @@ export async function onlyLiveWorkItems(docs: AllocationDoc[]): Promise<Allocati
   const ids = docs.map(d => d.workItemId);
   for (let i = 0; i < ids.length; i += 200) {
     // WorkItemErrorPolicy.Omit = 2: missing items come back as null instead of failing the whole request
-    const items = await client.getWorkItems(ids.slice(i, i + 200), undefined, ["System.State"], undefined, undefined, 2 as never);
+    const items = await withTimeout(client.getWorkItems(ids.slice(i, i + 200), undefined, ["System.State"], undefined, undefined, 2 as never), "Checking work items");
     for (const w of items ?? []) if (w && String(w.fields?.["System.State"] ?? "") !== "Removed") live.add(w.id);
   }
   return docs.filter(d => live.has(d.workItemId));

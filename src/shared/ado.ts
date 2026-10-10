@@ -4,6 +4,7 @@ import { CoreRestClient } from "azure-devops-extension-api/Core";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
 import { IWorkItemFormService, WorkItemTrackingServiceIds } from "azure-devops-extension-api/WorkItemTracking/WorkItemTrackingServices";
 import { emptyConfig, ProjectConfig } from "../core/types";
+import { withTimeout } from "./timeout";
 
 export async function init(loadSucceeded = true): Promise<void> {
   await SDK.init({ loaded: false, applyTheme: true });
@@ -21,8 +22,17 @@ export async function getProject(): Promise<{ id: string; name: string }> {
 export const getFormService = () =>
   SDK.getService<IWorkItemFormService>(WorkItemTrackingServiceIds.WorkItemFormService);
 
-export const witClient = () => getClient(WorkItemTrackingRestClient);
-export const coreClient = () => getClient(CoreRestClient);
+/**
+ * Azure DevOps Services: use the organization address directly instead of asking the host's location service
+ * (a lookup that can stall silently inside an extension frame). Server: let the SDK resolve it.
+ */
+const restOptions = () => {
+  try { const h = SDK.getHost(); return h.isHosted && h.name ? { rootPath: `https://dev.azure.com/${h.name}/` } : undefined; } catch { return undefined; }
+};
+export const witClient = () => getClient(WorkItemTrackingRestClient, restOptions());
+export const coreClient = () => getClient(CoreRestClient, restOptions());
+
+export { withTimeout };
 
 // ---------- config storage (extension data service, one document per project) ----------
 const COLLECTION = "wig-config";
@@ -65,14 +75,14 @@ export interface FieldInfo {
 /** Fields of a work item type (real process fields) merged with org field metadata; no type = all fields. */
 export async function listFields(project: string, workItemType?: string): Promise<FieldInfo[]> {
   const c = await witClient();
-  const all = await c.getFields(project);
+  const all = await withTimeout(c.getFields(project), "Loading fields");
   const meta = new Map(all.map(f => [f.referenceName, f]));
   const toInfo = (f: (typeof all)[number], allowed?: string[]): FieldInfo => ({
     referenceName: f.referenceName, name: f.name, type: normType(f.type), readOnly: !!f.readOnly,
     isPicklist: !!f.isPicklist, isIdentity: !!f.isIdentity, allowedValues: allowed,
   });
   if (!workItemType) return all.map(f => toInfo(f)).sort((a, b) => a.name.localeCompare(b.name));
-  const typed = await c.getWorkItemTypeFieldsWithReferences(project, workItemType, WorkItemTypeFieldsExpandLevel.AllowedValues);
+  const typed = await withTimeout(c.getWorkItemTypeFieldsWithReferences(project, workItemType, WorkItemTypeFieldsExpandLevel.AllowedValues), `Loading the fields of ${workItemType}`);
   return typed.map(t => {
     const m = meta.get(t.referenceName);
     const allowed = Array.isArray(t.allowedValues) && t.allowedValues.length ? t.allowedValues.map(String) : undefined;
@@ -81,7 +91,7 @@ export async function listFields(project: string, workItemType?: string): Promis
 }
 
 export async function listWorkItemTypes(project: string): Promise<string[]> {
-  const t = await (await witClient()).getWorkItemTypes(project);
+  const t = await withTimeout((await witClient()).getWorkItemTypes(project), "Loading work item types");
   return t.map(x => x.name).sort();
 }
 

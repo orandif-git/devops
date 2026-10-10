@@ -1,6 +1,6 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
-import { coreClient, dataManager } from "./ado";
+import { coreClient, dataManager, withTimeout } from "./ado";
 
 const COLLECTION = "wig-capacity";
 
@@ -55,7 +55,7 @@ export async function loadRegister(projectId: string): Promise<CapacityRegister>
 }
 
 export const listTeams = async (projectId: string): Promise<TeamRef[]> =>
-  (await (await coreClient()).getTeams(projectId, false, 200)).map(t => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
+  (await withTimeout((await coreClient()).getTeams(projectId, false, 200), "Loading teams")).map(t => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
 
 /**
  * May the current user edit capacity? Yes when no team is configured, or when they are a (direct) member of a configured team.
