@@ -4,7 +4,15 @@
  * unary minus, and functions IF, ROUND, MIN, MAX, ABS, FLOOR, CEIL, AND, OR, NOT, CONCAT, SUM.
  */
 type Val = number | string | boolean;
-type Tok = { t: "num" | "str" | "ref" | "id" | "op" | "end"; v: string };
+type Tok = { t: "num" | "str" | "ref" | "id" | "op" | "end"; v: string; raw?: string };
+
+/** Thrown to abort evaluation with a "blank" outcome (missing input, strict division by zero). */
+export class EvalAbort extends Error {}
+
+export interface EvalOptions {
+  /** throw EvalAbort on division by zero instead of returning 0 */
+  strictDiv?: boolean;
+}
 
 function tokenize(src: string): Tok[] {
   const out: Tok[] = [];
@@ -29,7 +37,7 @@ function tokenize(src: string): Tok[] {
     }
     if (/[A-Za-z_]/.test(c)) {
       let j = i; while (j < src.length && /[A-Za-z0-9_]/.test(src[j])) j++;
-      out.push({ t: "id", v: src.slice(i, j).toUpperCase() }); i = j; continue;
+      out.push({ t: "id", v: src.slice(i, j).toUpperCase(), raw: src.slice(i, j) }); i = j; continue;
     }
     const two = src.slice(i, i + 2);
     if (["<=", ">=", "<>", "==", "!="].includes(two)) { out.push({ t: "op", v: two }); i += 2; continue; }
@@ -50,7 +58,7 @@ const truthy = (v: Val) => (typeof v === "string" ? v !== "" && v.toLowerCase() 
 
 export type RefResolver = (name: string) => Val;
 
-export function evaluate(src: string, resolve: RefResolver): Val {
+export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = {}): Val {
   const toks = tokenize(src);
   let p = 0;
   const peek = () => toks[p];
@@ -85,6 +93,7 @@ export function evaluate(src: string, resolve: RefResolver): Val {
     while (peek().t === "op" && ["*", "/", "%"].includes(peek().v)) {
       const op = eat().v; const r = num(parseUnary());
       const a = num(l);
+      if (r === 0 && (op === "/" || op === "%") && opts.strictDiv) throw new EvalAbort("division by zero");
       l = op === "*" ? a * r : op === "/" ? (r === 0 ? 0 : a / r) : (r === 0 ? 0 : a % r);
     }
     return l;
@@ -103,6 +112,7 @@ export function evaluate(src: string, resolve: RefResolver): Val {
     if (t.t === "id") {
       if (t.v === "TRUE") return true;
       if (t.v === "FALSE") return false;
+      if (peek().v !== "(") return resolve(t.raw ?? t.v);        // bare identifier = named variable
       eat("(");
       const args: Val[] = [];
       if (peek().v !== ")") { args.push(parseComparison()); while (peek().v === ",") { eat(","); args.push(parseComparison()); } }
@@ -138,3 +148,16 @@ export function evaluate(src: string, resolve: RefResolver): Val {
 export function checkFormula(src: string): string | null {
   try { evaluate(src, () => 0); return null; } catch (e) { return (e as Error).message; }
 }
+
+/** Names a formula refers to: [bracketed] refs and bare identifiers that are not function calls. */
+export function extractRefs(src: string): string[] {
+  const toks = tokenize(src);
+  const out = new Set<string>();
+  toks.forEach((t, i) => {
+    if (t.t === "ref") out.add(t.v);
+    else if (t.t === "id" && t.v !== "TRUE" && t.v !== "FALSE" && toks[i + 1]?.v !== "(") out.add(t.raw ?? t.v);
+  });
+  return Array.from(out);
+}
+
+export const FUNCTION_NAMES = ["IF", "ROUND", "MIN", "MAX", "SUM", "ABS", "FLOOR", "CEIL", "AND", "OR", "NOT", "CONCAT", "TRUE", "FALSE"];

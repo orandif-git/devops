@@ -1,6 +1,8 @@
 import { validateConfig as validateGrid } from "../core/gridModel";
 import { checkFormula } from "../core/expr";
 import { ProjectConfig } from "../core/types";
+import { orderCalculations, undefinedVariables } from "../core/calc";
+import { FUNCTION_NAMES } from "../core/expr";
 
 export interface Issue { level: "error" | "warn"; where: string; message: string }
 
@@ -131,5 +133,60 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
       for (const ref of Object.values(g.child.fieldMap ?? {})) if (ref) checkField(w, ref, types);
     }
   }
+
+  // ---- calculations
+  const calcs = cfg.calculations ?? [];
+  const written = new Map<string, string>();
+  for (const g of Object.values(cfg.grids)) {
+    (g.totals ?? []).forEach(t => t.field && written.set(t.field, "a grid total"));
+    (g.breakdowns ?? []).forEach(b => Object.values(b.fields ?? {}).forEach(f => f && written.set(f, "a grid breakdown")));
+  }
+  const { cyclic } = orderCalculations(calcs.filter(c => c.enabled));
+  calcs.forEach((c, i) => {
+    const w = `Calculation “${c.name || "#" + (i + 1)}”`;
+    if (!c.name.trim()) add("warn", w, "Give the calculation a name");
+    if (!c.formula.trim()) add("error", w, "The formula is empty");
+    else { const e = checkFormula(c.formula); if (e) add("error", w, `Formula: ${e}`); }
+    undefinedVariables(c).forEach(v => add("error", w, `Formula uses '${v}', which is not defined as an input`));
+    const seen = new Set<string>();
+    c.inputs.forEach(inp => {
+      const n = inp.name.toLowerCase();
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(inp.name)) add("error", w, `Input name '${inp.name}' must start with a letter and use only letters, digits and _`);
+      else if (FUNCTION_NAMES.includes(inp.name.toUpperCase())) add("error", w, `Input name '${inp.name}' is a reserved function name`);
+      if (seen.has(n)) add("error", w, `Input name '${inp.name}' is used twice`);
+      seen.add(n);
+      if (c.formula.trim() && !new RegExp(`\\b${inp.name}\\b`, "i").test(c.formula)) add("warn", w, `Input '${inp.name}' is not used in the formula`);
+      if (inp.source.kind === "field") {
+        const f = checkField(w, inp.source.field, c.workItemTypes);
+        if (f && /^(html|history|guid)$/i.test(f.type)) add("warn", w, `${f.name} is a ${f.type} field and may not hold a number`);
+      } else {
+        const g = cfg.grids[inp.source.grid];
+        if (!g) add("error", w, `Input '${inp.name}' uses grid '${inp.source.grid}', which does not exist`);
+        else {
+          if (!g.columns.some(col => col.id === (inp.source as { column: string }).column)) add("error", w, `Input '${inp.name}': pick a column of grid '${inp.source.grid}'`);
+          if (!g.dataField) add("warn", w, `Grid '${inp.source.grid}' has no data field, so this input will always be 0`);
+          (inp.source.where ?? []).forEach(cond => {
+            const col = g.columns.find(x => x.id === cond.column);
+            if (!col) add("error", w, `Input '${inp.name}': a condition uses an unknown column`);
+            else if (!cond.values.length) add("error", w, `Input '${inp.name}': a condition on '${col.name}' has no value`);
+            else {
+              const opts = col.options ?? (col.lookup ? Array.from(new Set(Object.values(col.lookup.map))) : undefined);
+              if (opts?.length) for (const v of cond.values) if (!opts.some(o => o.toLowerCase() === v.toLowerCase())) add("warn", w, `'${v}' is not a value of '${col.name}', so this input may always be 0`);
+            }
+          });
+        }
+      }
+    });
+    const rf = checkField(w, c.resultField, c.workItemTypes);
+    if (rf?.readOnly) add("warn", w, `${rf.name} is read-only; writing the result may fail`);
+    if (rf && /^(html|history|guid|boolean)$/i.test(rf.type)) add("error", w, `${rf.name} (${rf.type}) cannot hold a calculated result`);
+    if (c.resultField) {
+      const other = calcs.find((x, j) => j !== i && x.resultField === c.resultField);
+      if (other) add("error", w, `${c.resultField} is also written by calculation “${other.name}”`);
+      if (written.has(c.resultField)) add("error", w, `${c.resultField} is also written by ${written.get(c.resultField)}`);
+    }
+    if (cyclic.some(x => x.id === c.id)) add("error", w, "Circular dependency: this calculation (directly or through others) depends on its own result");
+    if (rf && !/^(string|plainText|picklistString)$/i.test(rf.type) && /"/.test(c.formula)) add("warn", w, `The formula uses text but ${rf.name} is ${rf.type || "not a text field"}`);
+  });
   return out;
 }

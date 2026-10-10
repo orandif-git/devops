@@ -5,13 +5,14 @@ import "../shared/styles.css";
 import "./hub.css";
 import { emptyConfig, ProjectConfig } from "../core/types";
 import { FieldInfo, getProject, init, listFields, listWorkItemTypes, loadConfig, saveConfig } from "../shared/ado";
+import { CalculationsTab } from "./CalculationsTab";
 import { CascadesTab } from "./CascadesTab";
 import { GridsTab } from "./GridsTab";
 import { RulesTab } from "./RulesTab";
 import { Ctx } from "./ui";
 import { makeCatalog, validateProject } from "./validate";
 
-type Tab = "rules" | "cascades" | "grids" | "json";
+type Tab = "rules" | "cascades" | "grids" | "calcs" | "json";
 
 function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) {
   const [text, setText] = React.useState(() => JSON.stringify(p.config, null, 2));
@@ -22,6 +23,8 @@ function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) 
       if (typeof c !== "object" || !c) throw new Error("Root must be an object");
       if (c.rules && !Array.isArray(c.rules)) throw new Error("'rules' must be an array");
       if (c.cascades && !Array.isArray(c.cascades)) throw new Error("'cascades' must be an array");
+      if (c.calculations && !Array.isArray(c.calculations)) throw new Error("'calculations' must be an array");
+      for (const k of c.calculations ?? []) if (!k.formula || !Array.isArray(k.inputs)) throw new Error(`Calculation '${k.name ?? "?"}' needs 'formula' and 'inputs'`);
       if (c.grids && (typeof c.grids !== "object" || Array.isArray(c.grids))) throw new Error("'grids' must be an object");
       for (const r of c.rules ?? []) if (!r.when || !Array.isArray(r.when.conditions) || !Array.isArray(r.then)) throw new Error(`Rule '${r.name ?? "?"}' needs 'when.conditions' and 'then'`);
       for (const [n, g] of Object.entries<{ columns?: unknown }>(c.grids ?? {})) if (!Array.isArray(g.columns)) throw new Error(`Grid '${n}' needs a 'columns' array`);
@@ -59,6 +62,7 @@ function Hub(props: { projectId: string; projectName: string }) {
     const s = new Set<string>();
     config?.rules.forEach(r => r.workItemTypes.forEach(t => s.add(t)));
     config?.cascades.forEach(c => c.workItemTypes.forEach(t => s.add(t)));
+    config?.calculations?.forEach(c => c.workItemTypes.forEach(t => s.add(t)));
     Object.values(config?.grids ?? {}).forEach(g => g.child?.workItemType && s.add(g.child.workItemType));
     return Array.from(s).filter(t => types.includes(t)).sort();
   }, [config, types]);
@@ -108,12 +112,13 @@ function Hub(props: { projectId: string; projectName: string }) {
           <span className="spacer" style={{ flex: 1 }} /><span className="muted">{msg}</span>
         </div>
         <div className="tabs">
-          {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["json", "JSON"]] as [Tab, string][])
+          {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => <button key={t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
         </div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}
         {tab === "cascades" && <CascadesTab cascades={config.cascades} issues={issues} onChange={cascades => setConfig({ ...config, cascades })} />}
         {tab === "grids" && <GridsTab grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
+        {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (
           <>

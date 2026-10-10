@@ -127,11 +127,49 @@ export interface Cascade {
   hints?: { areaPathUnder: string; parentValue: string }[];
 }
 
+// ---------------- calculations ----------------
+
+export type EmptyHandling = "inherit" | "blank" | "zero";
+
+export type CalcSource =
+  | { kind: "field"; field: string }
+  /** figure from a Smart Grid on the same work item; `where` conditions are ANDed */
+  | { kind: "grid"; grid: string; column: string; aggregate: Aggregate; where?: RowFilter[] };
+
+export interface CalcInput {
+  /** variable name used in the formula, e.g. CapexHours */
+  name: string;
+  source: CalcSource;
+  /** what to do when the input has no value; "inherit" uses the calculation's default */
+  onEmpty?: EmptyHandling;
+}
+
+export interface Calculation {
+  id: string;
+  name: string;
+  enabled: boolean;
+  /** empty = all work item types */
+  workItemTypes: string[];
+  inputs: CalcInput[];
+  /** e.g. CapexHours / TotalHours * 100 */
+  formula: string;
+  resultField: string;
+  /** rounding for numeric results (default 2) */
+  decimals?: number;
+  /** default for inputs with no value: blank the result, or treat the input as 0 */
+  onEmpty: "blank" | "zero";
+  /** division by zero: blank the result or give 0 */
+  onDivZero: "blank" | "zero";
+  /** always: rewrite on every recalculation; whenEmpty: only fill the field while it is empty */
+  mode: "always" | "whenEmpty";
+}
+
 export interface ProjectConfig {
   version: 1;
   rules: Rule[];
   cascades: Cascade[];
   grids: Record<string, GridConfig>;
+  calculations: Calculation[];
 }
 
-export const emptyConfig = (): ProjectConfig => ({ version: 1, rules: [], cascades: [], grids: {} });
+export const emptyConfig = (): ProjectConfig => ({ version: 1, rules: [], cascades: [], grids: {}, calculations: [] });

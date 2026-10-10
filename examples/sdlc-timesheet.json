@@ -180,5 +180,47 @@
       ],
       "totals": []
     }
-  }
+  },
+  "calculations": [
+    {
+      "id": "capitalization-pct",
+      "name": "Capitalization %",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "CapexHours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "TotalHours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum"
+          }
+        }
+      ],
+      "formula": "CapexHours / TotalHours * 100",
+      "resultField": "Custom.CapitalizationPercent",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    }
+  ]
 }
