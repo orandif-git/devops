@@ -171,6 +171,40 @@ export function evaluateCalculations(
   return { changes, notes };
 }
 
+/** What a calculation would do on a work item, step by step (used by the hub's "Try on a real work item"). */
+export interface Explanation {
+  inputs: { name: string; source: string; value: InputValue }[];
+  grids: { name: string; dataField?: string; rows: number; raw: "empty" | "unreadable" | "ok" }[];
+  result: CalcResult;
+  current: unknown;
+}
+
+export function explainCalculation(calc: Calculation, getField: (ref: string) => unknown, grids: Record<string, GridConfig>): Explanation {
+  const rowsCache = new Map<string, GridRow[]>();
+  const getRows = (name: string) => {
+    if (!rowsCache.has(name)) { const g = grids[name]; rowsCache.set(name, g?.dataField ? parseStored(getField(g.dataField), g) : []); }
+    return rowsCache.get(name)!;
+  };
+  const values = resolveInputs(calc, { getField, getRows });
+  const used = Array.from(new Set(calc.inputs.flatMap(i => (i.source.kind === "field" ? [] : [i.source.grid]))));
+  return {
+    inputs: calc.inputs.map(i => ({
+      name: i.name, value: values[i.name],
+      source: i.source.kind === "field" ? `field ${i.source.field}`
+        : i.source.kind === "top" ? `${i.source.pick === "min" ? "lowest" : "highest"} ${i.source.groupBy} by ${i.source.aggregate} of ${i.source.column} in ${i.source.grid}`
+        : `${i.source.aggregate} of ${i.source.column} in ${i.source.grid}${i.source.where?.length ? " where " + i.source.where.map(w => `${w.column} in [${w.values.join(", ")}]`).join(" and ") : ""}`,
+    })),
+    grids: used.map(name => {
+      const g = grids[name]; const raw = g?.dataField ? getField(g.dataField) : undefined;
+      const rows = getRows(name).length;
+      const text = raw === null || raw === undefined ? "" : String(raw).trim();
+      return { name, dataField: g?.dataField, rows, raw: !text ? "empty" as const : rows ? "ok" as const : "unreadable" as const };
+    }),
+    result: compute(calc, values),
+    current: getField(calc.resultField),
+  };
+}
+
 /** Variable names a formula uses that are not defined as inputs. */
 export const undefinedVariables = (c: Calculation) => {
   const names = new Set(c.inputs.map(i => i.name.toLowerCase()));

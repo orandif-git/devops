@@ -67,7 +67,8 @@ async function run(isLoad: boolean) {
         const c = evaluateCalculations(calcs, type, view, grids);
         for (const [f, v] of Object.entries(c.changes)) if (known.has(f)) (toSet as Record<string, unknown>)[f] = v;
         else console.warn(`[Grid & Rules] calculation result field ${f} is not on ${type}`);
-        c.notes.forEach(n => console.debug("[Grid & Rules] calculation:", n));
+        c.notes.forEach(n => console.info("[Grid & Rules] calculation:", n));
+        if (pass === 0) console.info(`[Grid & Rules] ${calcs.length} calculation(s) on ${type}; fields available: ${refs.length}; changes:`, JSON.stringify(c.changes));
       }
       errors = [...out.errors, ...cascadeErrors(cascades, type, k => (k in toSet ? toSet[k] : values[k]))];
       for (const f of Object.keys(toSet)) if (!known.has(f)) delete toSet[f];

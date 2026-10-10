@@ -261,3 +261,29 @@ describe("calculation on a grid without a saved data field", () => {
     expect(issues.find(i => /no data field saved/.test(i.message))?.level).toBe("error");
   });
 });
+
+import { explainCalculation } from "../src/core/calc";
+
+describe("explainCalculation (hub: try on a real work item)", () => {
+  const g: GridConfig = { dataField: "Custom.GridData", columns: [{ id: "tr", name: "T", type: "string" }, { id: "h", name: "H", type: "number" }] };
+  const calc = mk({ formula: "Capex / Total * 100", resultField: "Custom.Pct", inputs: [
+    { name: "Capex", source: { kind: "grid", grid: "G", column: "h", aggregate: "sum", where: [{ column: "tr", values: ["Capitalizable"] }] } },
+    { name: "Total", source: { kind: "grid", grid: "G", column: "h", aggregate: "sum" } }] });
+  const rows = serialize([normalizeRow({ tr: "Capitalizable", h: 30 }, g), normalizeRow({ tr: "Expense", h: 90 }, g)]);
+
+  it("shows rows read, each input and the result", () => {
+    const ex = explainCalculation(calc, f => ({ "Custom.GridData": rows, "Custom.Pct": "" } as Record<string, unknown>)[f], { G: g });
+    expect(ex.grids[0]).toMatchObject({ name: "G", dataField: "Custom.GridData", rows: 2, raw: "ok" });
+    expect(ex.inputs.map(i => [i.name, i.value])).toEqual([["Capex", 30], ["Total", 120]]);
+    expect(ex.inputs[0].source).toMatch(/sum of h in G where tr in \[Capitalizable\]/);
+    expect(ex.result.value).toBe(25);
+  });
+  it("explains the three classic failures", () => {
+    const empty = explainCalculation(calc, () => undefined, { G: g });                     // rows not saved on this work item
+    expect(empty.grids[0].raw).toBe("empty"); expect(empty.result).toMatchObject({ value: null, reason: "division by zero" });
+    const junk = explainCalculation(calc, f => (f === "Custom.GridData" ? "hello" : undefined), { G: g });
+    expect(junk.grids[0].raw).toBe("unreadable");
+    const noField = explainCalculation(calc, () => rows, { G: { columns: g.columns } });   // data field missing in the saved grid definition
+    expect(noField.grids[0]).toMatchObject({ dataField: undefined, rows: 0, raw: "empty" }); expect(noField.result.value).toBeNull();
+  });
+});

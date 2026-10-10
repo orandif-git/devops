@@ -1,7 +1,9 @@
 import * as React from "react";
-import { compute, toInputValue, undefinedVariables } from "../core/calc";
+import { compute, explainCalculation, toInputValue, undefinedVariables } from "../core/calc";
+import { resolvedGrids } from "../core/sharedLookups";
+import { listFields, witClient } from "../shared/ado";
 import { Aggregate, CalcInput, Calculation, EmptyHandling, GridConfig, RowFilter } from "../core/types";
-import { csv, delAt, FieldInput, setAt, TypeChips, uid } from "./ui";
+import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid } from "./ui";
 import { Issue } from "./validate";
 
 const AGG: Aggregate[] = ["sum", "avg", "min", "max", "count"];
@@ -94,6 +96,48 @@ function InputCard(p: { input: CalcInput; grids: Record<string, GridConfig>; onC
   );
 }
 
+/** Run the calculation against a real work item and show every step – the quickest way to see why a result is blank. */
+function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig> }) {
+  const { projectName, lookups } = React.useContext(Ctx);
+  const [id, setId] = React.useState("");
+  const [out, setOut] = React.useState<{ type: string; resultOnType: boolean; dataFieldsOnType: Record<string, boolean>; ex: ReturnType<typeof explainCalculation> } | string>();
+  const run = async () => {
+    const n = parseInt(id, 10);
+    if (!n) { setOut("Enter a work item id."); return; }
+    setOut("Loading…");
+    try {
+      const wi = await (await witClient()).getWorkItem(n);
+      const fields = (wi.fields ?? {}) as Record<string, unknown>;
+      const type = String(fields["System.WorkItemType"] ?? "");
+      const onType = new Set((await listFields(projectName, type)).map(f => f.referenceName));
+      const grids = resolvedGrids({ grids: p.grids, lookups });
+      const ex = explainCalculation(p.calc, f => fields[f], grids);
+      setOut({ type, resultOnType: onType.has(p.calc.resultField), dataFieldsOnType: Object.fromEntries(ex.grids.filter(g => g.dataField).map(g => [g.dataField!, onType.has(g.dataField!)])), ex });
+    } catch (e) { setOut("Could not read the work item: " + (e as Error).message); }
+  };
+  return (
+    <div className="card">
+      <div className="help">Try it on a real work item: shows what each input reads and why the result is what it is. Reads saved values only – save the work item first.</div>
+      <div className="row"><input style={{ maxWidth: 160 }} placeholder="Work item id" value={id} onChange={e => setId(e.target.value)} onKeyDown={e => { if (e.key === "Enter") run(); }} />
+        <button className="btn" onClick={run}>Check</button></div>
+      {typeof out === "string" && <div className="muted">{out}</div>}
+      {out && typeof out !== "string" && (
+        <div style={{ marginTop: 6 }}>
+          <div>Work item type: <strong>{out.type}</strong>{p.calc.workItemTypes.length > 0 && !p.calc.workItemTypes.includes(out.type) && <span className="err"> – this calculation is limited to {p.calc.workItemTypes.join(", ")}, so it does not run here</span>}</div>
+          <div>Result field <code>{p.calc.resultField}</code> on this type: {out.resultOnType ? <span className="ok">yes</span> : <span className="err">NO – add the field to this work item type</span>} · current value: <strong>{out.ex.current === null || out.ex.current === undefined || out.ex.current === "" ? "(empty)" : String(out.ex.current)}</strong></div>
+          {out.ex.grids.map(g => (
+            <div key={g.name}>Grid “{g.name}” → data field <code>{g.dataField ?? "(none saved)"}</code>              {g.dataField && !out.dataFieldsOnType[g.dataField] && <span className="err"> – not on this work item type</span>}: {g.raw === "ok" ? <span className="ok">{g.rows} row(s) read</span> : g.raw === "empty" ? <span className="err">EMPTY on this work item (rows not saved yet, or a different field)</span> : <span className="err">has text, but it is not readable grid data</span>}</div>
+          ))}
+          <table style={{ marginTop: 6 }}><tbody>
+            {out.ex.inputs.map(i => <tr key={i.name}><td><strong>{i.name}</strong></td><td>=&nbsp;</td><td>{i.value === null ? <span className="muted">(empty)</span> : String(i.value)}</td><td className="muted">&nbsp;{i.source}</td></tr>)}
+          </tbody></table>
+          <div>Formula result: <strong>{out.ex.result.value === null ? "(blank)" : String(out.ex.result.value)}</strong>{out.ex.result.reason && <span className="muted"> – {out.ex.result.reason}</span>}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function TestPanel({ calc }: { calc: Calculation }) {
   const [vals, setVals] = React.useState<Record<string, string>>({});
   const parsed = Object.fromEntries(calc.inputs.map(i => [i.name, toInputValue(vals[i.name])]));
@@ -168,6 +212,8 @@ function Editor(p: { c: Calculation; grids: Record<string, GridConfig>; onChange
 
       <h3>Test</h3>
       <TestPanel calc={c} />
+      <h3>Try on a real work item</h3>
+      <LiveCheck calc={c} grids={p.grids} />
       {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
     </div>
   );
