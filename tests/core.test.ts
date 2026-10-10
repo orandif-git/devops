@@ -147,3 +147,44 @@ describe("auto-select single dependent option", () => {
     expect(r.tr).toBe("Expense");
   });
 });
+
+import { summaries } from "../src/core/gridModel";
+
+describe("lookup auto-fill and grouped totals", () => {
+  const c: GridConfig = {
+    columns: [
+      { id: "act", name: "Activity", type: "dropdown", options: ["Idea", "Coding", "Training"] },
+      { id: "phase", name: "Phase", type: "string", lookup: { column: "act", map: { Idea: "Discovery", Coding: "Build", Training: "Deployment" } } },
+      { id: "tr", name: "Treatment", type: "string", lookup: { column: "act", map: { Idea: "Expense", Coding: "Capitalizable", Training: "Expense" } } },
+      { id: "h", name: "Hours", type: "number", required: true },
+    ],
+    breakdowns: [{ by: "tr", column: "h", aggregate: "sum", fields: { Capitalizable: "Custom.Cap", Expense: "Custom.Exp", Conditional: "Custom.Cond" } }],
+    totals: [{ column: "h", aggregate: "sum", field: "Custom.All" }, { column: "h", aggregate: "sum", field: "Custom.OnlyBuild", where: { column: "phase", values: ["Build"] }, label: "Build hours" }],
+  };
+  const data = () => [normalizeRow({ act: "Idea", h: 4 }, c), normalizeRow({ act: "Coding", h: 10 }, c), normalizeRow({ act: "Training", h: 1.5 }, c)];
+  it("fills dependent columns from the chosen activity, case-insensitively", () => {
+    const [r] = data();
+    expect([r.phase, r.tr]).toEqual(["Discovery", "Expense"]);
+    r.act = "coding"; recompute(r, c);
+    expect([r.phase, r.tr]).toEqual(["Build", "Capitalizable"]);
+    r.act = ""; recompute(r, c);
+    expect([r.phase, r.tr]).toEqual(["", ""]);
+  });
+  it("lookup columns are never 'required' errors", () => {
+    expect(validateRows([normalizeRow({ act: "Idea", h: 1 }, c)], c)).toEqual([]);
+  });
+  it("pushes each group to its own field, 0 for absent groups, plus filtered totals", () => {
+    expect(mappedTotals(data(), c)).toEqual({ "Custom.All": 15.5, "Custom.OnlyBuild": 10, "Custom.Cap": 10, "Custom.Exp": 5.5, "Custom.Cond": 0 });
+    expect(mappedTotals([], c)["Custom.Cap"]).toBe(0);                          // empty grid resets fields
+  });
+  it("summaries expose labels and per-group lines", () => {
+    const s = summaries(data(), c);
+    expect(s.mapped.map(m => m.label)).toEqual(["Sum of Hours", "Build hours"]);
+    expect(s.groups[0].lines.map(l => `${l.label}=${l.value}`)).toEqual(["Expense=5.5", "Capitalizable=10"]);
+  });
+  it("config checks: duplicate field targets and bad lookups", () => {
+    const bad: GridConfig = { ...c, totals: [{ column: "h", aggregate: "sum", field: "Custom.Cap" }] };
+    expect(validateConfig(bad).join("|")).toMatch(/written by both/);
+    expect(validateConfig({ columns: [{ id: "x", name: "x", type: "string", lookup: { column: "nope", map: { a: "b" } } }] }).join("|")).toMatch(/unknown column/);
+  });
+});

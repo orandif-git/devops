@@ -101,11 +101,30 @@ export function validateProject(cfg: ProjectConfig, cat: Catalog): Issue[] {
       const f = checkField(w, g.dataField, []);
       if (f && NUMERIC.test(f.type)) add("error", w, `Data field ${f.name} must be a text field`);
     }
+    g.columns.forEach(c => {
+      if (!c.lookup) return;
+      const src = g.columns.find(x => x.id === c.lookup!.column);
+      const known = src?.options ?? (src?.dependsOn ? Object.values(src.dependsOn.map).flat() : undefined);
+      if (known?.length) {
+        const missing = known.filter(o => !Object.keys(c.lookup!.map).some(k => k.toLowerCase() === o.toLowerCase()));
+        if (missing.length) add("warn", w, `'${c.id}' has no auto-fill value for ${missing.length} option(s) of '${src!.id}': ${missing.slice(0, 4).join(", ")}${missing.length > 4 ? "…" : ""}`);
+        const extra = Object.keys(c.lookup!.map).filter(k => !known.some(o => o.toLowerCase() === k.toLowerCase()));
+        if (extra.length) add("warn", w, `'${c.id}' lookup lists value(s) that '${src!.id}' does not offer: ${extra.slice(0, 4).join(", ")}`);
+      }
+    });
     (g.totals ?? []).forEach(t => {
       const f = checkField(w, t.field, []);
       if (f && !NUMERIC.test(f.type)) add("error", w, `${f.name} is not numeric; a total can only be written to an Integer/Decimal field`);
       if (f?.readOnly) add("warn", w, `${f.name} is read-only`);
+      const wc = t.where && g.columns.find(x => x.id === t.where!.column);
+      const opts = wc?.options ?? (wc?.lookup ? Array.from(new Set(Object.values(wc.lookup.map))) : undefined);
+      if (t.where && opts?.length) for (const v of t.where.values) if (!opts.some(o => o.toLowerCase() === v.toLowerCase())) add("warn", w, `Filter value '${v}' is not an option of '${wc!.id}', so this total will be 0`);
     });
+    (g.breakdowns ?? []).forEach(b => Object.entries(b.fields ?? {}).forEach(([grp, ref]) => {
+      const f = checkField(w, ref, []);
+      if (f && !NUMERIC.test(f.type)) add("error", w, `${f.name} (for '${grp}') is not numeric; a grouped total can only be written to an Integer/Decimal field`);
+      if (f?.readOnly) add("warn", w, `${f.name} is read-only`);
+    }));
     if (g.child?.enabled) {
       const types = g.child.workItemType ? [g.child.workItemType] : [];
       if (!g.child.workItemType) add("error", w, "Child work item type is required");

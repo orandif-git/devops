@@ -8,6 +8,8 @@ Smart editable grids, conditional rules and dependent dropdowns for Azure DevOps
 - Column types: **text, number, checkbox, date, dropdown, identity (people picker)**
 - Required, default value, min/max, per-column width
 - **Dependent dropdowns inside cells** (a column's options depend on another column)
+- **Auto-fill columns:** pick one value (e.g. SDLC Activity) and other columns (Phase, Default treatment) fill themselves from a lookup table
+- **Grouped totals:** sum Hours per Treatment (Capitalizable / Expense / Conditional) and write **each group to its own work item field**; a live breakdown is shown under the grid
 - **Row formulas** such as `ROUND([qty] * [price], 2)` and footer **totals** (sum / avg / min / max / count)
 - **Map totals to work item fields** (e.g. Original Estimate)
 - **Import / export** CSV and Excel (.xlsx)

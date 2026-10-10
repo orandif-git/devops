@@ -27,7 +27,7 @@ export function rowsFromMatrix(matrix: unknown[][], cfg: GridConfig): { rows: Gr
   const unmatched = cfg.columns.filter((_, i) => index[i] < 0).map(c => c.name);
   const rows = matrix.slice(1).filter(r => r.some(v => v !== null && v !== undefined && String(v).trim() !== "")).map(r => {
     const src: Record<string, unknown> = {};
-    cfg.columns.forEach((c, i) => { if (index[i] >= 0 && !c.formula) src[c.id] = coerce(c, r[index[i]]); });
+    cfg.columns.forEach((c, i) => { if (index[i] >= 0 && !c.formula && !c.lookup) src[c.id] = coerce(c, r[index[i]]); });
     return normalizeRow(src, cfg);
   });
   return { rows, unmatched };

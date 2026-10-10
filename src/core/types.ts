@@ -18,14 +18,26 @@ export interface ColumnDef {
   min?: number;
   max?: number;
   width?: number;
+  /**
+   * Auto-fill: value is looked up from another column of the same row (read-only, computed).
+   * e.g. Phase = lookup of "SDLC Activity": { "Idea generation": "Discovery", ... }
+   */
+  lookup?: { column: string; map: Record<string, string>; fallback?: string };
   /** identity columns: also search groups (default true) */
   identityGroups?: boolean;
 }
+
+/** Only rows whose `column` value is one of `values` (case-insensitive) take part. */
+export interface RowFilter { column: string; values: string[] }
 
 /** Push a column aggregate into a work item field. */
 export interface TotalMapping {
   column: string;
   aggregate: Aggregate;
+  /** group/filter: e.g. sum of Hours where Treatment = Capitalizable */
+  where?: RowFilter;
+  /** display name, e.g. "Capitalizable man-hours" */
+  label?: string;
   /** work item field reference name, e.g. Microsoft.VSTS.Scheduling.OriginalEstimate */
   field: string;
 }
@@ -40,8 +52,19 @@ export interface ChildConfig {
   fieldMap: Record<string, string>;
 }
 
+/** Display-only grouping: one figure per distinct value of `by`, e.g. hours by Treatment. */
+export interface Breakdown {
+  by: string;
+  column: string;
+  aggregate: Aggregate;
+  label?: string;
+  /** group value -> work item field to write that group's figure to (0 when the group has no rows) */
+  fields?: Record<string, string>;
+}
+
 export interface GridConfig {
   columns: ColumnDef[];
+  breakdowns?: Breakdown[];
   /** field that stores the JSON; falls back to the control's DataField input */
   dataField?: string;
   totals?: TotalMapping[];

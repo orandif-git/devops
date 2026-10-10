@@ -17,3 +17,7 @@
 .idpop li.on { background: var(--accent); color: var(--accent-fg); }
 .idpop li .dt { opacity: .7; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
 .idpop li.muted { cursor: default; color: var(--fg2); }
+.wig .sums { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 2px 0; }
+.wig .sum { border: 1px solid var(--line); padding: 2px 8px; border-radius: 3px; background: var(--hover); }
+.wig .sum.group { background: none; }
+.wig .gl { margin-right: 10px; }

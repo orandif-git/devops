@@ -1,5 +1,5 @@
 import * as React from "react";
-import { columnTotals, newRow, optionsFor, recompute, validateRows, mappedTotals } from "../core/gridModel";
+import { columnTotals, newRow, optionsFor, recompute, summaries, validateRows } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 
@@ -67,13 +67,13 @@ export function Grid(p: GridProps) {
     const next = [...rows]; next.splice(i + 1, 0, recompute(copy, cfg)); p.onChange(next);
   };
 
-  const mapped = mappedTotals(rows, cfg);
+  const sums = React.useMemo(() => summaries(rows, cfg), [rows, cfg]);
   const childOn = !!cfg.child?.enabled;
   const pendingChildren = rows.filter(r => !r._childId).length;
 
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
-    const dis = readOnly || !!c.formula;
+    const dis = readOnly || !!c.formula || !!c.lookup;
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id);
     switch (c.type) {
@@ -133,7 +133,7 @@ export function Grid(p: GridProps) {
               <th className="narrow">#</th>
               {cfg.columns.map(c => (
                 <th key={c.id} style={{ minWidth: c.width }} onClick={() => setSort(s => (s?.col === c.id ? (s.dir === 1 ? { col: c.id, dir: -1 } : null) : { col: c.id, dir: 1 }))}>
-                  {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}
+                  {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}{c.lookup && <span className="muted" title={`Filled automatically from ${cfg.columns.find(x => x.id === c.lookup!.column)?.name ?? c.lookup.column}`}> ⇢</span>}
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
@@ -175,9 +175,16 @@ export function Grid(p: GridProps) {
           )}
         </table>
       </div>
+      {(sums.mapped.length > 0 || sums.groups.length > 0) && (
+        <div className="sums">
+          {sums.mapped.map((m, i) => <span key={i} className="sum" title={m.field ? `Saved to ${m.field}` : undefined}><span className="muted">{m.label}</span> <strong>{m.value}</strong></span>)}
+          {sums.groups.map((g, i) => (
+            <span key={"g" + i} className="sum group"><span className="muted">{g.title}:</span> {g.lines.length ? g.lines.map(l => <span key={l.label} className="gl" title={l.field ? `Saved to ${l.field}` : undefined}>{l.label} <strong>{l.value}</strong></span>) : <span className="muted">–</span>}</span>
+          ))}
+        </div>
+      )}
       <div className="foot muted">
         {errors.length > 0 && <span className="err">{errors.length} value{errors.length > 1 ? "s" : ""} still need attention{cfg.blockSave ? " – the work item can't be saved until fixed" : ""} – hover red cells. </span>}
-        {Object.keys(mapped).length > 0 && <span>Totals → {Object.entries(mapped).map(([f, v]) => `${f}: ${v}`).join(", ")}. </span>}
         {p.status}
       </div>
     </div>

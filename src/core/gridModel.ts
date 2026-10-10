@@ -1,5 +1,5 @@
 import { evaluate } from "./expr";
-import { Aggregate, ColumnDef, GridConfig, GridRow } from "./types";
+import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter } from "./types";
 
 let seq = 0;
 export const newId = () => `r${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -87,6 +87,12 @@ export function optionsFor(col: ColumnDef, row: GridRow): string[] {
 export function recompute(row: GridRow, cfg: GridConfig): GridRow {
   const changed = new Set<string>(); // columns reset or auto-filled during this pass; their dependants must be re-derived
   for (const c of cfg.columns) {
+    if (c.lookup) {
+      const src = String(row[c.lookup.column] ?? "");
+      const key = Object.keys(c.lookup.map).find(k => k.toLowerCase() === src.toLowerCase());
+      row[c.id] = coerce(c, key !== undefined ? c.lookup.map[key] : c.lookup.fallback ?? "");
+      continue;
+    }
     if (c.dependsOn && c.type === "dropdown") {
       const opts = optionsFor(c, row);
       let v = String(row[c.id] ?? "");
@@ -132,13 +138,48 @@ export function columnTotals(rows: GridRow[], cfg: GridConfig): Record<string, n
   return out;
 }
 
+export const rowMatches = (row: GridRow, w?: RowFilter) =>
+  !w || !w.column || w.values.some(v => String(row[w.column] ?? "").toLowerCase() === v.toLowerCase());
+
 /** field ref name -> value to push to the work item */
 export function mappedTotals(rows: GridRow[], cfg: GridConfig): Record<string, number> {
   const out: Record<string, number> = {};
   for (const m of cfg.totals ?? []) {
-    if (m.field && cfg.columns.some(c => c.id === m.column)) out[m.field] = aggregate(rows.map(r => r[m.column]), m.aggregate);
+    if (m.field && cfg.columns.some(c => c.id === m.column))
+      out[m.field] = aggregate(rows.filter(r => rowMatches(r, m.where)).map(r => r[m.column]), m.aggregate);
+  }
+  // breakdown groups mapped to fields: one field per group value; absent groups are written as 0
+  for (const b of cfg.breakdowns ?? []) {
+    if (!cfg.columns.some(c => c.id === b.column) || !cfg.columns.some(c => c.id === b.by)) continue;
+    for (const [group, field] of Object.entries(b.fields ?? {})) {
+      if (!field) continue;
+      out[field] = aggregate(rows.filter(r => String(r[b.by] ?? "").trim().toLowerCase() === group.toLowerCase()).map(r => r[b.column]), b.aggregate);
+    }
   }
   return out;
+}
+
+export interface SummaryLine { label: string; value: number; field?: string }
+export interface SummaryGroup { title: string; lines: SummaryLine[] }
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Figures shown under the grid: mapped totals (with their group filter) and per-value breakdowns. */
+export function summaries(rows: GridRow[], cfg: GridConfig): { mapped: SummaryLine[]; groups: SummaryGroup[] } {
+  const name = (id: string) => cfg.columns.find(c => c.id === id)?.name ?? id;
+  const mapped = (cfg.totals ?? []).filter(m => cfg.columns.some(c => c.id === m.column)).map(m => ({
+    label: m.label || `${cap(m.aggregate)} of ${name(m.column)}${m.where?.values.length ? ` (${m.where.values.join(" / ")})` : ""}`,
+    value: aggregate(rows.filter(r => rowMatches(r, m.where)).map(r => r[m.column]), m.aggregate),
+    field: m.field,
+  }));
+  const groups = (cfg.breakdowns ?? []).filter(b => cfg.columns.some(c => c.id === b.by) && cfg.columns.some(c => c.id === b.column)).map(b => {
+    const keys = Array.from(new Set(rows.map(r => String(r[b.by] ?? "").trim()).filter(Boolean)));
+    return {
+      title: b.label || `${cap(b.aggregate)} of ${name(b.column)} by ${name(b.by)}`,
+      lines: keys.map(k => ({ label: k, value: aggregate(rows.filter(r => String(r[b.by] ?? "").trim() === k).map(r => r[b.column]), b.aggregate), field: Object.entries(b.fields ?? {}).find(([g]) => g.toLowerCase() === k.toLowerCase())?.[1] })),
+    };
+  });
+  return { mapped, groups };
 }
 
 export interface CellError { rowId: string; column: string; message: string }
@@ -148,12 +189,12 @@ export function validateRows(rows: GridRow[], cfg: GridConfig): CellError[] {
   for (const r of rows) for (const c of cfg.columns) {
     const v = r[c.id];
     const empty = v === "" || v === null || v === undefined;
-    if (c.required && !c.formula && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
+    if (c.required && !c.formula && !c.lookup && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
     if (c.type === "number" && typeof v === "number") {
       if (c.min !== undefined && v < c.min) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≥ ${c.min}` });
       if (c.max !== undefined && v > c.max) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≤ ${c.max}` });
     }
-    if (c.type === "dropdown" && !empty && !optionsFor(c, r).includes(String(v)))
+    if (c.type === "dropdown" && !c.lookup && !empty && !optionsFor(c, r).includes(String(v)))
       errs.push({ rowId: r._id, column: c.id, message: `${c.name}: '${v}' is not allowed` });
   }
   return errs;
@@ -167,13 +208,24 @@ export function validateConfig(cfg: GridConfig): string[] {
     else if (!/^[A-Za-z0-9_]+$/.test(c.id)) errs.push(`Column id '${c.id}' may only contain letters, digits and _`);
     if (ids.has(c.id)) errs.push(`Duplicate column id '${c.id}'`);
     ids.add(c.id);
-    if (c.type === "dropdown" && !c.dependsOn && !(c.options && c.options.length)) errs.push(`Dropdown '${c.id}' has no options`);
+    if (c.type === "dropdown" && !c.lookup && !c.dependsOn && !(c.options && c.options.length)) errs.push(`Dropdown '${c.id}' has no options`);
+    if (c.lookup) {
+      if (!cfg.columns.some(x => x.id === c.lookup!.column)) errs.push(`'${c.id}' looks up unknown column '${c.lookup.column}'`);
+      else if (c.lookup.column === c.id) errs.push(`'${c.id}' cannot look up itself`);
+      if (!Object.keys(c.lookup.map).length) errs.push(`'${c.id}' has an empty lookup table`);
+    }
     if (c.dependsOn && !cfg.columns.some(x => x.id === c.dependsOn!.column)) errs.push(`'${c.id}' depends on unknown column '${c.dependsOn.column}'`);
   }
   for (const t of cfg.totals ?? []) {
     if (!ids.has(t.column)) errs.push(`Total mapping uses unknown column '${t.column}'`);
     if (!t.field) errs.push(`Total mapping for '${t.column}' has no work item field`);
+    if (t.where && (!ids.has(t.where.column) || !t.where.values.length)) errs.push(`Total mapping for '${t.column}': the group filter needs an existing column and at least one value`);
   }
+  for (const b of cfg.breakdowns ?? []) if (!ids.has(b.by) || !ids.has(b.column)) errs.push(`Breakdown '${b.label ?? b.by}' uses an unknown column`);
+  const used = new Map<string, string>();
+  const claim = (field: string, who: string) => { if (!field) return; const prev = used.get(field); if (prev) errs.push(`Field '${field}' is written by both ${prev} and ${who}`); else used.set(field, who); };
+  for (const t of cfg.totals ?? []) claim(t.field, `total of '${t.column}'`);
+  for (const b of cfg.breakdowns ?? []) for (const [g, f] of Object.entries(b.fields ?? {})) claim(f, `breakdown '${g}'`);
   if (cfg.child?.enabled && !ids.has(cfg.child.titleColumn)) errs.push(`Child title column '${cfg.child.titleColumn}' does not exist`);
   return errs;
 }

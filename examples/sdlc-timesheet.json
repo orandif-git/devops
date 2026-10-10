@@ -7,194 +7,129 @@
       "dataField": "Custom.GridData",
       "columns": [
         {
-          "id": "phase",
-          "name": "Phase",
-          "type": "dropdown",
-          "required": true,
-          "options": [
-            "Discovery",
-            "Initiation",
-            "Requirements",
-            "Design",
-            "Build",
-            "SIT",
-            "UAT",
-            "Deployment",
-            "Hypercare",
-            "Closure"
-          ]
-        },
-        {
           "id": "sdlcactivity",
           "name": "SDLC Activity",
           "type": "dropdown",
           "required": true,
-          "dependsOn": {
-            "column": "phase",
+          "options": [
+            "Idea generation",
+            "Strategic assessment",
+            "Discovery workshops",
+            "Feasibility study",
+            "Business case preparation",
+            "RFP preparation",
+            "Vendor evaluation and selection",
+            "Preliminary requirements",
+            "Detailed functional requirements",
+            "Detailed business analysis",
+            "Functional design",
+            "Technical design",
+            "Solution architecture",
+            "Development and coding",
+            "System configuration",
+            "Interface development",
+            "Integration development",
+            "Data migration development",
+            "Data cleansing",
+            "Unit testing",
+            "System integration testing",
+            "Security testing",
+            "Performance testing",
+            "User acceptance testing",
+            "Production deployment",
+            "Cutover execution",
+            "Go-live validation",
+            "User training",
+            "Change management and communications",
+            "Hypercare",
+            "Production support",
+            "Routine defect correction",
+            "Project closure"
+          ]
+        },
+        {
+          "id": "phase",
+          "name": "Phase",
+          "type": "string",
+          "lookup": {
+            "column": "sdlcactivity",
             "map": {
-              "Discovery": [
-                "Idea generation",
-                "Strategic assessment",
-                "Discovery workshops",
-                "Feasibility study"
-              ],
-              "Initiation": [
-                "Business case preparation",
-                "RFP preparation",
-                "Vendor evaluation and selection"
-              ],
-              "Requirements": [
-                "Preliminary requirements",
-                "Detailed functional requirements",
-                "Detailed business analysis"
-              ],
-              "Design": [
-                "Functional design",
-                "Technical design",
-                "Solution architecture"
-              ],
-              "Build": [
-                "Development and coding",
-                "System configuration",
-                "Interface development",
-                "Integration development",
-                "Data migration development",
-                "Data cleansing",
-                "Unit testing"
-              ],
-              "SIT": [
-                "System integration testing",
-                "Security testing",
-                "Performance testing"
-              ],
-              "UAT": [
-                "User acceptance testing"
-              ],
-              "Deployment": [
-                "Production deployment",
-                "Cutover execution",
-                "Go-live validation",
-                "User training",
-                "Change management and communications"
-              ],
-              "Hypercare": [
-                "Hypercare",
-                "Production support",
-                "Routine defect correction"
-              ],
-              "Closure": [
-                "Project closure"
-              ]
+              "Idea generation": "Discovery",
+              "Strategic assessment": "Discovery",
+              "Discovery workshops": "Discovery",
+              "Feasibility study": "Discovery",
+              "Business case preparation": "Initiation",
+              "RFP preparation": "Initiation",
+              "Vendor evaluation and selection": "Initiation",
+              "Preliminary requirements": "Requirements",
+              "Detailed functional requirements": "Requirements",
+              "Detailed business analysis": "Requirements",
+              "Functional design": "Design",
+              "Technical design": "Design",
+              "Solution architecture": "Design",
+              "Development and coding": "Build",
+              "System configuration": "Build",
+              "Interface development": "Build",
+              "Integration development": "Build",
+              "Data migration development": "Build",
+              "Data cleansing": "Build",
+              "Unit testing": "Build",
+              "System integration testing": "SIT",
+              "Security testing": "SIT",
+              "Performance testing": "SIT",
+              "User acceptance testing": "UAT",
+              "Production deployment": "Deployment",
+              "Cutover execution": "Deployment",
+              "Go-live validation": "Deployment",
+              "User training": "Deployment",
+              "Change management and communications": "Deployment",
+              "Hypercare": "Hypercare",
+              "Production support": "Hypercare",
+              "Routine defect correction": "Hypercare",
+              "Project closure": "Closure"
             }
           }
         },
         {
           "id": "treatment",
           "name": "Default treatment",
-          "type": "dropdown",
-          "required": true,
-          "dependsOn": {
+          "type": "string",
+          "lookup": {
             "column": "sdlcactivity",
             "map": {
-              "Idea generation": [
-                "Expense"
-              ],
-              "Strategic assessment": [
-                "Expense"
-              ],
-              "Discovery workshops": [
-                "Expense"
-              ],
-              "Feasibility study": [
-                "Expense"
-              ],
-              "Business case preparation": [
-                "Expense"
-              ],
-              "RFP preparation": [
-                "Expense"
-              ],
-              "Vendor evaluation and selection": [
-                "Expense"
-              ],
-              "Preliminary requirements": [
-                "Expense"
-              ],
-              "Detailed functional requirements": [
-                "Conditional"
-              ],
-              "Detailed business analysis": [
-                "Conditional"
-              ],
-              "Functional design": [
-                "Capitalizable"
-              ],
-              "Technical design": [
-                "Capitalizable"
-              ],
-              "Solution architecture": [
-                "Capitalizable"
-              ],
-              "Development and coding": [
-                "Capitalizable"
-              ],
-              "System configuration": [
-                "Capitalizable"
-              ],
-              "Interface development": [
-                "Capitalizable"
-              ],
-              "Integration development": [
-                "Capitalizable"
-              ],
-              "Data migration development": [
-                "Capitalizable"
-              ],
-              "Data cleansing": [
-                "Expense"
-              ],
-              "Unit testing": [
-                "Capitalizable"
-              ],
-              "System integration testing": [
-                "Capitalizable"
-              ],
-              "Security testing": [
-                "Capitalizable"
-              ],
-              "Performance testing": [
-                "Capitalizable"
-              ],
-              "User acceptance testing": [
-                "Conditional"
-              ],
-              "Production deployment": [
-                "Capitalizable"
-              ],
-              "Cutover execution": [
-                "Conditional"
-              ],
-              "Go-live validation": [
-                "Capitalizable"
-              ],
-              "User training": [
-                "Expense"
-              ],
-              "Change management and communications": [
-                "Expense"
-              ],
-              "Hypercare": [
-                "Expense"
-              ],
-              "Production support": [
-                "Expense"
-              ],
-              "Routine defect correction": [
-                "Expense"
-              ],
-              "Project closure": [
-                "Expense"
-              ]
+              "Idea generation": "Expense",
+              "Strategic assessment": "Expense",
+              "Discovery workshops": "Expense",
+              "Feasibility study": "Expense",
+              "Business case preparation": "Expense",
+              "RFP preparation": "Expense",
+              "Vendor evaluation and selection": "Expense",
+              "Preliminary requirements": "Expense",
+              "Detailed functional requirements": "Conditional",
+              "Detailed business analysis": "Conditional",
+              "Functional design": "Capitalizable",
+              "Technical design": "Capitalizable",
+              "Solution architecture": "Capitalizable",
+              "Development and coding": "Capitalizable",
+              "System configuration": "Capitalizable",
+              "Interface development": "Capitalizable",
+              "Integration development": "Capitalizable",
+              "Data migration development": "Capitalizable",
+              "Data cleansing": "Expense",
+              "Unit testing": "Capitalizable",
+              "System integration testing": "Capitalizable",
+              "Security testing": "Capitalizable",
+              "Performance testing": "Capitalizable",
+              "User acceptance testing": "Conditional",
+              "Production deployment": "Capitalizable",
+              "Cutover execution": "Conditional",
+              "Go-live validation": "Capitalizable",
+              "User training": "Expense",
+              "Change management and communications": "Expense",
+              "Hypercare": "Expense",
+              "Production support": "Expense",
+              "Routine defect correction": "Expense",
+              "Project closure": "Expense"
             }
           }
         },
@@ -228,6 +163,19 @@
           "required": true,
           "min": 0,
           "total": "sum"
+        }
+      ],
+      "breakdowns": [
+        {
+          "by": "treatment",
+          "column": "Hours",
+          "aggregate": "sum",
+          "label": "Man-hours by treatment",
+          "fields": {
+            "Capitalizable": "Custom.CapitalizableManHours",
+            "Expense": "Custom.ExpenseManHours",
+            "Conditional": "Custom.ConditionalManHours"
+          }
         }
       ],
       "totals": []

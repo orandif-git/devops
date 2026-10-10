@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Aggregate, ColumnDef, ColumnType, GridConfig, GridRow } from "../core/types";
+import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
@@ -40,6 +40,17 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
               </>}
               <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
             </div>
+            {c.type !== "identity" && c.type !== "boolean" && (
+              <>
+                <label className="field"><span>Auto-fill from another column (read-only; the user does not pick a value)</span>
+                  <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { column: e.target.value, map: c.lookup?.map ?? {} } : undefined })}>
+                    <option value="">— none (user enters the value) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
+                  </select></label>
+                {c.lookup && <label className="field"><span>One line per source value – <code>Source value: value to fill</code></span>
+                  <textarea rows={Math.min(14, Math.max(4, Object.keys(c.lookup.map).length + 1))} defaultValue={Object.entries(c.lookup.map).map(([k, v]) => `${k}: ${v}`).join("\n")}
+                    onBlur={e => set({ lookup: { ...c.lookup!, column: c.lookup!.column, map: Object.fromEntries(e.target.value.split("\n").map(l => l.trim()).filter(Boolean).map(l => { const i = l.indexOf(":"); return i < 0 ? [l, ""] : [l.slice(0, i).trim(), l.slice(i + 1).trim()]; })) } })} /></label>}
+              </>
+            )}
             {c.type === "identity" && (
               <label><input type="checkbox" checked={c.identityGroups !== false} onChange={e => set({ identityGroups: e.target.checked })} /> Also search groups (AD / Azure AD / project groups)</label>
             )}
@@ -88,17 +99,69 @@ function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void;
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       <h3>Push totals to work item fields</h3>
       <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>
-      {(g.totals ?? []).map((t, i) => (
-        <div className="row" key={i}>
-          <select className="fixed" value={t.aggregate} onChange={e => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, aggregate: e.target.value as Aggregate }) })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select>
-          <span className="fixed">of</span>
-          <select className="fixed" value={t.column} onChange={e => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, column: e.target.value }) })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          <span className="fixed">→</span>
-          <FieldInput value={t.field} onChange={field => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, field }) })} placeholder="Microsoft.VSTS.Scheduling.OriginalEstimate" />
-          <button className="btn icon danger fixed" onClick={() => p.onChange({ ...g, totals: delAt(g.totals!, i) })}>✕</button>
-        </div>
-      ))}
+      {(g.totals ?? []).map((t, i) => {
+        const setT = (patch: Partial<TotalMapping>) => p.onChange({ ...g, totals: setAt(g.totals!, i, { ...t, ...patch }) });
+        return (
+          <div className="card" key={i}>
+            <div className="row">
+              <select className="fixed" value={t.aggregate} onChange={e => setT({ aggregate: e.target.value as Aggregate })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select>
+              <span className="fixed">of</span>
+              <select className="fixed" value={t.column} onChange={e => setT({ column: e.target.value })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <span className="fixed">→</span>
+              <FieldInput value={t.field} onChange={field => setT({ field })} placeholder="Custom.CapitalizableManHours" />
+              <button className="btn icon danger fixed" onClick={() => p.onChange({ ...g, totals: delAt(g.totals!, i) })}>✕</button>
+            </div>
+            <div className="row">
+              <span className="fixed">only rows where</span>
+              <select className="fixed" value={t.where?.column ?? ""} onChange={e => setT({ where: e.target.value ? { column: e.target.value, values: t.where?.values ?? [] } : undefined })}>
+                <option value="">(all rows)</option>{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              {t.where && <>
+                <span className="fixed">is</span>
+                <input placeholder="value, or several separated by commas" defaultValue={t.where.values.join(", ")} key={t.where.column}
+                  onBlur={e => setT({ where: { column: t.where!.column, values: csv(e.target.value) } })} />
+              </>}
+              <input placeholder="Label shown under the grid (optional)" value={t.label ?? ""} onChange={e => setT({ label: e.target.value || undefined })} />
+            </div>
+          </div>
+        );
+      })}
       <button className="btn" onClick={() => p.onChange({ ...g, totals: [...(g.totals ?? []), { column: g.columns[0]?.id ?? "", aggregate: "sum", field: "" }] })}>+ Add total mapping</button>
+      <h3>Grouped totals (breakdown by value)</h3>
+      <div className="help">Shows one figure per value, e.g. “Sum of Hours by Treatment: Expense 12 · Capitalizable 30”, and can write each one to its own work item field.</div>
+      {(g.breakdowns ?? []).map((b, i) => {
+        const setB = (patch: Partial<Breakdown>) => p.onChange({ ...g, breakdowns: setAt(g.breakdowns!, i, { ...b, ...patch }) });
+        const by = g.columns.find(c => c.id === b.by);
+        const known = by ? Array.from(new Set(by.options ?? (by.lookup ? Object.values(by.lookup.map) : by.dependsOn ? Object.values(by.dependsOn.map).flat() : []))) : [];
+        const fields = b.fields ?? {};
+        const setField = (group: string, field: string) => { const f = { ...fields }; if (field) f[group] = field; else delete f[group]; setB({ fields: f }); };
+        const extra = Object.keys(fields).filter(k => !known.some(x => x.toLowerCase() === k.toLowerCase()));
+        return (
+          <div className="card" key={i}>
+            <div className="row">
+              <select className="fixed" value={b.aggregate} onChange={e => setB({ aggregate: e.target.value as Aggregate })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select>
+              <span className="fixed">of</span>
+              <select className="fixed" value={b.column} onChange={e => setB({ column: e.target.value })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <span className="fixed">by</span>
+              <select className="fixed" value={b.by} onChange={e => setB({ by: e.target.value })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+              <input placeholder="Title (optional)" value={b.label ?? ""} onChange={e => setB({ label: e.target.value || undefined })} />
+              <button className="btn icon danger fixed" onClick={() => p.onChange({ ...g, breakdowns: delAt(g.breakdowns!, i) })}>✕</button>
+            </div>
+            {b.by && <>
+              <div className="help">Write each group's figure to a work item field (leave blank to only display it):</div>
+              {known.map(k => (
+                <div className="row" key={k}><span className="fixed" style={{ width: 160 }}>{k}</span><span className="fixed">→</span>
+                  <FieldInput value={fields[k] ?? ""} placeholder="(not saved to a field)" onChange={v => setField(k, v)} /></div>
+              ))}
+              {extra.map(k => (
+                <div className="row" key={k}><span className="fixed" style={{ width: 160 }}>{k}</span><span className="fixed">→</span>
+                  <FieldInput value={fields[k]} onChange={v => setField(k, v)} /></div>
+              ))}
+              {!known.length && <div className="row"><input placeholder="Group value to map, then press Enter" onKeyDown={e => { if (e.key === "Enter" && e.currentTarget.value.trim()) { setField(e.currentTarget.value.trim(), "Custom."); e.currentTarget.value = ""; } }} /></div>}
+            </>}
+          </div>
+        );
+      })}
+      <button className="btn" onClick={() => p.onChange({ ...g, breakdowns: [...(g.breakdowns ?? []), { by: "", column: "", aggregate: "sum" }] })}>+ Add breakdown</button>
       <h3>Create child work items from rows</h3>
       <label><input type="checkbox" checked={child.enabled} onChange={e => p.onChange({ ...g, child: { ...child, enabled: e.target.checked } })} /> Enable “create work item” buttons</label>
       {child.enabled && (
