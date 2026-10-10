@@ -1,5 +1,5 @@
 import * as React from "react";
-import { compute, explainCalculation, toInputValue, undefinedVariables } from "../core/calc";
+import { compute, explainCalculation, findGridDataFields, toInputValue, undefinedVariables } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { listFields, witClient, withTimeout } from "../shared/ado";
 import { Aggregate, CalcInput, Calculation, EmptyHandling, GridConfig, RowFilter } from "../core/types";
@@ -97,10 +97,10 @@ function InputCard(p: { input: CalcInput; grids: Record<string, GridConfig>; onC
 }
 
 /** Run the calculation against a real work item and show every step – the quickest way to see why a result is blank. */
-function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig> }) {
+function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig>; onUseDataField(grid: string, field: string): void }) {
   const { projectName, lookups } = React.useContext(Ctx);
   const [id, setId] = React.useState("");
-  const [out, setOut] = React.useState<{ type: string; resultOnType: boolean; dataFieldsOnType: Record<string, boolean>; ex: ReturnType<typeof explainCalculation> } | string>();
+  const [out, setOut] = React.useState<{ type: string; resultOnType: boolean; dataFieldsOnType: Record<string, boolean>; ex: ReturnType<typeof explainCalculation>; found: Record<string, string[]> } | string>();
   const run = async () => {
     const n = parseInt(id, 10);
     if (!n) { setOut("Enter a work item id."); return; }
@@ -112,7 +112,8 @@ function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig> }) 
       const onType = new Set((await listFields(projectName, type)).map(f => f.referenceName));
       const grids = resolvedGrids({ grids: p.grids, lookups });
       const ex = explainCalculation(p.calc, f => fields[f], grids);
-      setOut({ type, resultOnType: onType.has(p.calc.resultField), dataFieldsOnType: Object.fromEntries(ex.grids.filter(g => g.dataField).map(g => [g.dataField!, onType.has(g.dataField!)])), ex });
+      const found = Object.fromEntries(ex.grids.filter(g => g.raw !== "ok").map(g => [g.name, findGridDataFields(fields, grids[g.name] ?? { columns: [] }).filter(f => f !== g.dataField)]));
+      setOut({ type, resultOnType: onType.has(p.calc.resultField), dataFieldsOnType: Object.fromEntries(ex.grids.filter(g => g.dataField).map(g => [g.dataField!, onType.has(g.dataField!)])), ex, found });
     } catch (e) { setOut("Could not read the work item: " + (e as Error).message); }
   };
   return (
@@ -127,6 +128,13 @@ function LiveCheck(p: { calc: Calculation; grids: Record<string, GridConfig> }) 
           <div>Result field <code>{p.calc.resultField}</code> on this type: {out.resultOnType ? <span className="ok">yes</span> : <span className="err">NO – add the field to this work item type</span>} · current value: <strong>{out.ex.current === null || out.ex.current === undefined || out.ex.current === "" ? "(empty)" : String(out.ex.current)}</strong></div>
           {out.ex.grids.map(g => (
             <div key={g.name}>Grid “{g.name}” → data field <code>{g.dataField ?? "(none saved)"}</code>              {g.dataField && !out.dataFieldsOnType[g.dataField] && <span className="err"> – not on this work item type</span>}: {g.raw === "ok" ? <span className="ok">{g.rows} row(s) read</span> : g.raw === "empty" ? <span className="err">EMPTY on this work item (rows not saved yet, or a different field)</span> : <span className="err">has text, but it is not readable grid data</span>}</div>
+          ))}
+          {out.ex.grids.filter(g => (out.found[g.name] ?? []).length > 0).map(g => (
+            <div key={"fix" + g.name} className="card" style={{ borderColor: "var(--accent)" }}>
+              <strong>Found the rows.</strong> The timesheet rows of “{g.name}” are stored in <code>{out.found[g.name][0]}</code>, not in <code>{g.dataField ?? "(none)"}</code>. The form control on the layout uses that field, so the calculation looked in the wrong place.
+              <div className="row" style={{ marginTop: 6 }}><button className="btn primary" onClick={() => p.onUseDataField(g.name, out.found[g.name][0])}>Use {out.found[g.name][0]} as the data field of “{g.name}”</button>
+                <span className="muted">Then press Save at the top and check again.</span></div>
+            </div>
           ))}
           <table style={{ marginTop: 6 }}><tbody>
             {out.ex.inputs.map(i => <tr key={i.name}><td><strong>{i.name}</strong></td><td>=&nbsp;</td><td>{i.value === null ? <span className="muted">(empty)</span> : String(i.value)}</td><td className="muted">&nbsp;{i.source}</td></tr>)}
@@ -157,7 +165,7 @@ function TestPanel({ calc }: { calc: Calculation }) {
   );
 }
 
-function Editor(p: { c: Calculation; grids: Record<string, GridConfig>; onChange(c: Calculation): void; issues: Issue[] }) {
+function Editor(p: { c: Calculation; grids: Record<string, GridConfig>; onChange(c: Calculation): void; onUseDataField(grid: string, field: string): void; issues: Issue[] }) {
   const c = p.c;
   const set = (patch: Partial<Calculation>) => p.onChange({ ...c, ...patch });
   const formulaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -213,13 +221,13 @@ function Editor(p: { c: Calculation; grids: Record<string, GridConfig>; onChange
       <h3>Test</h3>
       <TestPanel calc={c} />
       <h3>Try on a real work item</h3>
-      <LiveCheck calc={c} grids={p.grids} />
+      <LiveCheck calc={c} grids={p.grids} onUseDataField={p.onUseDataField} />
       {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
     </div>
   );
 }
 
-export function CalculationsTab(p: { calcs: Calculation[]; grids: Record<string, GridConfig>; onChange(c: Calculation[]): void; issues: Issue[] }) {
+export function CalculationsTab(p: { calcs: Calculation[]; grids: Record<string, GridConfig>; onChange(c: Calculation[]): void; onUseDataField(grid: string, field: string): void; issues: Issue[] }) {
   const [sel, setSel] = React.useState(0);
   const i = Math.min(sel, p.calcs.length - 1);
   const label = (c: Calculation, idx: number) => `Calculation “${c.name || "#" + (idx + 1)}”`;
@@ -243,7 +251,7 @@ export function CalculationsTab(p: { calcs: Calculation[]; grids: Record<string,
         </div>
       </div>
       <div className="card">
-        {i >= 0 ? <Editor c={p.calcs[i]} grids={p.grids} onChange={c => p.onChange(setAt(p.calcs, i, c))} issues={p.issues.filter(x => x.where === label(p.calcs[i], i))} />
+        {i >= 0 ? <Editor c={p.calcs[i]} grids={p.grids} onUseDataField={p.onUseDataField} onChange={c => p.onChange(setAt(p.calcs, i, c))} issues={p.issues.filter(x => x.where === label(p.calcs[i], i))} />
           : <div className="muted">Create a calculation such as “Capex hours ÷ Total hours × 100”, then pick the field that receives the result.</div>}
       </div>
     </div>

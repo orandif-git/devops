@@ -287,3 +287,19 @@ describe("explainCalculation (hub: try on a real work item)", () => {
     expect(noField.grids[0]).toMatchObject({ dataField: undefined, rows: 0, raw: "empty" }); expect(noField.result.value).toBeNull();
   });
 });
+
+import { findGridDataFields } from "../src/core/calc";
+
+describe("findGridDataFields (the control stores rows in another field than the hub says)", () => {
+  const g: GridConfig = { dataField: "Custom.GridData", columns: [{ id: "h", name: "H", type: "number" }, { id: "tr", name: "T", type: "string" }] };
+  const rows = serialize([normalizeRow({ h: 5, tr: "x" }, g), normalizeRow({ h: 7, tr: "y" }, g)]);
+  it("finds the field whose text holds the rows, ignoring other fields", () => {
+    const fields = { "System.Title": "Mobile App - Credit Score", "Custom.DataTableJSON": rows, "Custom.Notes": "rows of text but not json", "Custom.Empty": "", "Custom.Num": 5 };
+    expect(findGridDataFields(fields, g)).toEqual(["Custom.DataTableJSON"]);
+  });
+  it("also reads rich-text wrapped values and the older bare-array format; ranks by rows", () => {
+    const fields = { "A": `<div>${rows.replace(/"/g, "&quot;")}</div>`, "B": JSON.stringify([{ h: 1 }, { h: 2 }, { h: 3 }]) };
+    expect(findGridDataFields(fields, g)).toEqual(["B", "A"]);
+  });
+  it("nothing found -> empty list", () => { expect(findGridDataFields({ x: "hello" }, g)).toEqual([]); });
+});

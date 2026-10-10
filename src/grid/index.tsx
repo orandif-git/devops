@@ -14,7 +14,7 @@ import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
 interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
 
-interface Resolved { cfg: GridConfig; derived: { name: string; cfg: GridConfig }[] }
+interface Resolved { cfg: GridConfig; derived: { name: string; cfg: GridConfig }[]; notice?: string }
 
 async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolved> {
   let cfg: GridConfig | undefined;
@@ -35,20 +35,23 @@ async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolve
   if (!cfg || !Array.isArray(cfg.columns) || !cfg.columns.length) throw new Error("The grid has no columns.");
   if (cfg.columns.some(c => c.lookup?.table) && !Object.keys(lookups).length) lookups = (await loadConfig(projectId)).lookups ?? {};
   cfg = applySharedLookups(cfg, lookups);
+  let notice: string | undefined;
+  if (inputs.DataField && cfg.dataField && inputs.DataField !== cfg.dataField)
+    notice = `This control stores its rows in ${inputs.DataField}, but the grid is set to ${cfg.dataField} in Project settings → Grid & Rules. Calculations read the settings value, so they will not see these rows. Clear the control's “Data field” input in the layout (recommended), or change the grid's data field in the settings to ${inputs.DataField}.`;
   if (inputs.DataField) cfg = { ...cfg, dataField: inputs.DataField };
   if (!cfg.dataField) throw new Error("No data field set. Pick a long-text field in the 'Data field' input.");
   const problems = validateConfig(cfg);
   if (problems.length) throw new Error("Invalid grid configuration: " + problems.join("; "));
-  return { cfg, derived };
+  return { cfg, derived, notice };
 }
 
-function App(props: { cfg: GridConfig; derived: Resolved["derived"]; projectId: string; projectName: string }) {
+function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: string; projectId: string; projectName: string }) {
   const { cfg } = props;
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [ready, setReady] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const [warn, setWarn] = React.useState("");
+  const [warn, setWarn] = React.useState(props.notice ?? "");
   const knownFields = React.useRef<Set<string>>();
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastWritten = React.useRef<string | null>(null);
@@ -196,8 +199,8 @@ async function main() {
   try {
     const inputs = (SDK.getConfiguration().witInputs ?? {}) as Inputs;
     const project = await getProject();
-    const { cfg, derived } = await resolveConfig(inputs, project.id);
-    ReactDOM.render(<App cfg={cfg} derived={derived} projectId={project.id} projectName={project.name} />, root);
+    const { cfg, derived, notice } = await resolveConfig(inputs, project.id);
+    ReactDOM.render(<App cfg={cfg} derived={derived} notice={notice} projectId={project.id} projectName={project.name} />, root);
   } catch (e) {
     root.innerHTML = `<div style="padding:8px" class="err">${String((e as Error).message).replace(/</g, "&lt;")}</div>`;
     SDK.resize(undefined, 80);

@@ -133,7 +133,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "cascades" && <CascadesTab cascades={config.cascades} issues={issues} onChange={cascades => setConfig({ ...config, cascades })} />}
         {tab === "grids" && <GridsTab grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
         {tab === "mappings" && <MappingsTab config={config} issues={issues} onChange={(lookups, grids) => setConfig({ ...config, lookups, ...(grids ? { grids } : {}) })} />}
-        {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
+        {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (

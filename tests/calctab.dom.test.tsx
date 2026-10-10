@@ -11,7 +11,7 @@ describe("Calculations tab", () => {
   it("creates a starter calculation and its Test panel shows blank / value / zero-division behaviour", () => {
     const host = document.createElement("div"); document.body.appendChild(host);
     let calcs: Calculation[] = [];
-    const render = () => ReactDOM.render(<CalculationsTab calcs={calcs} grids={{}} issues={[]} onChange={c => { calcs = c; render(); }} />, host);
+    const render = () => ReactDOM.render(<CalculationsTab calcs={calcs} grids={{}} issues={[]} onUseDataField={() => undefined} onChange={c => { calcs = c; render(); }} />, host);
     act(() => { render(); });
     act(() => { Simulate.click(host.querySelector("button.primary")!); });
     expect(calcs).toHaveLength(1);
@@ -35,7 +35,7 @@ describe("Top group input editor", () => {
     const host = document.createElement("div"); document.body.appendChild(host);
     const grids = { G: { dataField: "Custom.G", columns: [{ id: "team", name: "Team", type: "string" as const }, { id: "p", name: "Period", type: "date" as const }, { id: "h", name: "Hours", type: "number" as const }] } };
     let calcs: Calculation[] = [];
-    const render = () => ReactDOM.render(<CalculationsTab calcs={calcs} grids={grids} issues={[]} onChange={c => { calcs = c; render(); }} />, host);
+    const render = () => ReactDOM.render(<CalculationsTab calcs={calcs} grids={grids} issues={[]} onUseDataField={() => undefined} onChange={c => { calcs = c; render(); }} />, host);
     act(() => { render(); });
     act(() => { Simulate.click(host.querySelector("button.primary")!); });
     const kind = Array.from(host.querySelectorAll("select")).find(s => s.textContent?.includes("Top group")) as HTMLSelectElement;

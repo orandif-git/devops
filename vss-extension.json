@@ -74,7 +74,7 @@
           {
             "id": "DataField",
             "name": "Data field",
-            "description": "Long-text (multiple lines) field that stores the rows. Overrides the grid's data field.",
+            "description": "Optional. Leave EMPTY to use the data field set for the grid in Project settings \u2192 Grid & Rules (recommended, so the grid and its calculations always read the same field).",
             "type": "WorkItemField",
             "properties": {
               "workItemFieldTypes": [
@@ -85,7 +85,7 @@
             },
             "validation": {
               "dataType": "String",
-              "isRequired": true
+              "isRequired": false
             }
           },
           {

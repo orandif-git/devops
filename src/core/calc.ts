@@ -205,6 +205,20 @@ export function explainCalculation(calc: Calculation, getField: (ref: string) =>
   };
 }
 
+/**
+ * Fields of a work item that hold readable rows for this grid (the form control may store them in a field other than
+ * the one saved in the hub). Returns reference names, most rows first.
+ */
+export function findGridDataFields(fields: Record<string, unknown>, cfg: GridConfig): string[] {
+  const hits: { ref: string; rows: number }[] = [];
+  for (const [ref, v] of Object.entries(fields)) {
+    if (typeof v !== "string" || v.length < 10 || !/rows|\[\s*\{/.test(v)) continue;          // cheap pre-check before parsing
+    const rows = parseStored(v, cfg).length;
+    if (rows > 0) hits.push({ ref, rows });
+  }
+  return hits.sort((a, b) => b.rows - a.rows).map(h => h.ref);
+}
+
 /** Variable names a formula uses that are not defined as inputs. */
 export const undefinedVariables = (c: Calculation) => {
   const names = new Set(c.inputs.map(i => i.name.toLowerCase()));

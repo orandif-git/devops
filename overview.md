@@ -40,7 +40,7 @@ Form editors first, JSON editor second. Everything is checked live against your 
 
 ## Setup
 1. Install the extension. Open **Project settings → Grid & Rules** and define a grid, rules or dependent dropdowns, then **Save**.
-2. **Grid:** create a *Text (multiple lines)* field (e.g. `Custom.GridData`). In the process layout editor add a custom control → **Smart Grid**, set **Grid name** and **Data field**.
+2. **Grid:** create a *Text (multiple lines)* field (e.g. `Custom.GridData`) and enter it as the grid's **Data field** in Project settings → Grid & Rules. In the process layout editor add the custom control → **Smart Grid** on that field and set **Grid name**; leave the control's own *Data field* input empty so the grid and its calculations always read the same field.
 3. **Dependent dropdown:** (optional) on the dependent field add the **Smart Dropdown** control to filter options. Validation works without it.
 4. Rules and dependent-value validation run automatically on every form for the configured work item types.
 
