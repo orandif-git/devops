@@ -188,3 +188,27 @@ describe("lookup auto-fill and grouped totals", () => {
     expect(validateConfig({ columns: [{ id: "x", name: "x", type: "string", lookup: { column: "nope", map: { a: "b" } } }] }).join("|")).toMatch(/unknown column/);
   });
 });
+
+describe("rich-text (HTML) field round trips", () => {
+  const hc: GridConfig = { columns: [{ id: "who", name: "Who", type: "identity" }, { id: "note", name: "Note", type: "string" }, { id: "h", name: "H", type: "number" }] };
+  const rows = [normalizeRow({ who: "Ann Lee <ann@x.com>", note: 'a & b "q" <b>', h: 2.5 }, hc)];
+  it("serialize escapes characters an HTML field would alter, and stays valid JSON", () => {
+    const t = serialize(rows);
+    expect(t).not.toMatch(/[<>&]/);
+    expect(parseStored(t, hc)[0].who).toBe("Ann Lee <ann@x.com>");
+    expect(parseStored(t, hc)[0].note).toBe('a & b "q" <b>');
+  });
+  it("reads values returned wrapped / entity-encoded by a rich text field", () => {
+    const t = serialize(rows);
+    const enc = t.replace(/"/g, "&quot;");
+    expect(parseStored(`<div>${enc}</div>`, hc)[0].h).toBe(2.5);
+    expect(parseStored(`<p>${t.replace(/"/g, "&#34;")}</p>`, hc)).toHaveLength(1);
+    expect(parseStored(`<div>${enc.replace(/,/g, ",&nbsp;")}</div><div><br></div>`, hc)).toHaveLength(1);
+    expect(parseStored(`Some text before ${t} and after`, hc)).toHaveLength(1);
+  });
+  it("legacy unescaped value with an email in angle brackets still loads", () => {
+    const legacy = '{"version":1,"rows":[{"_id":"r1","who":"Ann <ann@x.com>","note":"","h":1}]}';
+    expect(parseStored(`<div>${legacy.replace(/"/g, "&quot;")}</div>`, hc)).toHaveLength(1);
+  });
+  it("unreadable text yields no rows (and the UI warns)", () => { expect(parseStored("hello world", hc)).toEqual([]); });
+});

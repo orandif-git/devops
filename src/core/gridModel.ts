@@ -4,26 +4,49 @@ import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter } from "./types";
 let seq = 0;
 export const newId = () => `r${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
 
+const NAMED: Record<string, string> = { quot: '"', apos: "'", lt: "<", gt: ">", nbsp: " ", amp: "&" };
+/** Decode HTML entities (named + numeric) in a single pass, so `&amp;lt;` becomes `&lt;` and not `<`. */
 const decodeEntities = (s: string) =>
-  s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ");
+  s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
+    if (e[0] === "#") { const n = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10); return Number.isFinite(n) ? String.fromCodePoint(n) : m; }
+    return NAMED[e.toLowerCase()] ?? m;
+  });
+
+/** Try to turn whatever the field returned into JSON text (plain, or mangled by a rich-text field). */
+function extractJson(raw: string): unknown {
+  const attempts: string[] = [raw];
+  // rich-text field: <div>…</div>, <br>, &quot; … ; remove tags first, then entities
+  const stripped = decodeEntities(raw.replace(/<br\s*\/?>/gi, " ").replace(/<\/(div|p)>\s*<(div|p)[^>]*>/gi, " ").replace(/<[^>]*>/g, "")).replace(/\u00a0/g, " ");
+  attempts.push(stripped);
+  attempts.push(decodeEntities(raw).replace(/\u00a0/g, " "));           // value that was only entity-encoded
+  for (const t of attempts) {
+    const text = t.trim();
+    try { return JSON.parse(text); } catch { /* try the outermost {...} / [...] */ }
+    for (const [o, c] of [["{", "}"], ["[", "]"]] as const) {
+      const i = text.indexOf(o), j = text.lastIndexOf(c);
+      if (i >= 0 && j > i) { try { return JSON.parse(text.slice(i, j + 1)); } catch { /* next */ } }
+    }
+  }
+  throw new Error("unreadable");
+}
 
 /**
  * Parse the stored field value. Accepts: plain JSON, `{version,rows}`, a bare array
- * (format of the older "Data Table" extension) and HTML-wrapped JSON (HTML fields).
+ * (format of the older "Data Table" extension) and HTML-wrapped / entity-encoded JSON (rich-text fields).
  */
 export function parseStored(raw: unknown, cfg: GridConfig): GridRow[] {
   if (raw === null || raw === undefined) return [];
-  let text = String(raw).trim();
+  const text = String(raw).trim();
   if (!text) return [];
-  if (text.startsWith("<")) text = decodeEntities(text.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")).trim();
   let data: unknown;
-  try { data = JSON.parse(text); } catch { return []; }
-  const arr = Array.isArray(data) ? data : Array.isArray((data as { rows?: unknown }).rows) ? (data as { rows: unknown[] }).rows : [];
+  try { data = extractJson(text); } catch { return []; }
+  const arr = Array.isArray(data) ? data : Array.isArray((data as { rows?: unknown })?.rows) ? (data as { rows: unknown[] }).rows : [];
   return arr.filter(r => r && typeof r === "object").map(r => normalizeRow(r as Record<string, unknown>, cfg));
 }
 
+/** JSON with `<`, `>` and `&` escaped, so an HTML field cannot treat parts of it as tags or entities. */
 export function serialize(rows: GridRow[]): string {
-  return JSON.stringify({ version: 1, rows });
+  return JSON.stringify({ version: 1, rows }).replace(/[<>&\u2028\u2029]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
 export function defaultFor(col: ColumnDef): unknown {

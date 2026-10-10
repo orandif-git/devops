@@ -74,7 +74,7 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
       writeNow(rowsRef.current).catch(() => undefined);
       return;
     }
-    if (!parsed.length && rawText) setWarn("The data field contains text this grid cannot read (not valid grid JSON).");
+    if (!parsed.length && rawText) setWarn(`The data field contains text this grid cannot read (not valid grid JSON). Starts with: ${rawText.replace(/\s+/g, " ").slice(0, 140)}${rawText.length > 140 ? "…" : ""}  – If this field is rich text, recreate it as plain text (multiple lines), or clear it and re-enter the rows.`);
     rowsRef.current = parsed; setRows(parsed);
   }, [cfg, writeNow]);
 
