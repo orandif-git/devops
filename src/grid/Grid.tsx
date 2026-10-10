@@ -130,8 +130,10 @@ export function Grid(p: GridProps) {
           <button className="btn primary" onClick={addRow}>+ Add row</button>
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           <span className="spacer" />
-          <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
-          <input ref={fileRef} type="file" accept=".csv,.xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) p.onImport(f); e.target.value = ""; }} />
+          {cfg.allowImport && <>
+            <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
+            <input ref={fileRef} type="file" accept=".csv,.xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) p.onImport(f); e.target.value = ""; }} />
+          </>}
           <button className="btn" onClick={() => p.onExport("csv")}>CSV</button>
           <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
           {childOn && <button className="btn" disabled={p.busyChildren || !pendingChildren} onClick={p.onCreateAllChildren}>

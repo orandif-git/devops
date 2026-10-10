@@ -12,7 +12,13 @@ module.exports = (env, argv) => ({
     publicPath: "auto",
     clean: true,
   },
-  resolve: { extensions: [".ts", ".tsx", ".js"] },
+  resolve: {
+    extensions: [".ts", ".tsx", ".js"],
+    // The SDK ships ESM and AMD builds. Our code imports the ESM one and azure-devops-extension-api (AMD) asks for the
+    // AMD one, so the page ended up with TWO copies; the copy that never ran init() makes every REST call hang forever.
+    // Force a single copy for everyone.
+    alias: { "azure-devops-extension-sdk$": path.resolve(__dirname, "node_modules/azure-devops-extension-sdk/esm/SDK.js") },
+  },
   devtool: argv.mode === "production" ? false : "inline-source-map",
   module: {
     rules: [

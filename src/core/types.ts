@@ -110,6 +110,8 @@ export interface GridConfig {
   totals?: TotalMapping[];
   child?: ChildConfig;
   readOnly?: boolean;
+  /** show the Import (CSV / Excel) button on the grid (default false: only Export is offered) */
+  allowImport?: boolean;
   /** block saving the work item while required/invalid cells exist (default false: highlight only) */
   blockSave?: boolean;
 }

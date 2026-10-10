@@ -212,6 +212,8 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
         <label className="field" style={{ flex: 1 }}><span>Data field (long-text field that stores the rows as JSON)</span><FieldInput value={g.dataField ?? ""} onChange={dataField => p.onChange({ ...g, dataField })} placeholder="Custom.GridData" /></label>
         <label className="fixed"><input type="checkbox" checked={!!g.readOnly} onChange={e => p.onChange({ ...g, readOnly: e.target.checked })} /> Read-only</label>
       </div>
+      <label><input type="checkbox" checked={!!g.allowImport} onChange={e => p.onChange({ ...g, allowImport: e.target.checked || undefined })} /> Allow importing rows from a CSV / Excel file (adds an Import button; Export is always available)</label>
+      <br />
       <label title="Off: required/invalid cells are only highlighted. On: the work item cannot be saved while any exist."><input type="checkbox" checked={!!g.blockSave} onChange={e => p.onChange({ ...g, blockSave: e.target.checked })} /> Block saving the work item while required values are missing</label>
       <h3>Build this grid automatically from another grid</h3>
       <label><input type="checkbox" checked={!!g.derived} onChange={e => p.onChange({ ...g, derived: e.target.checked ? { source: sourceNames[0] ?? "" } : undefined })} disabled={!g.derived && !sourceNames.length} /> This is a derived grid (rows are created from the source grid, e.g. Resource Capacity from the timesheet)</label>
