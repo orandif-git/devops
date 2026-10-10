@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "workitem-grid-rules",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "name": "Work Item Grid & Rules",
   "publisher": "amanullah-ado",
   "description": "Smart editable grids, conditional rules, dependent dropdowns and a visual rule builder for Azure DevOps work items.",
