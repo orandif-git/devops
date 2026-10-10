@@ -1,7 +1,7 @@
 import * as React from "react";
 import { columnTotals, newRow, optionsFor, recompute, validateRows, mappedTotals } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
-import { listPeople, Person } from "../shared/ado";
+import { IdentityInput } from "./IdentityInput";
 
 export interface GridProps {
   cfg: GridConfig;
@@ -23,13 +23,12 @@ export function Grid(p: GridProps) {
   const { cfg, rows, readOnly } = p;
   const [sort, setSort] = React.useState<SortState>(null);
   const [filter, setFilter] = React.useState("");
-  const [people, setPeople] = React.useState<Person[]>([]);
+  // rows added with "Add row" that the user has not touched yet: no red highlighting
+  const [pristine, setPristine] = React.useState<Set<string>>(new Set());
   const fileRef = React.useRef<HTMLInputElement>(null);
-  const hasIdentity = cfg.columns.some(c => c.type === "identity");
 
-  React.useEffect(() => { if (hasIdentity) listPeople(p.projectId).then(setPeople).catch(() => undefined); }, [hasIdentity, p.projectId]);
-
-  const errors = React.useMemo(() => validateRows(rows, cfg), [rows, cfg]);
+  const allErrors = React.useMemo(() => validateRows(rows, cfg), [rows, cfg]);
+  const errors = React.useMemo(() => allErrors.filter(e => !pristine.has(e.rowId)), [allErrors, pristine]);
   const errKey = (rowId: string, col: string) => errors.find(e => e.rowId === rowId && e.column === col)?.message;
   const totals = React.useMemo(() => columnTotals(rows, cfg), [rows, cfg]);
 
@@ -51,9 +50,10 @@ export function Grid(p: GridProps) {
   }, [rows, filter, sort, cfg]);
 
   const update = (rowId: string, col: string, value: unknown) => {
+    if (pristine.has(rowId)) setPristine(s => { const n = new Set(s); n.delete(rowId); return n; });
     p.onChange(rows.map(r => (r._id === rowId ? recompute({ ...r, [col]: value }, cfg) : r)));
   };
-  const addRow = () => p.onChange([...rows, newRow(cfg)]);
+  const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange([...rows, r]); };
   const delRow = (id: string) => p.onChange(rows.filter(r => r._id !== id));
   const move = (id: string, d: number) => {
     const i = rows.findIndex(r => r._id === id), j = i + d;
@@ -95,16 +95,9 @@ export function Grid(p: GridProps) {
           </select>
         );
       }
-      case "identity": {
-        const listId = `ppl-${c.id}`;
-        return (
-          <>
-            <input className={cls} title={title} list={listId} disabled={dis} value={String(v ?? "")} placeholder="Type a name…"
-              onChange={e => update(r._id, c.id, e.target.value)} />
-            <datalist id={listId}>{people.map(x => <option key={x.uniqueName} value={x.text} />)}</datalist>
-          </>
-        );
-      }
+      case "identity":
+        return <IdentityInput className={cls} title={title} disabled={dis} value={String(v ?? "")} includeGroups={c.identityGroups !== false}
+          projectId={p.projectId} onChange={val => update(r._id, c.id, val)} />;
       default:
         return <input className={cls} title={title} type="text" disabled={dis} value={String(v ?? "")} onChange={e => update(r._id, c.id, e.target.value)} />;
     }
@@ -183,7 +176,7 @@ export function Grid(p: GridProps) {
         </table>
       </div>
       <div className="foot muted">
-        {errors.length > 0 && <span className="err">{errors.length} validation issue{errors.length > 1 ? "s" : ""} – hover red cells. </span>}
+        {errors.length > 0 && <span className="err">{errors.length} value{errors.length > 1 ? "s" : ""} still need attention{cfg.blockSave ? " – the work item can't be saved until fixed" : ""} – hover red cells. </span>}
         {Object.keys(mapped).length > 0 && <span>Totals → {Object.entries(mapped).map(([f, v]) => `${f}: ${v}`).join(", ")}. </span>}
         {p.status}
       </div>

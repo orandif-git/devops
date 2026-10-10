@@ -12,3 +12,8 @@
 .wig .actions { width: 1%; }
 .wig .empty { text-align: center; padding: 16px; }
 .wig .foot { padding-top: 6px; font-size: 12px; }
+.idpop { position: fixed; z-index: 50; margin: 0; padding: 2px 0; list-style: none; max-height: 260px; overflow: auto; background: var(--bg); border: 1px solid var(--line); box-shadow: 0 4px 12px rgba(0,0,0,.25); }
+.idpop li { padding: 4px 8px; display: flex; gap: 6px; align-items: baseline; cursor: pointer; white-space: nowrap; }
+.idpop li.on { background: var(--accent); color: var(--accent-fg); }
+.idpop li .dt { opacity: .7; font-size: 11px; overflow: hidden; text-overflow: ellipsis; }
+.idpop li.muted { cursor: default; color: var(--fg2); }

@@ -18,6 +18,8 @@ export interface ColumnDef {
   min?: number;
   max?: number;
   width?: number;
+  /** identity columns: also search groups (default true) */
+  identityGroups?: boolean;
 }
 
 /** Push a column aggregate into a work item field. */
@@ -45,6 +47,8 @@ export interface GridConfig {
   totals?: TotalMapping[];
   child?: ChildConfig;
   readOnly?: boolean;
+  /** block saving the work item while required/invalid cells exist (default false: highlight only) */
+  blockSave?: boolean;
 }
 
 export interface GridRow {

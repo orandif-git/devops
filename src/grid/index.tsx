@@ -87,9 +87,9 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
     return () => ro.disconnect();
   }, []);
 
-  // surface validation problems on the form (prevents save), like the rules observer does
+  // optional strict mode: surface validation problems on the form, which blocks saving
   React.useEffect(() => {
-    if (!ready) return;
+    if (!ready || !cfg.blockSave) return;
     const errs = validateRows(rows, cfg);
     getFormService().then(s => (errs.length ? s.setError(`Grid: ${errs[0].message}${errs.length > 1 ? ` (+${errs.length - 1} more)` : ""}`) : s.clearError())).catch(() => undefined);
   }, [rows, ready, cfg]);

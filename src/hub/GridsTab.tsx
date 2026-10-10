@@ -40,6 +40,9 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
               </>}
               <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
             </div>
+            {c.type === "identity" && (
+              <label><input type="checkbox" checked={c.identityGroups !== false} onChange={e => set({ identityGroups: e.target.checked })} /> Also search groups (AD / Azure AD / project groups)</label>
+            )}
             {c.type === "dropdown" && (
               <>
                 <label className="field"><span>Options (comma separated){c.dependsOn ? " – ignored while “depends on” is set" : ""}</span>
@@ -76,6 +79,7 @@ function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void;
         <label className="field" style={{ flex: 1 }}><span>Data field (long-text field that stores the rows as JSON)</span><FieldInput value={g.dataField ?? ""} onChange={dataField => p.onChange({ ...g, dataField })} placeholder="Custom.GridData" /></label>
         <label className="fixed"><input type="checkbox" checked={!!g.readOnly} onChange={e => p.onChange({ ...g, readOnly: e.target.checked })} /> Read-only</label>
       </div>
+      <label title="Off: required/invalid cells are only highlighted. On: the work item cannot be saved while any exist."><input type="checkbox" checked={!!g.blockSave} onChange={e => p.onChange({ ...g, blockSave: e.target.checked })} /> Block saving the work item while required values are missing</label>
       <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
