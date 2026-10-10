@@ -35,6 +35,8 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
   const [ready, setReady] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
+  const [warn, setWarn] = React.useState("");
+  const knownFields = React.useRef<Set<string>>();
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastWritten = React.useRef<string | null>(null);
   const timer = React.useRef<number>();
@@ -42,28 +44,45 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
 
   const flash = (m: string) => { setStatus(m); window.setTimeout(() => setStatus(s => (s === m ? "" : s)), 6000); };
 
+  const writeNow = React.useCallback(async (next: GridRow[]) => {
+    const svc = await getFormService();
+    const text = serialize(next);
+    lastWritten.current = text;
+    // 1) the rows themselves – always written on their own so a bad total mapping can never lose them
+    await svc.setFieldValue(cfg.dataField!, text);
+    // 2) mapped totals, one by one; skip fields this work item type does not have and report them
+    const wanted = mappedTotals(next, cfg);
+    if (!Object.keys(wanted).length) { setWarn(""); return; }
+    if (!knownFields.current) knownFields.current = new Set((await svc.getFields()).map(f => f.referenceName));
+    const problems: string[] = [];
+    for (const [field, value] of Object.entries(wanted)) {
+      if (!knownFields.current.has(field)) { problems.push(`${field} (not on this work item type)`); continue; }
+      try { await svc.setFieldValue(field, value); } catch (e) { problems.push(`${field} (${(e as Error).message || "rejected"})`); }
+    }
+    setWarn(problems.length ? `Totals not saved to: ${problems.join("; ")}. The grid rows were saved. Add these fields to this work item type or fix the mapping in Project settings → Grid & Rules.` : "");
+  }, [cfg]);
+
   const readField = React.useCallback(async () => {
     const svc = await getFormService();
     const raw = await svc.getFieldValue(cfg.dataField!);
     if (raw !== null && lastWritten.current !== null && String(raw) === lastWritten.current) return;
     const parsed = parseStored(raw, cfg);
+    const rawText = raw === null || raw === undefined ? "" : String(raw).trim();
+    if (!parsed.length && rowsRef.current.length && lastWritten.current !== null) {
+      // the form handed back an empty / unreadable value although we wrote rows: keep what the user sees and write it again
+      setWarn(rawText ? "The stored grid value could not be read back; your rows are kept and will be re-saved." : "The grid value was empty after the form refreshed; your rows are kept and re-applied. If this repeats, check the Data field is a long-text field on this work item type.");
+      writeNow(rowsRef.current).catch(() => undefined);
+      return;
+    }
+    if (!parsed.length && rawText) setWarn("The data field contains text this grid cannot read (not valid grid JSON).");
     rowsRef.current = parsed; setRows(parsed);
-  }, [cfg]);
-
-  const writeNow = React.useCallback(async (next: GridRow[]) => {
-    const svc = await getFormService();
-    const text = serialize(next);
-    lastWritten.current = text;
-    const fields: Record<string, Object> = { [cfg.dataField!]: text };
-    Object.assign(fields, mappedTotals(next, cfg));
-    await svc.setFieldValues(fields);
-  }, [cfg]);
+  }, [cfg, writeNow]);
 
   const commit = React.useCallback((next: GridRow[]) => {
     rowsRef.current = next; setRows(next);
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => { writeNow(rowsRef.current).catch(e => flash("Could not update the work item: " + e.message)); }, 250);
-  }, [writeNow]);
+    timer.current = window.setTimeout(() => { writeNow(rowsRef.current).catch(e => setWarn(`Could not store the rows in ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field that is on this work item type?`)); }, 250);
+  }, [writeNow, cfg.dataField]);
 
   // register with the work item form
   React.useEffect(() => {
@@ -72,7 +91,7 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
       onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); },
       onSaved: () => { readField(); },
       onReset: () => { lastWritten.current = null; readField(); },
-      onRefreshed: () => { lastWritten.current = null; readField(); },
+      onRefreshed: () => { readField(); },
     }));
     readField().then(() => setReady(true)).catch(e => flash(e.message));
     // block save while rows are invalid
@@ -148,6 +167,7 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
 
   return (
     <div ref={rootRef}>
+      {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
         onChange={commit} onImport={onImport} onExport={onExport}
         onCreateChild={id => createChildren([id])}
