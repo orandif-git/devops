@@ -23,3 +23,23 @@
 .wig .gl { margin-right: 10px; }
 .wig .gtitle { margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
 .wig td input.calc { text-align: right; font-weight: 600; }
+
+/* alignment: numbers right, long headings wrap */
+.wig th { white-space: normal; vertical-align: bottom; line-height: 1.25; }
+.wig th.num, .wig td.num, .wig tfoot td.num { text-align: right; }
+.wig td.num input, .wig td.num input.calc { text-align: right; }
+.wig td.num input[type=number] { text-align: right; }
+.wig td.status input, .wig td.status { font-weight: 600; }
+/* colour coding: light tint for the whole row, stronger for the status cell and cells coloured by it */
+.wig tr.row-green td { background: rgba(16,124,16,.09); }
+.wig tr.row-yellow td { background: rgba(193,156,0,.12); }
+.wig tr.row-orange td { background: rgba(255,140,0,.13); }
+.wig tr.row-red td { background: rgba(209,52,56,.12); }
+.wig tr.row-blue td { background: rgba(0,120,212,.10); }
+.wig tr.row-gray td { background: rgba(128,128,128,.10); }
+.wig td.tint-green { background: rgba(16,124,16,.28) !important; }
+.wig td.tint-yellow { background: rgba(193,156,0,.34) !important; }
+.wig td.tint-orange { background: rgba(255,140,0,.34) !important; }
+.wig td.tint-red { background: rgba(209,52,56,.30) !important; }
+.wig td.tint-blue { background: rgba(0,120,212,.26) !important; }
+.wig td.tint-gray { background: rgba(128,128,128,.24) !important; }

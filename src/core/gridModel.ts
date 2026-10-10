@@ -1,5 +1,5 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
-import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter } from "./types";
+import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
 
 let seq = 0;
 export const newId = () => `r${Date.now().toString(36)}${(seq++).toString(36)}${Math.random().toString(36).slice(2, 5)}`;
@@ -49,7 +49,24 @@ export function serialize(rows: GridRow[]): string {
   return JSON.stringify({ version: 1, rows }).replace(/[<>&\u2028\u2029]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
+/** Band for a number: first range with value <= upTo (null upTo = no limit). Empty / non-numeric values have no band. */
+export function bandFor(value: unknown, ranges: StatusBand[]): StatusBand | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const n = typeof value === "number" ? value : parseFloat(String(value));
+  if (!Number.isFinite(n)) return undefined;
+  return ranges.find(r => r.upTo === null || r.upTo === undefined || n <= r.upTo);
+}
+
+/** Band currently applying to a cell that is coloured by a status column (colorBy). */
+export function cellBand(col: ColumnDef, row: GridRow, cfg: GridConfig): StatusBand | undefined {
+  const ownRanges = col.statusBands?.ranges;
+  if (ownRanges) return ownRanges.find(r => r.label === row[col.id]);
+  const by = col.colorBy ? cfg.columns.find(c => c.id === col.colorBy) : undefined;
+  return by?.statusBands ? by.statusBands.ranges.find(r => r.label === row[by.id]) : undefined;
+}
+
 export function defaultFor(col: ColumnDef): unknown {
+  if (col.statusBands) return "";
   if (col.type === "calculated") return null;
   if (col.defaultValue !== undefined) return coerce(col, col.defaultValue);
   switch (col.type) {
@@ -157,6 +174,12 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
       } catch { row[c.id] = null; }
     }
   }
+  // status columns (e.g. Capacity Status) depend on the final numbers, so they are set last
+  for (const c of cfg.columns) {
+    if (!c.statusBands) continue;
+    const src = cfg.columns.find(x => x.id === c.statusBands!.source);
+    row[c.id] = src ? bandFor(row[src.id], c.statusBands.ranges)?.label ?? "" : "";
+  }
   return row;
 }
 
@@ -167,7 +190,7 @@ function columnAggregate(fn: string, values: unknown[]): number {
 
 /** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
 export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
-  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn)) return rows;
+  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands)) return rows;
   let out = rows.map(r => ({ ...r }));
   const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
   for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
@@ -244,12 +267,12 @@ export function validateRows(rows: GridRow[], cfg: GridConfig): CellError[] {
   for (const r of rows) for (const c of cfg.columns) {
     const v = r[c.id];
     const empty = v === "" || v === null || v === undefined;
-    if (c.required && !c.formula && !c.lookup && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
+    if (c.required && !c.formula && !c.lookup && !c.statusBands && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
     if (c.type === "number" && typeof v === "number") {
       if (c.min !== undefined && v < c.min) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≥ ${c.min}` });
       if (c.max !== undefined && v > c.max) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≤ ${c.max}` });
     }
-    if (c.type === "dropdown" && !c.lookup && !empty && !optionsFor(c, r).includes(String(v)))
+    if (c.type === "dropdown" && !c.lookup && !c.statusBands && !empty && !optionsFor(c, r).includes(String(v)))
       errs.push({ rowId: r._id, column: c.id, message: `${c.name}: '${v}' is not allowed` });
   }
   return errs;
@@ -265,6 +288,15 @@ export function validateConfig(cfg: GridConfig): string[] {
     ids.add(c.id);
     if (c.type === "calculated" && !c.formula?.trim()) errs.push(`Calculated column '${c.id}' has no formula`);
     if (c.type === "dropdown" && !c.lookup && !c.dependsOn && !(c.options && c.options.length)) errs.push(`Dropdown '${c.id}' has no options`);
+    if (c.statusBands) {
+      const sb = c.statusBands;
+      if (!cfg.columns.some(x => x.id === sb.source)) errs.push(`'${c.id}': status source column '${sb.source}' does not exist`);
+      if (!sb.ranges.length) errs.push(`'${c.id}' has no status ranges`);
+      sb.ranges.forEach((r, i) => { if (!r.label.trim()) errs.push(`'${c.id}': range ${i + 1} has no label`); });
+      for (let i = 1; i < sb.ranges.length; i++) { const a = sb.ranges[i - 1].upTo, b = sb.ranges[i].upTo; if (a === null || (b !== null && b <= a)) errs.push(`'${c.id}': ranges must go up (range ${i + 1} should be higher than range ${i}, and only the last one may have no limit)`); }
+    }
+    if (cfg.rowColorBy && !cfg.columns.some(x => x.id === cfg.rowColorBy && x.statusBands)) errs.push(`Row colour: '${cfg.rowColorBy}' is not a status column`);
+    if (c.colorBy && !cfg.columns.some(x => x.id === c.colorBy && x.statusBands)) errs.push(`'${c.id}' is coloured by '${c.colorBy}', which is not a status column`);
     if (c.lookup) {
       if (!cfg.columns.some(x => x.id === c.lookup!.column)) errs.push(`'${c.id}' looks up unknown column '${c.lookup.column}'`);
       else if (c.lookup.column === c.id) errs.push(`'${c.id}' cannot look up itself`);

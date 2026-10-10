@@ -3,11 +3,11 @@ import { capacityFor, CapacityRegister, monthKey } from "./capacity";
 import { allocKey } from "./allocations";
 import { keyNorm } from "./keys";
 import { aggregate, defaultFor, newId, recomputeAll } from "./gridModel";
-import { ColumnDef, GridConfig, GridRow } from "./types";
+import { ColumnDef, GridConfig, GridRow, StatusBand } from "./types";
 
 export { keyNorm };
 
-const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.others || c.type === "calculated";
+const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.others || !!c.statusBands || c.type === "calculated";
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
@@ -82,6 +82,14 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
 /** Cheap structural comparison to avoid rewriting an unchanged derived grid. */
 export const sameRows = (a: GridRow[], b: GridRow[]) => JSON.stringify(a) === JSON.stringify(b);
 
+/** Standard capacity status: 0-70 Available, >70-90 Near Capacity, >90-100 Fully Allocated, >100 Overallocated. */
+export const CAPACITY_BANDS: StatusBand[] = [
+  { upTo: 70, label: "Available", color: "green" },
+  { upTo: 90, label: "Near Capacity", color: "yellow" },
+  { upTo: 100, label: "Fully Allocated", color: "orange" },
+  { upTo: null, label: "Overallocated", color: "red" },
+];
+
 export interface CapacityPicks { resource: string; period: string; hours: string; team?: string }
 
 /**
@@ -102,7 +110,8 @@ export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: bo
     opts.fromRegister
       ? { id: "capacity", name: "Available Capacity", type: "number", capacity: { resource: "resource", period: "period" }, total: "sum" }
       : { id: "capacity", name: "Available Capacity", type: "number", min: 0, defaultValue: 160, total: "sum" },
-    { id: "utilization", name: "Utilization % (all Epics)", type: "calculated", formula: "totalhours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
+    { id: "utilization", name: "Utilization % (all Epics)", type: "calculated", formula: "totalhours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank", colorBy: "capacitystatus" },
+    { id: "capacitystatus", name: "Capacity Status", type: "string", statusBands: { source: "utilization", ranges: CAPACITY_BANDS } },
     { id: "epicshare", name: "This Epic % of capacity", type: "calculated", formula: "hours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
     { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(utilization > 100, "Yes", "No")', onEmpty: "blank" },
   );
@@ -111,3 +120,6 @@ export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: bo
 
 /** Which columns of the capacity template publish hours to the central store. */
 export const capacityAllocation = () => ({ resource: "resource", period: "period", hours: "hours" });
+
+/** The status column of the capacity template that colours each resource's whole row. */
+export const CAPACITY_ROW_COLOR = "capacitystatus";

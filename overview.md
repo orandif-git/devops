@@ -23,6 +23,9 @@ Smart editable grids, conditional rules and dependent dropdowns for Azure DevOps
 ### Capacity register (Boards → Capacity)
 Resource managers enter available hours **once**: a default per person and month, plus exceptions for specific months (leave, part time). Import/export CSV or Excel, filter, per-change audit trail. Who may edit is set by **Azure DevOps team** (Project settings → Grid & Rules → Capacity); everyone else sees it read-only. Every Epic's *Resource Capacity* grid reads its Available Capacity from here. Each Epic also publishes its per-person, per-month hours when saved, so every Epic can show **Hours (other Epics)**, **Total hours** and **Utilization % across all Epics** next to **This Epic %**, and managers get a **Utilization overview** (capacity vs. hours of all Epics, over-capacity highlighted). (Access control applies to the extension's pages; it is not an Azure DevOps security boundary.)
 
+### Status columns and colour coding
+A column can fill itself with a **status** chosen from ranges of a number – e.g. **Capacity Status** from Utilization %: 0–70 Available (green), above 70–90 Near Capacity (yellow), above 90–100 Fully Allocated (orange), above 100 Overallocated (red). Ranges, labels and colours are editable. Cells can follow a status colour, and a grid can tint **each row** by its status, so every resource's row shows its load at a glance. Numbers, headings and totals are right-aligned so figures line up.
+
 ### Read-only calculated fields
 The **Read-only fields** tab lists every field the extension writes (calculation results, grid totals, grouped totals). Lock them with the **Read-only Value** form control (shows the value with a lock, no input) and/or an Azure DevOps process rule *Make read-only* (also blocks bulk edit and the API) – the tab has the steps.
 

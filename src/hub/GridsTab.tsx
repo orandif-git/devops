@@ -1,8 +1,8 @@
 import * as React from "react";
-import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, TotalMapping } from "../core/types";
+import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
-import { capacityAllocation, capacityTemplate } from "../core/derived";
+import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate } from "../core/derived";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
@@ -10,6 +10,7 @@ import { csv, Ctx, delAt, FieldInput, setAt } from "./ui";
 import { Issue } from "./validate";
 
 const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity", "calculated"];
+const COLORS: StatusColor[] = ["green", "yellow", "orange", "red", "blue", "gray"];
 const BUCKETS = ["day", "month", "quarter", "year"] as const;
 const AGG: (Aggregate | "")[] = ["", "sum", "avg", "min", "max", "count"];
 
@@ -54,7 +55,33 @@ function LookupPanel(p: { col: ColumnDef; source?: ColumnDef; onChange(l: NonNul
   );
 }
 
-function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; sourceCols?: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
+/** Edit "Status from a number": ranges with label and colour, e.g. 0-70 Available (green). */
+function StatusEditor(p: { col: ColumnDef; numeric: ColumnDef[]; onChange(sb: ColumnDef["statusBands"]): void }) {
+  const sb = p.col.statusBands!;
+  const set = (ranges: StatusBand[]) => p.onChange({ ...sb, ranges });
+  return (
+    <div className="card">
+      <div className="help">The label is picked automatically from the number: the first range whose “up to” value is not exceeded wins. Leave “up to” empty on the last range for “and above”.</div>
+      <div className="row"><label className="field" style={{ flex: 1 }}><span>Number column</span>
+        <select value={sb.source} onChange={e => p.onChange({ ...sb, source: e.target.value })}><option value="" />{p.numeric.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
+        <button className="btn fixed" onClick={() => set(CAPACITY_BANDS.map(b => ({ ...b })))} title="0–70 Available, up to 90 Near Capacity, up to 100 Fully Allocated, above Overallocated">Use capacity status preset</button></div>
+      {sb.ranges.map((r, i) => (
+        <div className="row" key={i}>
+          <span className="fixed">up to</span>
+          <input className="fixed" style={{ width: 90 }} type="number" placeholder="no limit" value={r.upTo ?? ""} onChange={e => set(setAt(sb.ranges, i, { ...r, upTo: e.target.value === "" ? null : +e.target.value }))} />
+          <span className="fixed">→</span>
+          <input placeholder="Label, e.g. Available" value={r.label} onChange={e => set(setAt(sb.ranges, i, { ...r, label: e.target.value }))} />
+          <select className="fixed" value={r.color} onChange={e => set(setAt(sb.ranges, i, { ...r, color: e.target.value as StatusColor }))}>{COLORS.map(c => <option key={c}>{c}</option>)}</select>
+          <span className={"badge"} style={{ background: `var(--tint-${r.color}, transparent)` }}>{r.color}</span>
+          <button className="btn icon danger fixed" onClick={() => set(delAt(sb.ranges, i))}>✕</button>
+        </div>
+      ))}
+      <button className="btn" onClick={() => set([...sb.ranges, { upTo: null, label: "", color: "gray" }])}>+ Add range</button>
+    </div>
+  );
+}
+
+function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
   const [open, setOpen] = React.useState(false);
   const set = (patch: Partial<ColumnDef>) => p.onChange({ ...c, ...patch });
@@ -80,6 +107,14 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; sourceCols?: ColumnDe
               </>}
               <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
             </div>
+            <label className="field"><span>Status from a number (e.g. Capacity Status from Utilization %)</span>
+              <select value={c.statusBands ? "on" : ""} onChange={e => set({ statusBands: e.target.value ? { source: p.others.find(o => o.type === "number" || o.type === "calculated")?.id ?? "", ranges: CAPACITY_BANDS.map(b => ({ ...b })) } : undefined })}>
+                <option value="">No – this column is a normal column</option><option value="on">Yes – fill it automatically from ranges of a number column</option></select></label>
+            {c.statusBands && <StatusEditor col={c} numeric={p.others.filter(o => o.id !== c.id && (o.type === "number" || o.type === "calculated"))} onChange={statusBands => set({ statusBands })} />}
+            {p.statusCols.some(sc => sc.id !== c.id) && !c.statusBands && (
+              <label className="field"><span>Colour this column's cells like a status column</span>
+                <select value={c.colorBy ?? ""} onChange={e => set({ colorBy: e.target.value || undefined })}><option value="">No colour</option>{p.statusCols.filter(sc => sc.id !== c.id).map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
+            )}
             {c.type === "calculated" && (
               <div className="row">
                 <label className="field" style={{ width: 110 }}><span>Decimal places</span><input type="number" min={0} max={8} value={c.decimals ?? 2} onChange={e => set({ decimals: Math.max(0, Math.min(8, +e.target.value || 0)) })} /></label>
@@ -208,16 +243,21 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
                     <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{source.columns.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
                 ))}
                 <button className="btn fixed" disabled={!pick.resource || !pick.period || !pick.hours}
-                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }), allocation: capacityAllocation() })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
+                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }), allocation: capacityAllocation(), rowColorBy: CAPACITY_ROW_COLOR })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
               </div>
             </>
           )}
         </div>
       )}
+      {g.columns.some(c => c.statusBands) && (
+        <label className="field"><span>Colour the whole row of each entry by this status column</span>
+          <select value={g.rowColorBy ?? ""} onChange={e => p.onChange({ ...g, rowColorBy: e.target.value || undefined })}>
+            <option value="">No row colour</option>{g.columns.filter(c => c.statusBands).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+      )}
       <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
-        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} sourceCols={source?.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={source?.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       <h3>Push totals to work item fields</h3>

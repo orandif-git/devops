@@ -282,7 +282,38 @@
           "formula": "totalhours / capacity * 100",
           "decimals": 1,
           "onEmpty": "blank",
-          "onDivZero": "blank"
+          "onDivZero": "blank",
+          "colorBy": "capacitystatus"
+        },
+        {
+          "id": "capacitystatus",
+          "name": "Capacity Status",
+          "type": "string",
+          "statusBands": {
+            "source": "utilization",
+            "ranges": [
+              {
+                "upTo": 70,
+                "label": "Available",
+                "color": "green"
+              },
+              {
+                "upTo": 90,
+                "label": "Near Capacity",
+                "color": "yellow"
+              },
+              {
+                "upTo": 100,
+                "label": "Fully Allocated",
+                "color": "orange"
+              },
+              {
+                "upTo": null,
+                "label": "Overallocated",
+                "color": "red"
+              }
+            ]
+          }
         },
         {
           "id": "epicshare",
@@ -306,7 +337,8 @@
         "resource": "resource",
         "period": "period",
         "hours": "hours"
-      }
+      },
+      "rowColorBy": "capacitystatus"
     }
   },
   "calculations": [

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { columnTotals, newRow, optionsFor, recomputeAll, summaries, validateRows } from "../core/gridModel";
+import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, validateRows } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 
@@ -74,6 +74,16 @@ export function Grid(p: GridProps) {
 
   const sums = React.useMemo(() => summaries(rows, cfg), [rows, cfg]);
   const childOn = !!cfg.child?.enabled;
+  /** numbers are right-aligned (headers, cells and totals) so figures line up under their heading */
+  const isNum = (c: ColumnDef) => {
+    if (c.statusBands) return false;
+    if (c.type === "number" || c.capacity || c.others) return true;
+    if (c.type !== "calculated") return false;
+    const vals = rows.map(r => r[c.id]).filter(v => v !== null && v !== undefined && v !== "");
+    return vals.length > 0 && vals.every(v => typeof v === "number");
+  };
+  const numCols = React.useMemo(() => new Set(cfg.columns.filter(isNum).map(c => c.id)), [cfg, rows]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const rowStatus = cfg.rowColorBy ? cfg.columns.find(c => c.id === cfg.rowColorBy) : undefined;
   const pendingChildren = rows.filter(r => !r._childId).length;
 
   const editor = (c: ColumnDef, r: GridRow) => {
@@ -142,7 +152,7 @@ export function Grid(p: GridProps) {
             <tr>
               <th className="narrow">#</th>
               {cfg.columns.map(c => (
-                <th key={c.id} style={{ minWidth: c.width }} onClick={() => setSort(s => (s?.col === c.id ? (s.dir === 1 ? { col: c.id, dir: -1 } : null) : { col: c.id, dir: 1 }))}>
+                <th key={c.id} className={numCols.has(c.id) ? "num" : undefined} style={{ minWidth: c.width }} onClick={() => setSort(s => (s?.col === c.id ? (s.dir === 1 ? { col: c.id, dir: -1 } : null) : { col: c.id, dir: 1 }))}>
                   {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}{c.lookup && <span className="muted" title={`Filled automatically from ${cfg.columns.find(x => x.id === c.lookup!.column)?.name ?? c.lookup.column}`}> ⇢</span>}
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
@@ -152,9 +162,12 @@ export function Grid(p: GridProps) {
           </thead>
           <tbody>
             {visible.map((r, i) => (
-              <tr key={r._id}>
+              <tr key={r._id} className={rowStatus ? "row-" + (cellBand(rowStatus, r, cfg)?.color ?? "none") : undefined}>
                 <td className="narrow muted">{i + 1}</td>
-                {cfg.columns.map(c => <td key={c.id}>{editor(c, r)}</td>)}
+                {cfg.columns.map(c => {
+                  const band = c.statusBands || c.colorBy ? cellBand(c, r, cfg) : undefined;
+                  return <td key={c.id} className={[numCols.has(c.id) ? "num" : "", band ? "tint-" + band.color : "", c.statusBands ? "status" : ""].join(" ").trim() || undefined}>{editor(c, r)}</td>;
+                })}
                 {(!lockedRows || childOn) && (
                   <td className="actions">
                     {!lockedRows && !sort && !filter && <>
@@ -177,7 +190,7 @@ export function Grid(p: GridProps) {
               <tr>
                 <td className="narrow" />
                 {cfg.columns.map(c => (
-                  <td key={c.id}>{c.total ? <strong title={`${c.total} of ${c.name}`}>{c.total === "count" ? "" : "Σ "}{totals[c.id]}{c.total === "avg" ? " avg" : c.total === "count" ? " items" : c.total === "min" ? " min" : c.total === "max" ? " max" : ""}</strong> : null}</td>
+                  <td key={c.id} className={numCols.has(c.id) ? "num" : undefined}>{c.total ? <strong title={`${c.total} of ${c.name}`}>{c.total === "count" ? "" : "Σ "}{totals[c.id]}{c.total === "avg" ? " avg" : c.total === "count" ? " items" : c.total === "min" ? " min" : c.total === "max" ? " max" : ""}</strong> : null}</td>
                 ))}
                 {(!lockedRows || childOn) && <td />}
               </tr>

@@ -1,4 +1,9 @@
 export type ColumnType = "string" | "number" | "boolean" | "date" | "dropdown" | "identity" | "calculated";
+export type StatusColor = "green" | "yellow" | "orange" | "red" | "blue" | "gray";
+
+/** One band of a status column: values up to `upTo` (inclusive; null = no upper limit) get this label and colour. */
+export interface StatusBand { upTo: number | null; label: string; color: StatusColor }
+
 export type Aggregate = "sum" | "avg" | "min" | "max" | "count";
 
 export interface ColumnDef {
@@ -29,6 +34,13 @@ export interface ColumnDef {
     /** name of a shared Mapping (project level); when set, map/fallback come from it */
     table?: string;
   };
+  /**
+   * Status column: text label chosen from the number in column `source` by ranges, e.g. 0-70 Available, 70-90 Near Capacity.
+   * Ranges are checked in order; the first with value <= upTo wins; the last should have upTo = null.
+   */
+  statusBands?: { source: string; ranges: StatusBand[] };
+  /** Colour this cell like the status of the status column with this id (e.g. tint "Utilization %" by "Capacity Status"). */
+  colorBy?: string;
   /** Derived grids: hours the same person has on ALL OTHER Epics in that month (from the central allocation store). Read-only. */
   others?: { resource: string; period: string };
   /** Derived grids: value is the person's available hours for that month, looked up in the central Capacity register (read-only). */
@@ -87,6 +99,8 @@ export interface Breakdown {
 export interface GridConfig {
   columns: ColumnDef[];
   breakdowns?: Breakdown[];
+  /** tint every row by the status of this status column (id), e.g. each resource's row coloured by its Capacity Status */
+  rowColorBy?: string;
   /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
   derived?: { source: string };
   /** publish this grid's hours (per person and month) to the central store so other Epics can see them */

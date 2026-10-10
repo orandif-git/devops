@@ -109,6 +109,12 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         else if (ref.toLowerCase() === c.id.toLowerCase()) add("error", w, `Formula of '${c.id}' refers to itself`);
       }
     });
+    g.columns.forEach(c => {
+      if (!c.statusBands) return;
+      const src = g.columns.find(x => x.id === c.statusBands!.source);
+      if (src && src.type !== "number" && src.type !== "calculated") add("warn", w, `Status column '${c.id}': '${src.name}' is not a number column, so no status will be set`);
+      if (c.statusBands.ranges.length && c.statusBands.ranges[c.statusBands.ranges.length - 1].upTo !== null) add("warn", w, `Status column '${c.id}': the last range has an upper limit, so larger values get no status – leave “up to” empty on the last range`);
+    });
     // ---- derived grids
     if (g.derived) {
       const src = cfg.grids[g.derived.source];
