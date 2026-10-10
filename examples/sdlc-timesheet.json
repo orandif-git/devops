@@ -190,6 +190,89 @@
         }
       ],
       "totals": []
+    },
+    "Resource Capacity": {
+      "derived": {
+        "source": "SDLC Timesheet"
+      },
+      "dataField": "Custom.CapacityData",
+      "columns": [
+        {
+          "id": "resource",
+          "name": "Resource",
+          "type": "string",
+          "derive": {
+            "role": "key",
+            "source": "resource"
+          },
+          "width": 220
+        },
+        {
+          "id": "period",
+          "name": "Period",
+          "type": "string",
+          "derive": {
+            "role": "key",
+            "source": "period",
+            "bucket": "month"
+          }
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "type": "string",
+          "derive": {
+            "role": "first",
+            "source": "team"
+          }
+        },
+        {
+          "id": "resourcetype",
+          "name": "Resource type",
+          "type": "string",
+          "lookup": {
+            "column": "team",
+            "map": {},
+            "table": "Resource type"
+          }
+        },
+        {
+          "id": "hours",
+          "name": "Hours",
+          "type": "number",
+          "derive": {
+            "role": "agg",
+            "source": "Hours",
+            "aggregate": "sum"
+          },
+          "total": "sum"
+        },
+        {
+          "id": "capacity",
+          "name": "Available Capacity",
+          "type": "number",
+          "min": 0,
+          "defaultValue": 160,
+          "total": "sum"
+        },
+        {
+          "id": "epicshare",
+          "name": "This Epic % of capacity",
+          "type": "calculated",
+          "formula": "hours / capacity * 100",
+          "decimals": 1,
+          "onEmpty": "blank",
+          "onDivZero": "blank"
+        },
+        {
+          "id": "overcapacity",
+          "name": "Over capacity",
+          "type": "calculated",
+          "formula": "IF(epicshare > 100, \"Yes\", \"No\")",
+          "onEmpty": "blank"
+        }
+      ],
+      "totals": []
     }
   },
   "calculations": [
@@ -419,6 +502,85 @@
       "formula": "Peak",
       "resultField": "Custom.PeakSDLCPhase",
       "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "total-planned-capacity",
+      "name": "Total Planned Capacity",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Cap",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "capacity",
+            "aggregate": "sum"
+          },
+          "onEmpty": "zero"
+        }
+      ],
+      "formula": "Cap",
+      "resultField": "Custom.TotalPlannedCapacity",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "overall-utilization",
+      "name": "Overall Capacity Utilization",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "Hours",
+            "aggregate": "sum"
+          }
+        },
+        {
+          "name": "Cap",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "capacity",
+            "aggregate": "sum"
+          }
+        }
+      ],
+      "formula": "Hours / Cap * 100",
+      "resultField": "Custom.OverallUtilization",
+      "decimals": 1,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-utilization",
+      "name": "Peak Capacity Utilization",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "epicshare",
+            "aggregate": "max"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakUtilization",
+      "decimals": 1,
       "onEmpty": "blank",
       "onDivZero": "blank",
       "mode": "always"

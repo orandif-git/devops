@@ -1,4 +1,4 @@
-export type ColumnType = "string" | "number" | "boolean" | "date" | "dropdown" | "identity";
+export type ColumnType = "string" | "number" | "boolean" | "date" | "dropdown" | "identity" | "calculated";
 export type Aggregate = "sum" | "avg" | "min" | "max" | "count";
 
 export interface ColumnDef {
@@ -29,6 +29,18 @@ export interface ColumnDef {
     /** name of a shared Mapping (project level); when set, map/fallback come from it */
     table?: string;
   };
+  /** calculated columns: decimals of numeric results (default 2) */
+  decimals?: number;
+  /** calculated columns: an empty numeric input blanks the result (default) or counts as 0 */
+  onEmpty?: "blank" | "zero";
+  /** calculated columns: division by zero blanks the result (default) or gives 0 */
+  onDivZero?: "blank" | "zero";
+  /**
+   * Derived grids only: where this column's value comes from in the source grid.
+   * key = group key (one derived row per distinct combination of the key columns),
+   * first = first non-empty source value in the group, agg = aggregate of a source column.
+   */
+  derive?: { role: "key" | "first" | "agg"; source: string; aggregate?: Aggregate; bucket?: "day" | "month" | "quarter" | "year" };
   /** identity columns: also search groups (default true) */
   identityGroups?: boolean;
 }
@@ -71,6 +83,8 @@ export interface Breakdown {
 export interface GridConfig {
   columns: ColumnDef[];
   breakdowns?: Breakdown[];
+  /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
+  derived?: { source: string };
   /** field that stores the JSON; falls back to the control's DataField input */
   dataField?: string;
   totals?: TotalMapping[];

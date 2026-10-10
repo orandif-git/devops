@@ -16,6 +16,10 @@ Smart editable grids, conditional rules and dependent dropdowns for Azure DevOps
 - **Create child work items** from rows (single or all), with field mapping and parent link
 - Sort, filter, reorder, duplicate rows; dark/light theme aware
 
+### Calculated columns and derived grids
+- **Calculated** column type: formulas over the row (`hours / capacity * 100`) and whole column (`TOTAL(hours)`), with decimals, blank-or-0 for empty inputs and division by zero.
+- **Derived grids:** a second grid built automatically from the first, shown below it – e.g. **Resource Capacity**: one row per resource and month, hours summed, team carried, Available Capacity entered per row, utilization and over-capacity calculated. Manual entries are remembered by resource and month.
+
 ### Shared mappings (Mappings tab)
 Maintain value → category tables once, e.g. **Resource type**: External ← Vendor, IT Contract · Business ← Business · all other values → Internal. Any grid column can use a mapping, so adding a team is a one-place change. Everything is configurable: categories, their values and the fallback.
 

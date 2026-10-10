@@ -9,6 +9,9 @@ type Tok = { t: "num" | "str" | "ref" | "id" | "op" | "end"; v: string; raw?: st
 /** Thrown to abort evaluation with a "blank" outcome (missing input, strict division by zero). */
 export class EvalAbort extends Error {}
 
+/** Functions that aggregate a whole grid column, e.g. `[hours] / TOTAL([hours]) * 100`. */
+export const COLUMN_FUNCS = ["TOTAL", "COLAVG", "COLMAX", "COLMIN", "COLCOUNT"];
+
 export interface EvalOptions {
   /** throw EvalAbort on division by zero instead of returning 0 */
   strictDiv?: boolean;
@@ -113,6 +116,13 @@ export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = 
       if (t.v === "TRUE") return true;
       if (t.v === "FALSE") return false;
       if (peek().v !== "(") return resolve(t.raw ?? t.v);        // bare identifier = named variable
+      if (COLUMN_FUNCS.includes(t.v)) {                           // TOTAL([col]) etc.: aggregate over the whole grid column
+        eat("(");
+        const col = eat();
+        if (col.t !== "ref" && col.t !== "id") throw new Error(`${t.v} expects a column name`);
+        eat(")");
+        return resolve(`@${t.v}:${col.t === "id" ? col.raw ?? col.v : col.v}`);
+      }
       eat("(");
       const args: Val[] = [];
       if (peek().v !== ")") { args.push(parseComparison()); while (peek().v === ",") { eat(","); args.push(parseComparison()); } }
@@ -160,4 +170,4 @@ export function extractRefs(src: string): string[] {
   return Array.from(out);
 }
 
-export const FUNCTION_NAMES = ["IF", "ROUND", "MIN", "MAX", "SUM", "ABS", "FLOOR", "CEIL", "AND", "OR", "NOT", "CONCAT", "TRUE", "FALSE"];
+export const FUNCTION_NAMES = [...COLUMN_FUNCS, "IF", "ROUND", "MIN", "MAX", "SUM", "ABS", "FLOOR", "CEIL", "AND", "OR", "NOT", "CONCAT", "TRUE", "FALSE"];

@@ -3,7 +3,7 @@ import { checkFormula } from "../core/expr";
 import { ProjectConfig } from "../core/types";
 import { orderCalculations, undefinedVariables } from "../core/calc";
 import { lookupValues, resolvedGrids } from "../core/sharedLookups";
-import { FUNCTION_NAMES } from "../core/expr";
+import { extractRefs, FUNCTION_NAMES } from "../core/expr";
 
 export interface Issue { level: "error" | "warn"; where: string; message: string }
 
@@ -100,7 +100,31 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
     const w = `Grid “${name}”`;
     g.columns.forEach(c => { if (c.lookup?.table && !(raw.lookups ?? {})[c.lookup.table]) add("error", w, `'${c.id}' uses shared mapping '${c.lookup.table}', which does not exist`); });
     validateGrid(g).forEach(m => add("error", w, m));
-    g.columns.forEach(c => { if (c.formula) { const e = checkFormula(c.formula); if (e) add("error", w, `Formula of '${c.id}': ${e}`); } });
+    g.columns.forEach(c => {
+      if (!c.formula) return;
+      const e = checkFormula(c.formula);
+      if (e) { add("error", w, `Formula of '${c.id}': ${e}`); return; }
+      for (const ref of extractRefs(c.formula)) {
+        if (!g.columns.some(x => x.id.toLowerCase() === ref.toLowerCase() || x.name.toLowerCase() === ref.toLowerCase())) add("error", w, `Formula of '${c.id}' uses '${ref}', which is not a column of this grid`);
+        else if (ref.toLowerCase() === c.id.toLowerCase()) add("error", w, `Formula of '${c.id}' refers to itself`);
+      }
+    });
+    // ---- derived grids
+    if (g.derived) {
+      const src = cfg.grids[g.derived.source];
+      if (!g.derived.source || !src) add("error", w, `Source grid '${g.derived.source}' does not exist`);
+      else if (src.derived) add("error", w, `Source grid '${g.derived.source}' is itself derived; chain only one level`);
+      else if (g.derived.source === name) add("error", w, "A grid cannot be derived from itself");
+      if (!g.dataField) add("error", w, "A derived grid needs its own data field (a long-text field) to remember manual entries");
+      else if (g.dataField === src?.dataField) add("error", w, "A derived grid needs a different data field than its source grid");
+      if (!g.columns.some(c => c.derive?.role === "key")) add("error", w, "Mark at least one column as a KEY (e.g. Resource, Period) so rows can be created");
+      g.columns.forEach(c => {
+        if (!c.derive) return;
+        if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
+        else if (src && !src.columns.some(x => x.id === c.derive!.source)) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
+        else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
+      });
+    } else if (g.columns.some(c => c.derive)) add("warn", w, "Some columns have a source set, but this grid is not marked as derived, so they are ignored");
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
     if (!g.dataField) add("warn", w, "No data field set – it must then be set on the form control");
     else {

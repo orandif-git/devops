@@ -2,13 +2,15 @@ import * as React from "react";
 import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
+import { capacityTemplate } from "../core/derived";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
 import { csv, Ctx, delAt, FieldInput, setAt } from "./ui";
 import { Issue } from "./validate";
 
-const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity"];
+const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity", "calculated"];
+const BUCKETS = ["day", "month", "quarter", "year"] as const;
 const AGG: (Aggregate | "")[] = ["", "sum", "avg", "min", "max", "count"];
 
 const mapToText = (m: Record<string, string[]>) => Object.entries(m).map(([k, v]) => `${k}: ${v.join(", ")}`).join("\n");
@@ -52,7 +54,7 @@ function LookupPanel(p: { col: ColumnDef; source?: ColumnDef; onChange(l: NonNul
   );
 }
 
-function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
+function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; sourceCols?: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
   const [open, setOpen] = React.useState(false);
   const set = (patch: Partial<ColumnDef>) => p.onChange({ ...c, ...patch });
@@ -71,14 +73,42 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; onChange(c: ColumnDef
           <div className="card">
             <div className="row">
               <label className="field" style={{ flex: 1 }}><span>Default value</span><input value={c.defaultValue === undefined ? "" : String(c.defaultValue)} onChange={e => set({ defaultValue: e.target.value === "" ? undefined : e.target.value })} /></label>
-              <label className="field" style={{ flex: 1 }}><span>Formula (makes column computed)</span><input placeholder="[qty] * [price]" value={c.formula ?? ""} onChange={e => set({ formula: e.target.value || undefined })} /></label>
+              <label className="field" style={{ flex: 2 }}><span>{c.type === "calculated" ? "Formula – use column ids, e.g. hours / capacity * 100, TOTAL(hours), IF(x > 100, \"Yes\", \"No\")" : "Formula (makes column computed)"}</span><input placeholder="[qty] * [price]" value={c.formula ?? ""} onChange={e => set({ formula: e.target.value || undefined })} /></label>
               {c.type === "number" && <>
                 <label className="field" style={{ width: 80 }}><span>Min</span><input type="number" value={c.min ?? ""} onChange={e => set({ min: e.target.value === "" ? undefined : +e.target.value })} /></label>
                 <label className="field" style={{ width: 80 }}><span>Max</span><input type="number" value={c.max ?? ""} onChange={e => set({ max: e.target.value === "" ? undefined : +e.target.value })} /></label>
               </>}
               <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
             </div>
-            {c.type !== "identity" && c.type !== "boolean" && (
+            {c.type === "calculated" && (
+              <div className="row">
+                <label className="field" style={{ width: 110 }}><span>Decimal places</span><input type="number" min={0} max={8} value={c.decimals ?? 2} onChange={e => set({ decimals: Math.max(0, Math.min(8, +e.target.value || 0)) })} /></label>
+                <label className="field" style={{ flex: 1 }}><span>When an input is empty</span>
+                  <select value={c.onEmpty ?? "blank"} onChange={e => set({ onEmpty: e.target.value as "blank" | "zero" })}><option value="blank">Leave blank (recommended)</option><option value="zero">Count as 0</option></select></label>
+                <label className="field" style={{ flex: 1 }}><span>Division by zero</span>
+                  <select value={c.onDivZero ?? "blank"} onChange={e => set({ onDivZero: e.target.value as "blank" | "zero" })}><option value="blank">Leave blank (recommended)</option><option value="zero">Result is 0</option></select></label>
+              </div>
+            )}
+            {p.sourceCols && (
+              <div className="card">
+                <div className="row">
+                  <label className="field" style={{ flex: 1 }}><span>Where does this column's value come from?</span>
+                    <select value={c.derive?.role ?? ""} onChange={e => set({ derive: e.target.value ? { role: e.target.value as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: e.target.value === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined })}>
+                      <option value="">Entered by the user / calculated here</option>
+                      <option value="key">Source column – KEY (one row per distinct value)</option>
+                      <option value="first">Source column – first value in the group</option>
+                      <option value="agg">Source column – aggregate (sum, …)</option>
+                    </select></label>
+                  {c.derive && <label className="field" style={{ flex: 1 }}><span>Source column</span>
+                    <select value={c.derive.source} onChange={e => set({ derive: { ...c.derive!, source: e.target.value } })}><option value="" />{p.sourceCols.map(sc => <option key={sc.id} value={sc.id}>{sc.name} ({sc.id})</option>)}</select></label>}
+                  {c.derive?.role === "agg" && <label className="field" style={{ width: 100 }}><span>Aggregate</span>
+                    <select value={c.derive.aggregate ?? "sum"} onChange={e => set({ derive: { ...c.derive!, aggregate: e.target.value as Aggregate } })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select></label>}
+                  {c.derive?.role === "key" && p.sourceCols.find(sc => sc.id === c.derive!.source)?.type === "date" && <label className="field" style={{ width: 120 }}><span>Group dates by</span>
+                    <select value={c.derive.bucket ?? "day"} onChange={e => set({ derive: { ...c.derive!, bucket: e.target.value as (typeof BUCKETS)[number] } })}>{BUCKETS.map(b => <option key={b}>{b}</option>)}</select></label>}
+                </div>
+              </div>
+            )}
+            {c.type !== "identity" && c.type !== "boolean" && c.type !== "calculated" && (
               <>
                 <label className="field"><span>Auto-fill from another column (read-only; the user does not pick a value)</span>
                   <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { ...(c.lookup ?? { map: {} }), column: e.target.value } : undefined })}>
@@ -119,8 +149,11 @@ function Preview({ cfg: raw }: { cfg: GridConfig }) {
     onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />;
 }
 
-function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void; issues: Issue[] }) {
+function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; onChange(g: GridConfig): void; issues: Issue[] }) {
   const g = p.g;
+  const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
+  const source = g.derived ? p.grids[g.derived.source] : undefined;
+  const [pick, setPick] = React.useState({ resource: "", period: "", hours: "", team: "" });
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
@@ -131,10 +164,34 @@ function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void;
         <label className="fixed"><input type="checkbox" checked={!!g.readOnly} onChange={e => p.onChange({ ...g, readOnly: e.target.checked })} /> Read-only</label>
       </div>
       <label title="Off: required/invalid cells are only highlighted. On: the work item cannot be saved while any exist."><input type="checkbox" checked={!!g.blockSave} onChange={e => p.onChange({ ...g, blockSave: e.target.checked })} /> Block saving the work item while required values are missing</label>
+      <h3>Build this grid automatically from another grid</h3>
+      <label><input type="checkbox" checked={!!g.derived} onChange={e => p.onChange({ ...g, derived: e.target.checked ? { source: sourceNames[0] ?? "" } : undefined })} disabled={!g.derived && !sourceNames.length} /> This is a derived grid (rows are created from the source grid, e.g. Resource Capacity from the timesheet)</label>
+      {g.derived && (
+        <div className="card">
+          <div className="row">
+            <label className="field" style={{ flex: 1 }}><span>Source grid</span>
+              <select value={g.derived.source} onChange={e => p.onChange({ ...g, derived: { source: e.target.value } })}><option value="" />{sourceNames.map(n => <option key={n}>{n}</option>)}</select></label>
+          </div>
+          <div className="help">The source grid's control shows this grid below it. Mark which columns are <b>keys</b> (one row per distinct combination), carried or summed from the source; other columns stay manual or calculated. It needs its own long-text data field.</div>
+          {source && (
+            <>
+              <div className="help"><b>Quick start – Resource capacity:</b> choose the source columns and generate the standard columns (Resource, Period by month, Team, Hours, Available Capacity, “This Epic %”, Over capacity).</div>
+              <div className="row">
+                {([["resource", "Resource"], ["period", "Period (date)"], ["hours", "Hours"], ["team", "Team (optional)"]] as const).map(([k, label]) => (
+                  <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
+                    <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{source.columns.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
+                ))}
+                <button className="btn fixed" disabled={!pick.resource || !pick.period || !pick.hours}
+                  onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }) })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
-        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} sourceCols={source?.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       <h3>Push totals to work item fields</h3>
@@ -219,7 +276,7 @@ function Editor(p: { name: string; g: GridConfig; onChange(g: GridConfig): void;
         </div>
       )}
       <h3>Preview</h3>
-      <Preview cfg={g} />
+      {g.derived ? <div className="help">A derived grid fills itself from the source grid on the work item, so there is nothing to preview here.</div> : <Preview cfg={g} />}
       {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
       <div className="help" style={{ marginTop: 10 }}>Use it: Organization settings → Process → your work item type → Layout → add the <b>Smart Grid</b> custom control, set <b>Grid name</b> to <code>{p.name}</code> and pick the data field.</div>
     </div>
@@ -256,7 +313,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
         {cur ? <>
           <label className="field"><span>Grid name (referenced by the form control)</span>
             <input defaultValue={cur} key={cur} onBlur={e => rename(cur, e.target.value.trim())} /></label>
-          <Editor name={cur} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”`)} />
+          <Editor name={cur} grids={p.grids} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”`)} />
         </> : <div className="muted">Create a grid to define columns, formulas, totals and child item creation.</div>}
       </div>
     </div>

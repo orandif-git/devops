@@ -21,3 +21,5 @@
 .wig .sum { border: 1px solid var(--line); padding: 2px 8px; border-radius: 3px; background: var(--hover); }
 .wig .sum.group { background: none; }
 .wig .gl { margin-right: 10px; }
+.wig .gtitle { margin: 6px 0 4px; font-size: 14px; font-weight: 600; }
+.wig td input.calc { text-align: right; font-weight: 600; }

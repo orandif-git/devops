@@ -1,4 +1,4 @@
-import { evaluate } from "./expr";
+import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter } from "./types";
 
 let seq = 0;
@@ -41,7 +41,7 @@ export function parseStored(raw: unknown, cfg: GridConfig): GridRow[] {
   let data: unknown;
   try { data = extractJson(text); } catch { return []; }
   const arr = Array.isArray(data) ? data : Array.isArray((data as { rows?: unknown })?.rows) ? (data as { rows: unknown[] }).rows : [];
-  return arr.filter(r => r && typeof r === "object").map(r => normalizeRow(r as Record<string, unknown>, cfg));
+  return recomputeAll(arr.filter(r => r && typeof r === "object").map(r => normalizeRow(r as Record<string, unknown>, cfg)), cfg);
 }
 
 /** JSON with `<`, `>` and `&` escaped, so an HTML field cannot treat parts of it as tags or entities. */
@@ -50,6 +50,7 @@ export function serialize(rows: GridRow[]): string {
 }
 
 export function defaultFor(col: ColumnDef): unknown {
+  if (col.type === "calculated") return null;
   if (col.defaultValue !== undefined) return coerce(col, col.defaultValue);
   switch (col.type) {
     case "number": return null;
@@ -60,6 +61,7 @@ export function defaultFor(col: ColumnDef): unknown {
 
 export function coerce(col: ColumnDef, v: unknown): unknown {
   switch (col.type) {
+    case "calculated": return typeof v === "number" || typeof v === "string" ? v : null;
     case "number": {
       if (v === "" || v === null || v === undefined) return null;
       const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
@@ -107,7 +109,7 @@ export function optionsFor(col: ColumnDef, row: GridRow): string[] {
 }
 
 /** Recalculate formula columns and clear dependent values that are no longer valid. Mutates & returns row. */
-export function recompute(row: GridRow, cfg: GridConfig): GridRow {
+export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): GridRow {
   const changed = new Set<string>(); // columns reset or auto-filled during this pass; their dependants must be re-derived
   for (const c of cfg.columns) {
     if (c.lookup) {
@@ -127,19 +129,49 @@ export function recompute(row: GridRow, cfg: GridConfig): GridRow {
   }
   // formulas may reference other formulas: iterate a few passes
   const formulas = cfg.columns.filter(c => c.formula);
+  const scope = rows ?? [row];
   for (let pass = 0; pass < Math.min(formulas.length, 5) || pass < 1; pass++) {
     for (const c of formulas) {
+      const strict = c.type === "calculated";                     // calculated columns: blank on missing input / division by zero (configurable)
       try {
         const val = evaluate(c.formula!, name => {
+          if (name[0] === "@") {                                   // TOTAL([col]) & co.
+            const [fn, colName] = name.slice(1).split(":");
+            const col = cfg.columns.find(x => x.id === colName || x.name === colName);
+            if (!col) throw new EvalAbort(`unknown column '${colName}'`);
+            return columnAggregate(fn, scope.map(r => r[col.id]));
+          }
           const ref = cfg.columns.find(x => x.id === name || x.name === name);
+          if (!ref && strict) throw new EvalAbort(`unknown column '${name}'`);
           const raw = ref ? row[ref.id] : "";
-          return ref?.type === "number" ? (raw === null ? 0 : (raw as number)) : (raw as string | number | boolean) ?? "";
-        });
-        row[c.id] = coerce(c, typeof val === "number" ? Math.round(val * 1e8) / 1e8 : val);
+          if (ref?.type === "number" || ref?.type === "calculated") {
+            if (raw === null || raw === undefined || raw === "") { if (strict && (c.onEmpty ?? "blank") === "blank") throw new EvalAbort(`'${ref.name}' is empty`); return 0; }
+            return raw as number | string;
+          }
+          return (raw as string | number | boolean) ?? "";
+        }, { strictDiv: strict && (c.onDivZero ?? "blank") === "blank" });
+        if (strict) {
+          const f = Math.pow(10, c.decimals ?? 2);
+          row[c.id] = typeof val === "number" ? (Number.isFinite(val) ? Math.round(val * f) / f : null) : typeof val === "boolean" ? (val ? 1 : 0) : String(val);
+        } else row[c.id] = coerce(c, typeof val === "number" ? Math.round(val * 1e8) / 1e8 : val);
       } catch { row[c.id] = null; }
     }
   }
   return row;
+}
+
+function columnAggregate(fn: string, values: unknown[]): number {
+  const map: Record<string, Aggregate> = { TOTAL: "sum", COLAVG: "avg", COLMAX: "max", COLMIN: "min", COLCOUNT: "count" };
+  return COLUMN_FUNCS.includes(fn) ? aggregate(values, map[fn]) : 0;
+}
+
+/** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
+export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
+  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn)) return rows;
+  let out = rows.map(r => ({ ...r }));
+  const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
+  for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
+  return out;
 }
 
 export function aggregate(values: unknown[], agg: Aggregate): number {
@@ -231,6 +263,7 @@ export function validateConfig(cfg: GridConfig): string[] {
     else if (!/^[A-Za-z0-9_]+$/.test(c.id)) errs.push(`Column id '${c.id}' may only contain letters, digits and _`);
     if (ids.has(c.id)) errs.push(`Duplicate column id '${c.id}'`);
     ids.add(c.id);
+    if (c.type === "calculated" && !c.formula?.trim()) errs.push(`Calculated column '${c.id}' has no formula`);
     if (c.type === "dropdown" && !c.lookup && !c.dependsOn && !(c.options && c.options.length)) errs.push(`Dropdown '${c.id}' has no options`);
     if (c.lookup) {
       if (!cfg.columns.some(x => x.id === c.lookup!.column)) errs.push(`'${c.id}' looks up unknown column '${c.lookup.column}'`);

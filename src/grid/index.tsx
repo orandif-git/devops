@@ -4,6 +4,8 @@ import * as SDK from "azure-devops-extension-sdk";
 import "../shared/styles.css";
 import "./grid.css";
 import { Grid } from "./Grid";
+import { DerivedGrid } from "./DerivedGrid";
+import { emitFormEvent } from "./formWriter";
 import { GridConfig, GridRow, LookupTable } from "../core/types";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, serialize, validateConfig, validateRows } from "../core/gridModel";
@@ -12,15 +14,20 @@ import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
 interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
 
-async function resolveConfig(inputs: Inputs, projectId: string): Promise<GridConfig> {
+interface Resolved { cfg: GridConfig; derived: { name: string; cfg: GridConfig }[] }
+
+async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolved> {
   let cfg: GridConfig | undefined;
+  let derived: Resolved["derived"] = [];
   let lookups: Record<string, LookupTable> = {};
   if (inputs.ConfigJson && inputs.ConfigJson.trim()) {
     try { cfg = JSON.parse(inputs.ConfigJson); } catch { throw new Error("The 'Grid configuration (JSON)' input is not valid JSON."); }
   } else if (inputs.GridName) {
     const project = await loadConfig(projectId);
     lookups = project.lookups ?? {};
-    cfg = project.grids[inputs.GridName.trim()];
+    const name = inputs.GridName.trim();
+    cfg = project.grids[name];
+    derived = Object.entries(project.grids).filter(([n, g]) => g.derived?.source === name && n !== name).map(([n, g]) => ({ name: n, cfg: applySharedLookups(g, lookups) }));
     if (!cfg) throw new Error(`No grid named '${inputs.GridName}' is defined. Create it in Project settings → Grid & Rules.`);
   } else {
     throw new Error("Set the 'Grid name' (or 'Grid configuration (JSON)') input on this control in the process layout.");
@@ -32,10 +39,10 @@ async function resolveConfig(inputs: Inputs, projectId: string): Promise<GridCon
   if (!cfg.dataField) throw new Error("No data field set. Pick a long-text field in the 'Data field' input.");
   const problems = validateConfig(cfg);
   if (problems.length) throw new Error("Invalid grid configuration: " + problems.join("; "));
-  return cfg;
+  return { cfg, derived };
 }
 
-function App(props: { cfg: GridConfig; projectId: string; projectName: string }) {
+function App(props: { cfg: GridConfig; derived: Resolved["derived"]; projectId: string; projectName: string }) {
   const { cfg } = props;
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [ready, setReady] = React.useState(false);
@@ -93,11 +100,11 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
   // register with the work item form
   React.useEffect(() => {
     SDK.register(SDK.getContributionId(), () => ({
-      onLoaded: () => { readField().then(() => setReady(true)); },
-      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); },
-      onSaved: () => { readField(); },
-      onReset: () => { lastWritten.current = null; readField(); },
-      onRefreshed: () => { readField(); },
+      onLoaded: () => { readField().then(() => setReady(true)); emitFormEvent({ type: "loaded" }); },
+      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
+      onSaved: () => { readField(); emitFormEvent({ type: "saved" }); },
+      onReset: () => { lastWritten.current = null; readField(); emitFormEvent({ type: "reset" }); },
+      onRefreshed: () => { readField(); emitFormEvent({ type: "refreshed" }); },
     }));
     readField().then(() => setReady(true)).catch(e => flash(e.message));
     // block save while rows are invalid
@@ -107,7 +114,7 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
   // keep the iframe height in sync with the content
   React.useEffect(() => {
     if (!rootRef.current) return;
-    const ro = new ResizeObserver(() => SDK.resize(undefined, Math.min(rootRef.current!.scrollHeight + 8, 700)));
+    const ro = new ResizeObserver(() => SDK.resize(undefined, Math.min(rootRef.current!.scrollHeight + 8, 1100)));
     ro.observe(rootRef.current);
     return () => ro.disconnect();
   }, []);
@@ -178,6 +185,7 @@ function App(props: { cfg: GridConfig; projectId: string; projectName: string })
         onChange={commit} onImport={onImport} onExport={onExport}
         onCreateChild={id => createChildren([id])}
         onCreateAllChildren={() => createChildren(rowsRef.current.filter(r => !r._childId).map(r => r._id))} />
+      {props.derived.map(d => <DerivedGrid key={d.name} name={d.name} cfg={d.cfg} sourceRows={rows} sourceReady={ready} projectId={props.projectId} />)}
     </div>
   );
 }
@@ -188,8 +196,8 @@ async function main() {
   try {
     const inputs = (SDK.getConfiguration().witInputs ?? {}) as Inputs;
     const project = await getProject();
-    const cfg = await resolveConfig(inputs, project.id);
-    ReactDOM.render(<App cfg={cfg} projectId={project.id} projectName={project.name} />, root);
+    const { cfg, derived } = await resolveConfig(inputs, project.id);
+    ReactDOM.render(<App cfg={cfg} derived={derived} projectId={project.id} projectName={project.name} />, root);
   } catch (e) {
     root.innerHTML = `<div style="padding:8px" class="err">${String((e as Error).message).replace(/</g, "&lt;")}</div>`;
     SDK.resize(undefined, 80);

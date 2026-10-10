@@ -1,5 +1,5 @@
 import * as React from "react";
-import { columnTotals, newRow, optionsFor, recompute, summaries, validateRows } from "../core/gridModel";
+import { columnTotals, newRow, optionsFor, recomputeAll, summaries, validateRows } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 
@@ -7,6 +7,10 @@ export interface GridProps {
   cfg: GridConfig;
   rows: GridRow[];
   readOnly: boolean;
+  /** derived grids: rows come from another grid, so rows cannot be added, removed, moved or imported (manual cells stay editable) */
+  autoRows?: boolean;
+  /** heading shown above the grid */
+  title?: string;
   projectId: string;
   busyChildren: boolean;
   onChange(rows: GridRow[]): void;
@@ -21,6 +25,7 @@ type SortState = { col: string; dir: 1 | -1 } | null;
 
 export function Grid(p: GridProps) {
   const { cfg, rows, readOnly } = p;
+  const lockedRows = readOnly || !!p.autoRows;
   const [sort, setSort] = React.useState<SortState>(null);
   const [filter, setFilter] = React.useState("");
   // rows added with "Add row" that the user has not touched yet: no red highlighting
@@ -51,10 +56,10 @@ export function Grid(p: GridProps) {
 
   const update = (rowId: string, col: string, value: unknown) => {
     if (pristine.has(rowId)) setPristine(s => { const n = new Set(s); n.delete(rowId); return n; });
-    p.onChange(rows.map(r => (r._id === rowId ? recompute({ ...r, [col]: value }, cfg) : r)));
+    p.onChange(recomputeAll(rows.map(r => (r._id === rowId ? { ...r, [col]: value } : r)), cfg));
   };
-  const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange([...rows, r]); };
-  const delRow = (id: string) => p.onChange(rows.filter(r => r._id !== id));
+  const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
+  const delRow = (id: string) => p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg));
   const move = (id: string, d: number) => {
     const i = rows.findIndex(r => r._id === id), j = i + d;
     if (j < 0 || j >= rows.length) return;
@@ -64,7 +69,7 @@ export function Grid(p: GridProps) {
     const i = rows.findIndex(r => r._id === id);
     const copy = { ...newRow(cfg), ...rows[i], _id: newRow(cfg)._id } as GridRow;
     delete copy._childId;
-    const next = [...rows]; next.splice(i + 1, 0, recompute(copy, cfg)); p.onChange(next);
+    const next = [...rows]; next.splice(i + 1, 0, copy); p.onChange(recomputeAll(next, cfg));
   };
 
   const sums = React.useMemo(() => summaries(rows, cfg), [rows, cfg]);
@@ -73,10 +78,12 @@ export function Grid(p: GridProps) {
 
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
-    const dis = readOnly || !!c.formula || !!c.lookup;
+    const dis = readOnly || !!c.formula || !!c.lookup || !!c.derive || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id);
     switch (c.type) {
+      case "calculated":
+        return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} title={c.formula} />;
       case "boolean":
         return <input type="checkbox" disabled={dis} checked={!!v} onChange={e => update(r._id, c.id, e.target.checked)} />;
       case "number":
@@ -105,7 +112,8 @@ export function Grid(p: GridProps) {
 
   return (
     <div className="wig">
-      {!readOnly && (
+      {p.title && <h3 className="gtitle">{p.title}</h3>}
+      {!lockedRows && (
         <div className="toolbar">
           <button className="btn primary" onClick={addRow}>+ Add row</button>
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
@@ -118,7 +126,7 @@ export function Grid(p: GridProps) {
             Create {cfg.child!.workItemType}s ({pendingChildren})</button>}
         </div>
       )}
-      {readOnly && (
+      {lockedRows && (
         <div className="toolbar">
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           <span className="spacer" />
@@ -137,7 +145,7 @@ export function Grid(p: GridProps) {
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
-              {(!readOnly || childOn) && <th className="narrow" />}
+              {(!lockedRows || childOn) && <th className="narrow" />}
             </tr>
           </thead>
           <tbody>
@@ -145,22 +153,22 @@ export function Grid(p: GridProps) {
               <tr key={r._id}>
                 <td className="narrow muted">{i + 1}</td>
                 {cfg.columns.map(c => <td key={c.id}>{editor(c, r)}</td>)}
-                {(!readOnly || childOn) && (
+                {(!lockedRows || childOn) && (
                   <td className="actions">
-                    {!readOnly && !sort && !filter && <>
+                    {!lockedRows && !sort && !filter && <>
                       <button className="btn icon" title="Move up" onClick={() => move(r._id, -1)}>↑</button>
                       <button className="btn icon" title="Move down" onClick={() => move(r._id, 1)}>↓</button>
                     </>}
-                    {!readOnly && <button className="btn icon" title="Duplicate" onClick={() => dup(r._id)}>⧉</button>}
+                    {!lockedRows && <button className="btn icon" title="Duplicate" onClick={() => dup(r._id)}>⧉</button>}
                     {childOn && (r._childId
                       ? <span className="badge" title="Child work item">#{r._childId}</span>
-                      : !readOnly && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
-                    {!readOnly && <button className="btn icon danger" title="Delete row" onClick={() => delRow(r._id)}>✕</button>}
+                      : !lockedRows && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
+                    {!lockedRows && <button className="btn icon danger" title="Delete row" onClick={() => delRow(r._id)}>✕</button>}
                   </td>
                 )}
               </tr>
             ))}
-            {!visible.length && <tr><td colSpan={cfg.columns.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : readOnly ? "No rows." : "No rows yet – click “Add row” or import a file."}</td></tr>}
+            {!visible.length && <tr><td colSpan={cfg.columns.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}
           </tbody>
           {Object.keys(totals).length > 0 && (
             <tfoot>
@@ -169,7 +177,7 @@ export function Grid(p: GridProps) {
                 {cfg.columns.map(c => (
                   <td key={c.id}>{c.total ? <strong title={`${c.total} of ${c.name}`}>{c.total === "count" ? "" : "Σ "}{totals[c.id]}{c.total === "avg" ? " avg" : c.total === "count" ? " items" : c.total === "min" ? " min" : c.total === "max" ? " max" : ""}</strong> : null}</td>
                 ))}
-                {(!readOnly || childOn) && <td />}
+                {(!lockedRows || childOn) && <td />}
               </tr>
             </tfoot>
           )}
