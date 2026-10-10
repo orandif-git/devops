@@ -18,8 +18,8 @@ function Page(p: { projectId: string; projectName: string }) {
     list: () => listRecords(p.projectId), save: (r: Parameters<typeof saveRecord>[1]) => saveRecord(p.projectId, r), remove: (k: string) => deleteRecord(p.projectId, k),
   }), [p.projectId]);
   const load = React.useCallback(async () => {
-    const [records, register, docs] = await Promise.all([listCapacityRecords(p.projectId), loadRegister(p.projectId), loadLiveAllocations(p.projectId)]);
-    return { records, register, docs };
+    const [records, register, live] = await Promise.all([listCapacityRecords(p.projectId), loadRegister(p.projectId), loadLiveAllocations(p.projectId)]);
+    return { records, register, docs: live.docs };
   }, [p.projectId]);
   React.useEffect(() => { loadSettings(p.projectId).then(s => checkCanEdit(p.projectId, s)).then(setAccess).catch(e => setAccess({ canEdit: false, reason: "Could not check permissions: " + e.message })); }, [p.projectId]);
   return (

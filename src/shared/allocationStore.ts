@@ -23,11 +23,25 @@ export async function onlyLiveWorkItems(docs: AllocationDoc[]): Promise<Allocati
   const live = new Set<number>();
   const ids = docs.map(d => d.workItemId);
   for (let i = 0; i < ids.length; i += 200) {
-    // WorkItemErrorPolicy.Omit = 2: missing items come back as null instead of failing the whole request
-    const items = await withTimeout(client.getWorkItems(ids.slice(i, i + 200), undefined, ["System.State"], undefined, undefined, 2 as never), "Checking work items");
+    // POST batch (errorPolicy Omit = 2: missing items are skipped instead of failing the request)
+    const items = await client.getWorkItemsBatch({ ids: ids.slice(i, i + 200), fields: ["System.State"], errorPolicy: 2 } as never);
     for (const w of items ?? []) if (w && String(w.fields?.["System.State"] ?? "") !== "Removed") live.add(w.id);
   }
   return docs.filter(d => live.has(d.workItemId));
 }
 
-export const loadLiveAllocations = async (projectId: string) => onlyLiveWorkItems(await listAllocations(projectId));
+export interface LiveAllocations {
+  docs: AllocationDoc[];
+  /** false when the "does this Epic still exist?" check could not be completed (deleted Epics may then still be counted) */
+  verified: boolean;
+}
+
+/**
+ * Allocations of all Epics. The existence check is best effort: if Azure DevOps is slow or refuses, the hours are
+ * still returned (unfiltered) so the feature never fails because of a clean-up step.
+ */
+export async function loadLiveAllocations(projectId: string): Promise<LiveAllocations> {
+  const docs = await listAllocations(projectId);
+  try { return { docs: await withTimeout(onlyLiveWorkItems(docs), "Checking work items", 6000), verified: true }; }
+  catch (e) { console.info("[Grid & Rules] could not verify which Epics still exist:", (e as Error).message); return { docs, verified: false }; }
+}

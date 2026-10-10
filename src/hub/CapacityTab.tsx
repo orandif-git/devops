@@ -23,8 +23,8 @@ export function CapacityTab(p: { projectId: string }) {
   }, [p.projectId]);
 
   const load = React.useCallback(async () => {
-    const [records, register, docs] = await Promise.all([listCapacityRecords(p.projectId), loadRegister(p.projectId), loadLiveAllocations(p.projectId)]);
-    return { records, register, docs };
+    const [records, register, live] = await Promise.all([listCapacityRecords(p.projectId), loadRegister(p.projectId), loadLiveAllocations(p.projectId)]);
+    return { records, register, docs: live.docs };
   }, [p.projectId]);
   const dirty = JSON.stringify(settings) !== saved;
   const toggle = (t: TeamRef) => setSettings(s => ({ ...s, editorTeams: s.editorTeams.some(x => x.id === t.id) ? s.editorTeams.filter(x => x.id !== t.id) : [...s.editorTeams, t] }));

@@ -27,6 +27,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
   const usesOthers = cfg.columns.some(c => c.others);
   const [others, setOthers] = React.useState<Record<string, number>>();
   const [othersTried, setOthersTried] = React.useState(!usesOthers);
+  const [unverified, setUnverified] = React.useState(false);
   const published = React.useRef<Record<string, number> | null>(null);
   const publishedOnce = React.useRef(false);
   const rowsRef = React.useRef<GridRow[]>([]);
@@ -71,7 +72,9 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
     if (!usesOthers) return;
     (async () => {
       const id = await (await getFormService()).getId();
-      setOthers(sumAllocations(await loadLiveAllocations(p.projectId), id || undefined));
+      const live = await loadLiveAllocations(p.projectId);
+      setOthers(sumAllocations(live.docs, id || undefined));
+      setUnverified(!live.verified);
     })().catch(e => setWarn(`Could not load the hours of other Epics: ${e.message}. "Hours (other Epics)" may be out of date.`)).finally(() => setOthersTried(true));
   }, [usesOthers, p.projectId]);
 
@@ -103,6 +106,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
   return (
     <>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
+      {unverified && <div className="muted" style={{ padding: "2px 8px", fontSize: 12 }}>Hours of other Epics are counted without checking that those Epics still exist (the check could not be completed).</div>}
       <Grid title={p.name} cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
         onChange={apply} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined}
         onExport={async k => { if (k === "csv") downloadFile(`${p.name}.csv`, "﻿" + exportCsv(rowsRef.current, cfg), "text/csv;charset=utf-8"); else downloadFile(`${p.name}.xlsx`, await exportXlsx(rowsRef.current, cfg)); }} />
