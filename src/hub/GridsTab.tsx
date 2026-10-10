@@ -304,7 +304,11 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       <h3>Preview</h3>
       {g.derived ? <div className="help">A derived grid fills itself from the source grid on the work item, so there is nothing to preview here.</div> : <Preview cfg={g} />}
       {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
-      <div className="help" style={{ marginTop: 10 }}>Use it: Organization settings → Process → your work item type → Layout → add the <b>Smart Grid</b> custom control, set <b>Grid name</b> to <code>{p.name}</code> and pick the data field.</div>
+      {g.derived ? (
+        <div className="help" style={{ marginTop: 10 }}>Nothing to add to the layout for this grid: it appears automatically under the <b>{g.derived.source || "source"}</b> grid. Only create its data field (<code>{g.dataField || "a long-text field"}</code>) on the work item type – you can hide that field from the layout.</div>
+      ) : (
+        <div className="help" style={{ marginTop: 10 }}>Use it: Organization settings → Process → your work item type → Layout → add the <b>Smart Grid</b> custom control on the data field and set <b>Grid name</b> to <code>{p.name}</code>. Leave the control's own “Data field” input empty so this grid's data field above is the only one.</div>
+      )}
     </div>
   );
 }
