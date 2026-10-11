@@ -12,6 +12,9 @@ const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
+/** Row property that holds a manual adjustment of a derived (aggregated) column. */
+export const adjKey = (colId: string) => `_adj_${colId}`;
+
 export const keyColumns = (cfg: GridConfig) => cfg.columns.filter(c => c.derive?.role === "key");
 
 const keyOfSource = (row: GridRow, keys: ColumnDef[]) => keys.map(k => keyNorm(bucketValue(row[k.derive!.source], k.derive!.bucket))).join("\u0001");
@@ -45,7 +48,11 @@ export function syncDerived(sourceRowsIn: GridRow[], derivedCfg: GridConfig, exi
       const d = c.derive!;
       if (d.role === "key") { const first = members.map(m => bucketValue(m[d.source], d.bucket)).find(v => String(v ?? "").trim() !== ""); row[c.id] = first ?? ""; }
       else if (d.role === "first") row[c.id] = members.map(m => m[d.source]).find(v => v !== "" && v !== null && v !== undefined) ?? "";
-      else row[c.id] = aggregate(members.map(m => m[d.source]), d.aggregate ?? "sum");
+      else {
+        row[c.id] = aggregate(members.map(m => m[d.source]), d.aggregate ?? "sum");
+        const adj = row[adjKey(c.id)];
+        if (d.adjustable && typeof adj === "number") row[c.id] = adj;                    // manual adjustment wins
+      }
     }
     fillCapacity(row);
     fillOthers(row);
@@ -117,7 +124,7 @@ export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: bo
   if (picks.team === TEAM_FROM_CAPACITY) cols.push({ id: "team", name: "Team", type: "string", teamOf: { resource: "resource" } });
   else if (picks.team) cols.push({ id: "team", name: "Team", type: "string", derive: { role: "first", source: picks.team } });
   cols.push(
-    { id: "hours", name: "Hours (this Epic)", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum" }, total: "sum" },
+    { id: "hours", name: "Hours (this Epic)", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum", ...(picks.hours === "_hours" ? { adjustable: true } : {}) }, total: "sum" },
     { id: "otherhours", name: "Hours (other Epics)", type: "number", defaultValue: 0, others: { resource: "resource", period: "period" } },
     { id: "totalhours", name: "Total hours", type: "calculated", formula: "hours + otherhours", decimals: 2, onEmpty: "zero" },
     opts.fromRegister
@@ -136,3 +143,11 @@ export const capacityAllocation = () => ({ resource: "resource", period: "period
 
 /** The status column of the capacity template that colours each resource's whole row. */
 export const CAPACITY_ROW_COLOR = "capacitystatus";
+
+/** The source rows (one per person and month for a scheduled source) that make up a derived row. */
+export function sourceMembers(sourceRowsIn: GridRow[], derivedCfg: GridConfig, row: GridRow, sourceCfg?: GridConfig): GridRow[] {
+  const sourceRows = sourceCfg?.schedule ? expandMonths(sourceRowsIn) : sourceRowsIn;
+  const keys = keyColumns(derivedCfg);
+  const target = keyOfDerived(row, keys);
+  return sourceRows.filter(r => keyOfSource(r, keys) === target);
+}

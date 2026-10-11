@@ -1,9 +1,9 @@
 import * as React from "react";
-import { sameRows, syncDerived } from "../core/derived";
+import { sameRows, sourceMembers, syncDerived } from "../core/derived";
 import { parseStored, serialize } from "../core/gridModel";
 import { entriesFromRows, sameEntries, sumAllocations } from "../core/allocations";
 import { CapacityRegister } from "../core/capacity";
-import { GridConfig, GridRow } from "../core/types";
+import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { loadLiveAllocations, saveAllocation } from "../shared/allocationStore";
 import { applyCalculations } from "../shared/calcRunner";
 import { loadRegister } from "../shared/capacityStore";
@@ -102,13 +102,28 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
     if (!publishedOnce.current) { publishedOnce.current = true; publish(); }    // first load: make sure the store reflects the saved Epic
   }, [p.sourceRows, p.sourceCfg, p.sourceReady, loaded, cfg, apply, register, registerTried, others, othersTried, publish]);
 
+  const labelCol = p.sourceCfg?.columns.find(c => c.type === "dropdown") ?? p.sourceCfg?.columns.find(c => c.type === "string" && !c.lookup);
+  /** hover text for an aggregated figure: which source rows add up to it */
+  const cellInfo = (row: GridRow, col: ColumnDef) => {
+    if (col.others) return "Hours this person has on all other work items that month (saved hours of the other Epics)";
+    if (col.teamOf) return "The person's team, from the capacity source";
+    if (col.capacity) return "Available hours from the capacity source";
+    if (col.derive?.role !== "agg") return undefined;
+    const d = col.derive;
+    const lines = sourceMembers(p.sourceRows, cfg, row, p.sourceCfg).map(m => `${labelCol ? String(m[labelCol.id] || "(no " + labelCol.name + ")") : "Row"}: ${m[d.source] ?? 0}`);
+    if (!lines.length) return undefined;
+    const adj = typeof row["_adj_" + col.id] === "number";
+    return `${adj ? "Adjusted by hand. Calculated from:" : "Made up of:"}\n${lines.join("\n")}`;
+  };
+  const resync = (next: GridRow[]) => apply(syncDerived(p.sourceRows, cfg, next, register, others, p.sourceCfg));
+
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
   return (
     <>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       {unverified && <div className="muted" style={{ padding: "2px 8px", fontSize: 12 }}>Hours of other Epics are counted without checking that those Epics still exist (the check could not be completed).</div>}
       <Grid title={p.name} cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
-        onChange={apply} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined}
+        onChange={resync} cellInfo={cellInfo} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined}
         onExport={async k => { if (k === "csv") downloadFile(`${p.name}.csv`, "﻿" + exportCsv(rowsRef.current, cfg), "text/csv;charset=utf-8"); else downloadFile(`${p.name}.xlsx`, await exportXlsx(rowsRef.current, cfg)); }} />
     </>
   );

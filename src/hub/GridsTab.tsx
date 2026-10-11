@@ -156,6 +156,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
                     <select value={c.derive.source} onChange={e => set({ derive: { ...c.derive!, source: e.target.value } })}><option value="" />{p.sourceCols.map(sc => <option key={sc.id} value={sc.id}>{sc.name} ({sc.id})</option>)}</select></label>}
                   {c.derive?.role === "agg" && <label className="field" style={{ width: 100 }}><span>Aggregate</span>
                     <select value={c.derive.aggregate ?? "sum"} onChange={e => set({ derive: { ...c.derive!, aggregate: e.target.value as Aggregate } })}>{AGG.filter(Boolean).map(a => <option key={a}>{a}</option>)}</select></label>}
+                  {c.derive?.role === "agg" && <label className="fixed" title="The user can type a different value on a row (for example a month that differs from the schedule); clearing it restores the calculated value."><input type="checkbox" checked={!!c.derive.adjustable} onChange={e => set({ derive: { ...c.derive!, adjustable: e.target.checked || undefined } })} /> Allow manual adjustment</label>}
                   {c.derive?.role === "key" && p.sourceCols.find(sc => sc.id === c.derive!.source)?.type === "date" && <label className="field" style={{ width: 120 }}><span>Group dates by</span>
                     <select value={c.derive.bucket ?? "day"} onChange={e => set({ derive: { ...c.derive!, bucket: e.target.value as (typeof BUCKETS)[number] } })}>{BUCKETS.map(b => <option key={b}>{b}</option>)}</select></label>}
                 </div>

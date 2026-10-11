@@ -104,6 +104,7 @@ export function coerce(col: ColumnDef, v: unknown): unknown {
 export function normalizeRow(src: Record<string, unknown>, cfg: GridConfig): GridRow {
   const row: GridRow = { _id: typeof src._id === "string" ? src._id : newId() };
   if (typeof src._childId === "number") row._childId = src._childId;
+  for (const k of Object.keys(src)) if (k.startsWith("_adj_") && typeof src[k] === "number") row[k] = src[k];   // manual adjustments of derived columns
   if (cfg.schedule) {                                                      // calculated by the calendar; kept until it is recalculated
     if (src._months && typeof src._months === "object") row._months = src._months as Record<string, number>;
     if (typeof src._schedErr === "string") row._schedErr = src._schedErr;

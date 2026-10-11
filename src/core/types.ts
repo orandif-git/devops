@@ -63,7 +63,11 @@ export interface ColumnDef {
    * key = group key (one derived row per distinct combination of the key columns),
    * first = first non-empty source value in the group, agg = aggregate of a source column.
    */
-  derive?: { role: "key" | "first" | "agg"; source: string; aggregate?: Aggregate; bucket?: "day" | "month" | "quarter" | "year" };
+  derive?: {
+    role: "key" | "first" | "agg"; source: string; aggregate?: Aggregate; bucket?: "day" | "month" | "quarter" | "year";
+    /** agg only: the user may type a different value for a row (kept per row; clear the cell to go back to the calculated one) */
+    adjustable?: boolean;
+  };
   /** identity columns: also search groups (default true) */
   identityGroups?: boolean;
 }

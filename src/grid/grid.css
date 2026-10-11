@@ -43,3 +43,6 @@
 .wig td.tint-red { background: rgba(209,52,56,.30) !important; }
 .wig td.tint-blue { background: rgba(0,120,212,.26) !important; }
 .wig td.tint-gray { background: rgba(128,128,128,.24) !important; }
+
+.wig .btn.icon svg { display: block; }
+.wig td input.adj { font-weight: 700; border-color: var(--accent) !important; }

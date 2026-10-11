@@ -19,7 +19,18 @@ export interface GridProps {
   onImport(file: File): void;
   onExport(kind: "csv" | "xlsx"): void;
   status: string;
+  /** hover text explaining where a (calculated) figure comes from, e.g. which tasks make up the hours */
+  cellInfo?(row: GridRow, col: ColumnDef): string | undefined;
 }
+
+/** Two overlapping pages with a plus: "add a copy of this row". Drawn in the text colour so it follows light and dark themes. */
+const DuplicateIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M5.5 3.5V3A1.5 1.5 0 0 1 7 1.5h6A1.5 1.5 0 0 1 14.5 3v6A1.5 1.5 0 0 1 13 10.5h-.5" />
+    <rect x="1.5" y="5.5" width="9" height="9" rx="1.6" />
+    <path d="M6 8v4M4 10h4" />
+  </svg>
+);
 
 type SortState = { col: string; dir: 1 | -1 } | null;
 
@@ -56,7 +67,9 @@ export function Grid(p: GridProps) {
 
   const update = (rowId: string, col: string, value: unknown) => {
     if (pristine.has(rowId)) setPristine(s => { const n = new Set(s); n.delete(rowId); return n; });
-    p.onChange(recomputeAll(rows.map(r => (r._id === rowId ? { ...r, [col]: value } : r)), cfg));
+    const adjustable = cfg.columns.find(c => c.id === col)?.derive?.adjustable;       // derived grids: remember the typed value as an adjustment
+    const patch = adjustable ? { [col]: value, ["_adj_" + col]: value } : { [col]: value };
+    p.onChange(recomputeAll(rows.map(r => (r._id === rowId ? { ...r, ...patch } : r)), cfg));
   };
   const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
   const delRow = (id: string) => p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg));
@@ -89,9 +102,9 @@ export function Grid(p: GridProps) {
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
     const isEnd = cfg.schedule?.end === c.id;
-    const dis = readOnly || isEnd || !!c.formula || !!c.lookup || !!c.derive || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
+    const dis = readOnly || isEnd || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
-    const title = errKey(r._id, c.id) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
+    const title = errKey(r._id, c.id) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
     switch (c.type) {
       case "calculated":
         return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} title={c.formula} />;
@@ -100,7 +113,7 @@ export function Grid(p: GridProps) {
       case "number":
         if (c.others) return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} title="Hours this person has on all other Epics that month" />;
         if (c.capacity) return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} placeholder="not registered" title={v === null || v === undefined ? "No capacity registered for this person and month (Capacity page)" : "From the Capacity register"} />;
-        return <input className={cls} title={title} type="number" disabled={dis} value={v === null || v === undefined ? "" : String(v)}
+        return <input className={cls + (typeof r["_adj_" + c.id] === "number" ? " adj" : "")} title={typeof r["_adj_" + c.id] === "number" ? "Adjusted by hand – clear the cell to use the calculated value again" : title} type="number" disabled={dis} value={v === null || v === undefined ? "" : String(v)}
           min={c.min} max={c.max} onChange={e => update(r._id, c.id, e.target.value === "" ? null : parseFloat(e.target.value))} />;
       case "date":
         return <input className={cls} title={title} type="date" disabled={dis} value={String(v ?? "")} onChange={e => update(r._id, c.id, e.target.value)} />;
@@ -174,14 +187,14 @@ export function Grid(p: GridProps) {
                 {(!lockedRows || childOn) && (
                   <td className="actions">
                     {!lockedRows && !sort && !filter && <>
-                      <button className="btn icon" title="Move up" onClick={() => move(r._id, -1)}>↑</button>
-                      <button className="btn icon" title="Move down" onClick={() => move(r._id, 1)}>↓</button>
+                      <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}>↑</button>
+                      <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}>↓</button>
                     </>}
-                    {!lockedRows && <button className="btn icon" title="Duplicate" onClick={() => dup(r._id)}>⧉</button>}
+                    {!lockedRows && <button className="btn icon" title="Duplicate row" aria-label="Duplicate row" onClick={() => dup(r._id)}><DuplicateIcon /></button>}
                     {childOn && (r._childId
                       ? <span className="badge" title="Child work item">#{r._childId}</span>
                       : !lockedRows && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
-                    {!lockedRows && <button className="btn icon danger" title="Delete row" onClick={() => delRow(r._id)}>✕</button>}
+                    {!lockedRows && <button className="btn icon danger" title="Delete row" aria-label="Delete row" onClick={() => delRow(r._id)}>✕</button>}
                   </td>
                 )}
               </tr>

@@ -192,3 +192,40 @@ describe("withSchedule (admin helper)", () => {
     expect(withSchedule(g)).toEqual(g);                 // running it again changes nothing
   });
 });
+
+import { capacityTemplate, sourceMembers, TEAM_FROM_CAPACITY } from "../src/core/derived";
+describe("adjustments, hover detail and the scheduled capacity template", () => {
+  const source: GridConfig = {
+    columns: [
+      { id: "act", name: "Activity", type: "dropdown", options: ["Design", "Build"] },
+      { id: "res", name: "Resource", type: "identity" },
+      { id: "start", name: "Start", type: "date" },
+      { id: "effort", name: "Effort", type: "number" },
+      { id: "end", name: "End", type: "date" },
+    ],
+    schedule: { resource: "res", start: "start", effort: "effort", end: "end" },
+  };
+  const target: GridConfig = { columns: capacityTemplate({ resource: "res", period: "_month", hours: "_hours", team: TEAM_FROM_CAPACITY }, { fromRegister: true }), derived: { source: "T" } };
+  const book = registerCalendarBook([{ key: "a@x.com", name: "A <a@x.com>", defaultHours: null, overrides: {}, team: "IT" }], defaultCalendar());
+  const reg = { projectDefault: null, resources: { "a@x.com": { key: "a@x.com", name: "A <a@x.com>", defaultHours: 160, overrides: {}, team: "IT" } } };
+  it("template for a scheduled source uses _month/_hours, the capacity team and an adjustable hours column", () => {
+    const hours = target.columns.find(c => c.id === "hours")!;
+    expect(hours.derive).toMatchObject({ source: "_hours", adjustable: true });
+    expect(target.columns.find(c => c.id === "team")!.teamOf).toEqual({ resource: "resource" });
+  });
+  it("a manual adjustment wins and clearing it restores the schedule; hover lists the tasks", () => {
+    setCalendarBook(book);
+    const rows = recomputeAll([
+      { _id: "1", act: "Design", res: "A <a@x.com>", start: "2026-11-02", effort: 40, end: "" },
+      { _id: "2", act: "Build", res: "A <a@x.com>", start: "2026-11-09", effort: 16, end: "" },
+    ], source);
+    let out = syncDerived(rows, target, [], reg, undefined, source);
+    expect(out.map(r => r.hours)).toEqual([56]);
+    expect(sourceMembers(rows, target, out[0], source).map(m => [m.act, m._hours])).toEqual([["Design", 40], ["Build", 16]]);
+    out = syncDerived(rows, target, [{ ...out[0], hours: 50, _adj_hours: 50 }], reg, undefined, source);
+    expect(out[0].hours).toBe(50);
+    out = syncDerived(rows, target, [{ ...out[0], hours: null, _adj_hours: null }], reg, undefined, source);
+    expect(out[0].hours).toBe(56);
+    setCalendarBook(undefined);
+  });
+});
