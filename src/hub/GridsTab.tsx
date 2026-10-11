@@ -12,7 +12,8 @@ import { getProject } from "../shared/ado";
 import { listTeams, TeamRef } from "../shared/capacityStore";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
-import { csv, Ctx, delAt, FieldInput, setAt } from "./ui";
+import { csv, Ctx, delAt, FieldInput, jumpToSection, Section, SectionStatus, setAt } from "./ui";
+import { issueSection, SectionId } from "./sections";
 import { Issue } from "./validate";
 
 const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity", "calculated"];
@@ -249,7 +250,6 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
   const when = cur?.when ?? [];
   return (
     <>
-      <h3>Presets (ready-made rows)</h3>
       <div className="help">A preset is a named set of rows users add to the grid with <b>Load preset</b>, e.g. the standard activities with their default effort. People and dates stay blank for the user to fill in. Give a preset a rule (e.g. Project type = Implementation) to offer it only on matching work items.</div>
       <div className="row">
         <select className="fixed" value={idx} onChange={e => setSel(+e.target.value)}>{presets.map((x, i) => <option key={x.id} value={i}>{x.name || "(unnamed)"}</option>)}{!presets.length && <option value={-1}>(no presets yet)</option>}</select>
@@ -347,7 +347,6 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
   );
   return (
     <>
-      <h3>Review (approve / reject)</h3>
       <label><input type="checkbox" checked={!!rv} onChange={e => p.onChange(e.target.checked ? withReview(g) : { ...g, review: undefined })} /> Every row has a review status (<b>Pending review</b>, <b>Approved</b>, <b>Rejected</b>) that chosen people can change one by one or in bulk</label>
       {rv && (
         <div className="card">
@@ -435,8 +434,11 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
-  return (
-    <div>
+  const mine = (id: SectionId) => p.issues.filter(x => issueSection(x.message, x.where) === id);
+  const flag = (id: SectionId, on: boolean, extra = false): SectionStatus => (!on ? "off" : mine(id).length || extra ? "todo" : "ok");
+  const defs: { id: SectionId; title: string; help: string; status: SectionStatus; summary?: string; open?: boolean; body: React.ReactNode; show: boolean }[] = [
+    { id: "storage", title: "Where the rows are stored", help: "The long-text field that holds this grid's rows, and a few behaviours.", status: g.dataField ? (mine("storage").length ? "todo" : "ok") : "todo", open: true, show: true, body: (
+      <>
       <div className="row">
         <label className="field" style={{ flex: 1 }}><span>Data field (long-text field that stores the rows as JSON)</span><FieldInput value={g.dataField ?? ""} onChange={dataField => p.onChange({ ...g, dataField })} placeholder="Custom.GridData" /></label>
         <label className="fixed"><input type="checkbox" checked={!!g.readOnly} onChange={e => p.onChange({ ...g, readOnly: e.target.checked })} /> Read-only</label>
@@ -444,26 +446,10 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       <label><input type="checkbox" checked={!!g.allowImport} onChange={e => p.onChange({ ...g, allowImport: e.target.checked || undefined })} /> Allow importing rows from a CSV / Excel file (adds an Import button; Export is always available)</label>
       <br />
       <label title="Off: required/invalid cells are only highlighted. On: the work item cannot be saved while any exist."><input type="checkbox" checked={!!g.blockSave} onChange={e => p.onChange({ ...g, blockSave: e.target.checked })} /> Block saving the work item while required values are missing</label>
-      {!g.derived && (
-        <>
-          <h3>Dates and effort</h3>
-          <label><input type="checkbox" checked={!!g.schedule} onChange={e => p.onChange(e.target.checked ? withSchedule(g) : { ...g, schedule: undefined })} /> Users enter a <b>start date, effort (hours) and allocation %</b> instead of a month. The end date and the hours per month are calculated from the person's calendar (working week, days off, hours per day).</label>
-          {g.schedule && (
-            <div className="card">
-              <div className="row">
-                {([["resource", "Resource (people picker)", ["identity", "string"]], ["start", "Start date", ["date"]], ["effort", "Effort (hours)", ["number"]], ["allocation", "Allocation % (optional, empty = 100)", ["number"]], ["end", "End date (calculated)", ["date"]]] as [keyof NonNullable<GridConfig["schedule"]>, string, ColumnType[]][]).map(([k, label, types]) => (
-                  <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
-                    <select value={g.schedule![k] ?? ""} onChange={e => p.onChange({ ...g, schedule: { ...g.schedule!, [k]: e.target.value || undefined } as NonNullable<GridConfig["schedule"]> })}>
-                      <option value="" />{g.columns.filter(c => types.includes(c.type)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
-                ))}
-              </div>
-              <div className="help">Where the calendar comes from is set on <b>Capacity</b>: Azure DevOps team capacity (working days, days off and hours per day) or this extension's own table. The effort fills the working days in turn (hours per day × allocation %), so 80 h at 100 % over an 8-hour day is 10 working days. A derived grid built from this one uses the “Scheduled month” and “Scheduled hours” source columns.</div>
-              <button className="btn" onClick={() => p.onChange(withSchedule(g))}>Add any missing standard columns</button>
-            </div>
-          )}
-        </>
-      )}
-      <h3>Build this grid automatically from another grid</h3>
+      </>
+    ) },
+    { id: "derived", title: g.derived ? "Built from another grid" : "Build it from another grid (optional)", help: "A derived grid fills itself from the rows of another grid, for example a capacity grid from a timesheet.", status: flag("derived", !!g.derived), open: !!g.derived, show: true, body: (
+      <>
       <label><input type="checkbox" checked={!!g.derived} onChange={e => p.onChange({ ...g, derived: e.target.checked ? { source: sourceNames[0] ?? "" } : undefined })} disabled={!g.derived && !sourceNames.length} /> This is a derived grid (rows are created from the source grid, e.g. Resource Capacity from the timesheet)</label>
       {g.derived && (
         <div className="card">
@@ -507,12 +493,15 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           )}
         </div>
       )}
+      </>
+    ) },
+    { id: "columns", title: "Columns", help: "What people fill in, and in which order.", status: g.columns.length ? (mine("columns").length ? "todo" : "ok") : "todo", summary: g.columns.length ? `${g.columns.length} column${g.columns.length === 1 ? "" : "s"}` : undefined, open: true, show: true, body: (
+      <>
       {g.columns.some(c => c.statusBands) && (
         <label className="field"><span>Colour the whole row of each entry by this status column</span>
           <select value={g.rowColorBy ?? ""} onChange={e => p.onChange({ ...g, rowColorBy: e.target.value || undefined })}>
             <option value="">No row colour</option>{g.columns.filter(c => c.statusBands).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
       )}
-      <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
         <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={sourceCols}
@@ -523,8 +512,30 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
-      {!g.derived && <ReviewEditor g={g} onChange={p.onChange} />}
-      {!g.derived && <PresetsEditor g={g} effective={effective} onChange={p.onChange} />}
+      </>
+    ) },
+    { id: "dates", title: "Dates and effort", help: "Let people enter a start date and effort instead of a month.", status: flag("dates", !!g.schedule), show: !g.derived, body: (
+      <>
+          <label><input type="checkbox" checked={!!g.schedule} onChange={e => p.onChange(e.target.checked ? withSchedule(g) : { ...g, schedule: undefined })} /> Users enter a <b>start date, effort (hours) and allocation %</b> instead of a month. The end date and the hours per month are calculated from the person's calendar (working week, days off, hours per day).</label>
+          {g.schedule && (
+            <div className="card">
+              <div className="row">
+                {([["resource", "Resource (people picker)", ["identity", "string"]], ["start", "Start date", ["date"]], ["effort", "Effort (hours)", ["number"]], ["allocation", "Allocation % (optional, empty = 100)", ["number"]], ["end", "End date (calculated)", ["date"]]] as [keyof NonNullable<GridConfig["schedule"]>, string, ColumnType[]][]).map(([k, label, types]) => (
+                  <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
+                    <select value={g.schedule![k] ?? ""} onChange={e => p.onChange({ ...g, schedule: { ...g.schedule!, [k]: e.target.value || undefined } as NonNullable<GridConfig["schedule"]> })}>
+                      <option value="" />{g.columns.filter(c => types.includes(c.type)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
+                ))}
+              </div>
+              <div className="help">Where the calendar comes from is set on <b>Capacity</b>: Azure DevOps team capacity (working days, days off and hours per day) or this extension's own table. The effort fills the working days in turn (hours per day × allocation %), so 80 h at 100 % over an 8-hour day is 10 working days. A derived grid built from this one uses the “Scheduled month” and “Scheduled hours” source columns.</div>
+              <button className="btn" onClick={() => p.onChange(withSchedule(g))}>Add any missing standard columns</button>
+            </div>
+          )}
+      </>
+    ) },
+    { id: "review", title: "Approval", help: "Chosen people approve or reject each row.", status: flag("review", !!g.review), show: !g.derived, body: <ReviewEditor g={g} onChange={p.onChange} /> },
+    { id: "presets", title: "Presets", help: "Ready-made rows people add with one click.", status: g.presets?.length ? (mine("presets").length ? "todo" : "ok") : "off", summary: g.presets?.length ? `${g.presets.length} preset${g.presets.length === 1 ? "" : "s"}` : undefined, show: !g.derived, body: <PresetsEditor g={g} effective={effective} onChange={p.onChange} /> },
+    { id: "totals", title: "Totals and fields", help: "Figures from the grid, saved to work item fields.", status: (g.totals?.length || g.breakdowns?.length) ? (mine("totals").length ? "todo" : "ok") : "off", show: true, body: (
+      <>
       <h3>Push totals to work item fields</h3>
       <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>
       {(g.totals ?? []).map((t, i) => {
@@ -590,7 +601,10 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
         );
       })}
       <button className="btn" onClick={() => p.onChange({ ...g, breakdowns: [...(g.breakdowns ?? []), { by: "", column: "", aggregate: "sum" }] })}>+ Add breakdown</button>
-      <h3>Create child work items from rows</h3>
+      </>
+    ) },
+    { id: "child", title: "Child work items", help: "Create child work items from rows.", status: flag("child", !!g.child?.enabled, !!g.child?.enabled && !g.child.titleColumn), show: !g.derived, body: (
+      <>
       <label><input type="checkbox" checked={child.enabled} onChange={e => p.onChange({ ...g, child: { ...child, enabled: e.target.checked } })} /> Enable “create work item” buttons</label>
       {child.enabled && (
         <div className="card">
@@ -606,7 +620,10 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           ))}
         </div>
       )}
-      <h3>Preview</h3>
+      </>
+    ) },
+    { id: "preview", title: "Preview and how to use it", help: "See what people will see, and how to put the grid on the work item form.", status: "off", summary: "Info", show: true, body: (
+      <>
       {g.derived ? <div className="help">A derived grid fills itself from the source grid on the work item, so there is nothing to preview here.</div> : <Preview cfg={g} />}
       {p.issues.length > 0 && <div className="issues" style={{ marginTop: 12 }}>{p.issues.map((x, i) => <div key={i} className={"issue " + x.level}>{x.message}</div>)}</div>}
       {g.derived ? (
@@ -614,11 +631,29 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       ) : (
         <div className="help" style={{ marginTop: 10 }}>Use it: Organization settings → Process → your work item type → Layout → add the <b>Smart Grid</b> custom control on the data field and set <b>Grid name</b> to <code>{p.name}</code>. Leave the control's own “Data field” input empty so this grid's data field above is the only one.</div>
       )}
+      </>
+    ) },
+  ];
+  // journey order: a derived grid starts from its source; an ordinary grid mentions "build from another grid" last
+  const order: SectionId[] = g.derived ? ["storage", "derived", "columns", "totals", "preview"] : ["storage", "columns", "dates", "review", "presets", "totals", "child", "derived", "preview"];
+  const shown = defs.filter(d => d.show && order.includes(d.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  const todo = shown.filter(d => d.status === "todo").length;
+  return (
+    <div>
+      <div className="steps" aria-label="Progress of this grid">
+        <div className="head"><span className={todo ? "" : "ok"}>{todo ? `${todo} part${todo === 1 ? "" : "s"} need${todo === 1 ? "s" : ""} attention` : "✓ Every part of this grid is in order"}</span></div>
+        <div className="jump">{shown.map((d, i) => <button key={d.id} type="button" className={"s-" + d.status} onClick={() => jumpToSection(d.id)}>{i + 1}. {d.title}</button>)}</div>
+        {p.issues.length > 0 && (
+          <ul>{p.issues.slice(0, 6).map((x, i) => <li key={i}><span className={"m " + (x.level === "error" ? "err" : "")}>{x.message}</span><button type="button" className="btn" onClick={() => jumpToSection(issueSection(x.message, x.where))}>Go to it</button></li>)}
+            {p.issues.length > 6 && <li className="muted">…and {p.issues.length - 6} more (see the checks at the bottom of the page)</li>}</ul>
+        )}
+      </div>
+      {shown.map((d, i) => <Section key={d.id} id={d.id} no={i + 1} title={d.title} help={d.help} status={d.status} summary={d.summary} open={d.open}>{d.body}</Section>)}
     </div>
   );
 }
 
-export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[] }) {
+export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[]; focus?: { n: number; grid?: string; section?: string; create?: boolean } }) {
   const names = Object.keys(p.grids);
   const [sel, setSel] = React.useState(names[0] ?? "");
   const cur = names.includes(sel) ? sel : names[0];
@@ -628,6 +663,15 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
     p.onChange({ ...p.grids, [name]: { columns: [{ id: "name", name: "Name", type: "string", required: true }, { id: "hours", name: "Hours", type: "number", total: "sum" }], totals: [] } });
     setSel(name);
   };
+  const lastFocus = React.useRef(0);
+  React.useEffect(() => {                                   // "Take me there" from the next-step bar or the checks list
+    const f = p.focus;
+    if (!f || f.n === lastFocus.current) return;
+    lastFocus.current = f.n;
+    if (f.create) { add(); return; }
+    if (f.grid && p.grids[f.grid]) setSel(f.grid);
+    if (f.section) window.setTimeout(() => jumpToSection(f.section!), 150);
+  });
   const rename = (from: string, to: string) => {
     if (!to || to === from || p.grids[to]) return;
     const out: Record<string, GridConfig> = {}; for (const k of names) out[k === from ? to : k] = p.grids[k];
@@ -638,7 +682,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
       <div>
         <div className="list">
           {names.map(n => <div key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
-            <span className="name">{n}</span>{p.issues.some(x => x.where === `Grid “${n}”` && x.level === "error") && <span className="badge err">!</span>}</div>)}
+            <span className="name">{n}</span>{p.issues.some(x => x.where.startsWith(`Grid “${n}”`) && x.level === "error") ? <span className="badge err" title="Has errors">!</span> : p.issues.some(x => x.where.startsWith(`Grid “${n}”`)) ? <span className="badge" title="Has warnings">{p.issues.filter(x => x.where.startsWith(`Grid “${n}”`)).length}</span> : null}</div>)}
           {!names.length && <div className="item muted">No grids yet</div>}
         </div>
         <div className="toolbar"><button className="btn primary" onClick={add}>+ New grid</button>
@@ -648,7 +692,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
         {cur ? <>
           <label className="field"><span>Grid name (referenced by the form control)</span>
             <input defaultValue={cur} key={cur} onBlur={e => rename(cur, e.target.value.trim())} /></label>
-          <Editor name={cur} grids={p.grids} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”`)} />
+          <Editor key={cur} name={cur} grids={p.grids} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”` || x.where.startsWith(`Grid “${cur}” ›`))} />
         </> : <div className="muted">Create a grid to define columns, formulas, totals and child item creation.</div>}
       </div>
     </div>

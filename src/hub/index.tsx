@@ -15,8 +15,8 @@ import { RulesTab } from "./RulesTab";
 import { Ctx } from "./ui";
 import { writtenFields } from "../core/written";
 import { makeCatalog, validateProject } from "./validate";
+import { issueTarget, nextStep, Tab, TAB_INTRO } from "./sections";
 
-type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "readonly" | "json";
 
 function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) {
   const [text, setText] = React.useState(() => JSON.stringify(p.config, null, 2));
@@ -49,7 +49,8 @@ function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) 
 function Hub(props: { projectId: string; projectName: string }) {
   const [config, setConfig] = React.useState<ProjectConfig>();
   const [saved, setSaved] = React.useState("");
-  const [tab, setTab] = React.useState<Tab>("rules");
+  const [tab, setTab] = React.useState<Tab>("grids");
+  const [focus, setFocus] = React.useState<{ n: number; grid?: string; section?: string; create?: boolean }>({ n: 0 });
   const [types, setTypes] = React.useState<string[]>([]);
   const [fields, setFields] = React.useState<FieldInfo[]>([]);
   const [byType, setByType] = React.useState<Record<string, FieldInfo[]>>({});
@@ -127,13 +128,24 @@ function Hub(props: { projectId: string; projectName: string }) {
             <button className="btn" onClick={() => setAttempt(a => a + 1)}>Retry</button>
           </div>
         )}
-        <div className="tabs">
-          {([["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["grids", `Grids (${Object.keys(config.grids).length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["json", "JSON"]] as [Tab, string][])
-            .map(([t, l]) => <button key={t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
+        {(() => {
+          const ns = nextStep(config, issues, dirty);
+          const go = (a: NonNullable<typeof ns.action>) => { setTab(a.tab); setFocus(f => ({ n: f.n + 1, grid: a.grid, section: a.section, create: a.create })); };
+          return (
+            <div className={"nextbar " + ns.kind} role="status">
+              <div className="t"><div className="k">{ns.kind === "done" ? "All good" : "Next step"}</div><b>{ns.text}</b>{ns.detail && <div className="muted">{ns.detail}</div>}</div>
+              {ns.action && <button className="btn primary" onClick={() => go(ns.action!)}>{ns.action.label}</button>}
+            </div>
+          );
+        })()}
+        <div className="tabs" role="tablist">
+          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["json", "JSON"]] as [Tab, string][])
+            .map(([t, l]) => <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
         </div>
+        <div className="tabintro">{TAB_INTRO[tab]}</div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}
         {tab === "cascades" && <CascadesTab cascades={config.cascades} issues={issues} onChange={cascades => setConfig({ ...config, cascades })} />}
-        {tab === "grids" && <GridsTab grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
+        {tab === "grids" && <GridsTab focus={focus} grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
         {tab === "mappings" && <MappingsTab config={config} issues={issues} onChange={(lookups, grids) => setConfig({ ...config, lookups, ...(grids ? { grids } : {}) })} />}
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "readonly" && <ReadOnlyTab config={config} />}
@@ -141,8 +153,8 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (
           <>
-            <h3>Validation against your process fields</h3>
-            <div className="issues">{issues.map((x, i) => <div key={i} className={"issue " + x.level}><b>{x.where}:</b> {x.message}</div>)}</div>
+            <h3>Checks against your process</h3>
+            <div className="issues">{issues.map((x, i) => { const t = issueTarget(x); return <div key={i} className={"issue " + x.level}><b>{x.where}:</b> {x.message}{t && <button className="btn go" onClick={() => { setTab(t.tab); setFocus(f => ({ n: f.n + 1, grid: t.grid, section: t.section })); window.scrollTo(0, 0); }}>Go to it</button>}</div>; })}</div>
           </>
         )}
       </div>
