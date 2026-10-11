@@ -229,3 +229,31 @@ describe("adjustments, hover detail and the scheduled capacity template", () => 
     setCalendarBook(undefined);
   });
 });
+
+import { readFileSync } from "node:fs";
+import { resolvedGrids } from "../src/core/sharedLookups";
+import { makeCatalog, validateProject } from "../src/hub/validate";
+import { normalizeRow as norm } from "../src/core/gridModel";
+
+describe("shipped scheduled example", () => {
+  const ex = JSON.parse(readFileSync("examples/sdlc-timesheet-scheduled.json", "utf8"));
+  it("validates without errors", () => {
+    const issues = validateProject(ex, makeCatalog([], []));
+    expect(issues.filter(i => i.level === "error").map(i => `${i.where}: ${i.message}`)).toEqual([]);
+  });
+  it("timesheet rows with dates become monthly capacity rows; a contractor is always Capitalizable", () => {
+    const grids = resolvedGrids(ex);
+    const ts = grids["SDLC Timesheet"], cap = grids["Resource Capacity"];
+    const people = [{ key: "ann@x.com", name: "Ann Lee <ann@x.com>", defaultHours: 160, overrides: {}, team: "Engineering" }];
+    setCalendarBook(registerCalendarBook(people, defaultCalendar()));
+    const rows = recomputeAll([
+      norm({ sdlcactivity: "Development and coding", team: "Engineering", resource: "Ann Lee <ann@x.com>", startdate: "2026-10-26", effort: 80, allocation: 100 }, ts),
+      norm({ sdlcactivity: "User training", team: "Engineering", resource: "Ann Lee <ann@x.com>", startdate: "2026-11-02", effort: 16, allocation: 50, contractor: true }, ts),
+    ], ts);
+    expect(rows.map(r => [r.enddate, r.treatment])).toEqual([["2026-11-06", "Capitalizable"], ["2026-11-05", "Capitalizable"]]);
+    const reg = { projectDefault: null, resources: { "ann@x.com": people[0] } };
+    const out = syncDerived(rows, cap, [], reg, {}, ts);
+    expect(out.map(r => [r.period, r.team, r.hours])).toEqual([["2026-10", "Engineering", 40], ["2026-11", "Engineering", 56]]);
+    setCalendarBook(undefined);
+  });
+});

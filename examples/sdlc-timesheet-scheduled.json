@@ -1,0 +1,729 @@
+{
+  "version": 1,
+  "rules": [],
+  "cascades": [],
+  "grids": {
+    "SDLC Timesheet": {
+      "dataField": "Custom.GridData",
+      "columns": [
+        {
+          "id": "sdlcactivity",
+          "name": "SDLC Activity",
+          "type": "dropdown",
+          "required": true,
+          "options": [
+            "Idea generation",
+            "Strategic assessment",
+            "Discovery workshops",
+            "Feasibility study",
+            "Business case preparation",
+            "RFP preparation",
+            "Vendor evaluation and selection",
+            "Preliminary requirements",
+            "Detailed functional requirements",
+            "Detailed business analysis",
+            "Functional design",
+            "Technical design",
+            "Solution architecture",
+            "Development and coding",
+            "System configuration",
+            "Interface development",
+            "Integration development",
+            "Data migration development",
+            "Data cleansing",
+            "Unit testing",
+            "System integration testing",
+            "Security testing",
+            "Performance testing",
+            "User acceptance testing",
+            "Production deployment",
+            "Cutover execution",
+            "Go-live validation",
+            "User training",
+            "Change management and communications",
+            "Hypercare",
+            "Production support",
+            "Routine defect correction",
+            "Project closure"
+          ]
+        },
+        {
+          "id": "phase",
+          "name": "Phase",
+          "type": "string",
+          "lookup": {
+            "column": "sdlcactivity",
+            "map": {
+              "Idea generation": "Discovery",
+              "Strategic assessment": "Discovery",
+              "Discovery workshops": "Discovery",
+              "Feasibility study": "Discovery",
+              "Business case preparation": "Initiation",
+              "RFP preparation": "Initiation",
+              "Vendor evaluation and selection": "Initiation",
+              "Preliminary requirements": "Requirements",
+              "Detailed functional requirements": "Requirements",
+              "Detailed business analysis": "Requirements",
+              "Functional design": "Design",
+              "Technical design": "Design",
+              "Solution architecture": "Design",
+              "Development and coding": "Build",
+              "System configuration": "Build",
+              "Interface development": "Build",
+              "Integration development": "Build",
+              "Data migration development": "Build",
+              "Data cleansing": "Build",
+              "Unit testing": "Build",
+              "System integration testing": "SIT",
+              "Security testing": "SIT",
+              "Performance testing": "SIT",
+              "User acceptance testing": "UAT",
+              "Production deployment": "Deployment",
+              "Cutover execution": "Deployment",
+              "Go-live validation": "Deployment",
+              "User training": "Deployment",
+              "Change management and communications": "Deployment",
+              "Hypercare": "Hypercare",
+              "Production support": "Hypercare",
+              "Routine defect correction": "Hypercare",
+              "Project closure": "Closure"
+            }
+          }
+        },
+        {
+          "id": "treatment",
+          "name": "Default treatment",
+          "type": "string",
+          "lookup": {
+            "column": "sdlcactivity",
+            "map": {
+              "Idea generation": "Expense",
+              "Strategic assessment": "Expense",
+              "Discovery workshops": "Expense",
+              "Feasibility study": "Expense",
+              "Business case preparation": "Expense",
+              "RFP preparation": "Expense",
+              "Vendor evaluation and selection": "Expense",
+              "Preliminary requirements": "Expense",
+              "Detailed functional requirements": "Conditional",
+              "Detailed business analysis": "Conditional",
+              "Functional design": "Capitalizable",
+              "Technical design": "Capitalizable",
+              "Solution architecture": "Capitalizable",
+              "Development and coding": "Capitalizable",
+              "System configuration": "Capitalizable",
+              "Interface development": "Capitalizable",
+              "Integration development": "Capitalizable",
+              "Data migration development": "Capitalizable",
+              "Data cleansing": "Expense",
+              "Unit testing": "Capitalizable",
+              "System integration testing": "Capitalizable",
+              "Security testing": "Capitalizable",
+              "Performance testing": "Capitalizable",
+              "User acceptance testing": "Conditional",
+              "Production deployment": "Capitalizable",
+              "Cutover execution": "Conditional",
+              "Go-live validation": "Capitalizable",
+              "User training": "Expense",
+              "Change management and communications": "Expense",
+              "Hypercare": "Expense",
+              "Production support": "Expense",
+              "Routine defect correction": "Expense",
+              "Project closure": "Expense"
+            }
+          },
+          "overrides": [
+            {
+              "when": "contractor",
+              "value": "Capitalizable"
+            }
+          ]
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "type": "dropdown",
+          "required": true,
+          "options": [
+            "Engineering",
+            "Vendor",
+            "IT Contract",
+            "Business"
+          ]
+        },
+        {
+          "id": "resourcetype",
+          "name": "Resource type",
+          "type": "string",
+          "lookup": {
+            "column": "team",
+            "map": {},
+            "table": "Resource type"
+          }
+        },
+        {
+          "id": "resource",
+          "name": "Resource",
+          "type": "identity",
+          "required": true
+        },
+        {
+          "id": "startdate",
+          "name": "Start date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "id": "allocation",
+          "name": "Allocation %",
+          "type": "number",
+          "defaultValue": 100,
+          "min": 0
+        },
+        {
+          "id": "effort",
+          "name": "Effort (h)",
+          "type": "number",
+          "required": true,
+          "min": 0,
+          "total": "sum"
+        },
+        {
+          "id": "enddate",
+          "name": "End date",
+          "type": "date"
+        },
+        {
+          "id": "contractor",
+          "name": "Is Contractor",
+          "type": "boolean"
+        }
+      ],
+      "breakdowns": [
+        {
+          "by": "treatment",
+          "column": "effort",
+          "aggregate": "sum",
+          "label": "Man-hours by treatment",
+          "fields": {
+            "Capitalizable": "Custom.CapitalizableManHours",
+            "Expense": "Custom.ExpenseManHours",
+            "Conditional": "Custom.ConditionalManHours"
+          }
+        }
+      ],
+      "totals": [],
+      "schedule": {
+        "resource": "resource",
+        "start": "startdate",
+        "effort": "effort",
+        "allocation": "allocation",
+        "end": "enddate"
+      },
+      "presets": [
+        {
+          "id": "standard",
+          "name": "Standard activities",
+          "columns": [
+            "sdlcactivity",
+            "team",
+            "effort"
+          ],
+          "rows": [
+            {
+              "sdlcactivity": "Technical design",
+              "team": "IT Applications",
+              "effort": 40
+            },
+            {
+              "sdlcactivity": "Development and coding",
+              "team": "IT Applications",
+              "effort": 120
+            },
+            {
+              "sdlcactivity": "System integration testing",
+              "team": "Quality Assurance",
+              "effort": 40
+            }
+          ]
+        }
+      ],
+      "presetSave": {
+        "enabled": true,
+        "teams": [],
+        "admins": true
+      }
+    },
+    "Resource Capacity": {
+      "derived": {
+        "source": "SDLC Timesheet"
+      },
+      "dataField": "Custom.CapacityData",
+      "columns": [
+        {
+          "id": "resource",
+          "name": "Resource",
+          "type": "string",
+          "derive": {
+            "role": "key",
+            "source": "resource"
+          },
+          "width": 220
+        },
+        {
+          "id": "period",
+          "name": "Period",
+          "type": "string",
+          "derive": {
+            "role": "key",
+            "source": "_month",
+            "bucket": "month"
+          }
+        },
+        {
+          "id": "team",
+          "name": "Team",
+          "type": "string",
+          "teamOf": {
+            "resource": "resource"
+          }
+        },
+        {
+          "id": "resourcetype",
+          "name": "Resource type",
+          "type": "string",
+          "lookup": {
+            "column": "team",
+            "map": {},
+            "table": "Resource type"
+          }
+        },
+        {
+          "id": "hours",
+          "name": "Hours (this Epic)",
+          "type": "number",
+          "derive": {
+            "role": "agg",
+            "source": "_hours",
+            "aggregate": "sum",
+            "adjustable": true
+          },
+          "total": "sum"
+        },
+        {
+          "id": "otherhours",
+          "name": "Hours (other Epics)",
+          "type": "number",
+          "defaultValue": 0,
+          "others": {
+            "resource": "resource",
+            "period": "period"
+          }
+        },
+        {
+          "id": "totalhours",
+          "name": "Total hours",
+          "type": "calculated",
+          "formula": "hours + otherhours",
+          "decimals": 2,
+          "onEmpty": "zero"
+        },
+        {
+          "id": "capacity",
+          "name": "Available Capacity",
+          "type": "number",
+          "capacity": {
+            "resource": "resource",
+            "period": "period"
+          },
+          "total": "sum"
+        },
+        {
+          "id": "utilization",
+          "name": "Utilization % (all Epics)",
+          "type": "calculated",
+          "formula": "totalhours / capacity * 100",
+          "decimals": 1,
+          "onEmpty": "blank",
+          "onDivZero": "blank",
+          "colorBy": "capacitystatus"
+        },
+        {
+          "id": "capacitystatus",
+          "name": "Capacity Status",
+          "type": "string",
+          "statusBands": {
+            "source": "utilization",
+            "ranges": [
+              {
+                "upTo": 70,
+                "label": "Available",
+                "color": "green"
+              },
+              {
+                "upTo": 90,
+                "label": "Near Capacity",
+                "color": "yellow"
+              },
+              {
+                "upTo": 100,
+                "label": "Fully Allocated",
+                "color": "orange"
+              },
+              {
+                "upTo": null,
+                "label": "Overallocated",
+                "color": "red"
+              }
+            ]
+          }
+        },
+        {
+          "id": "epicshare",
+          "name": "This Epic % of capacity",
+          "type": "calculated",
+          "formula": "hours / capacity * 100",
+          "decimals": 1,
+          "onEmpty": "blank",
+          "onDivZero": "blank"
+        },
+        {
+          "id": "overcapacity",
+          "name": "Over capacity",
+          "type": "calculated",
+          "formula": "IF(utilization > 100, \"Yes\", \"No\")",
+          "onEmpty": "blank"
+        }
+      ],
+      "totals": [],
+      "allocation": {
+        "resource": "resource",
+        "period": "period",
+        "hours": "hours"
+      },
+      "rowColorBy": "capacitystatus"
+    }
+  },
+  "calculations": [
+    {
+      "id": "capitalization-pct",
+      "name": "Capitalization %",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "CapexHours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "TotalHours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum"
+          }
+        }
+      ],
+      "formula": "CapexHours / TotalHours * 100",
+      "resultField": "Custom.CapitalizationPercent",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "internal-cap-hours",
+      "name": "Internal Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "Internal"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.InternalCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "vendor-cap-hours",
+      "name": "Vendor Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "External"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.VendorCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "business-cap-hours",
+      "name": "Business Cap Hours",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum",
+            "where": [
+              {
+                "column": "treatment",
+                "values": [
+                  "Capitalizable"
+                ]
+              },
+              {
+                "column": "resourcetype",
+                "values": [
+                  "Business"
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "formula": "Hours",
+      "resultField": "Custom.BusinessCapHours",
+      "decimals": 2,
+      "onEmpty": "zero",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-demand-team",
+      "name": "Peak Demand Team",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "team",
+            "column": "effort",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakDemandTeam",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-demand-period",
+      "name": "Peak Demand Period",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "startdate",
+            "column": "effort",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group",
+            "bucket": "month"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakDemandPeriod",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-sdlc-phase",
+      "name": "Peak SDLC Phase",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "top",
+            "grid": "SDLC Timesheet",
+            "groupBy": "phase",
+            "column": "effort",
+            "aggregate": "sum",
+            "pick": "max",
+            "return": "group"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakSDLCPhase",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "total-planned-capacity",
+      "name": "Total Planned Capacity",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Cap",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "capacity",
+            "aggregate": "sum"
+          },
+          "onEmpty": "zero"
+        }
+      ],
+      "formula": "Cap",
+      "resultField": "Custom.TotalPlannedCapacity",
+      "decimals": 2,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "overall-utilization",
+      "name": "Overall Capacity Utilization",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Hours",
+          "source": {
+            "kind": "grid",
+            "grid": "SDLC Timesheet",
+            "column": "effort",
+            "aggregate": "sum"
+          }
+        },
+        {
+          "name": "Cap",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "capacity",
+            "aggregate": "sum"
+          }
+        }
+      ],
+      "formula": "Hours / Cap * 100",
+      "resultField": "Custom.OverallUtilization",
+      "decimals": 1,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    },
+    {
+      "id": "peak-utilization",
+      "name": "Peak Capacity Utilization (all Epics)",
+      "enabled": true,
+      "workItemTypes": [],
+      "inputs": [
+        {
+          "name": "Peak",
+          "source": {
+            "kind": "grid",
+            "grid": "Resource Capacity",
+            "column": "utilization",
+            "aggregate": "max"
+          }
+        }
+      ],
+      "formula": "Peak",
+      "resultField": "Custom.PeakUtilization",
+      "decimals": 1,
+      "onEmpty": "blank",
+      "onDivZero": "blank",
+      "mode": "always"
+    }
+  ],
+  "lookups": {
+    "Resource type": {
+      "map": {
+        "Vendor": "External",
+        "IT Contract": "External",
+        "Business": "Business"
+      },
+      "fallback": "Internal",
+      "description": "Team -> Resource type (External / Business / Internal)"
+    }
+  }
+}

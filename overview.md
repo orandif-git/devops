@@ -12,6 +12,8 @@ Everything is configured once per project and works on any work item type you ch
 |---|---|
 | **Smart Grid** (form control) | An editable table inside a work item, stored in a long-text field |
 | **Derived grids** | A second grid that builds itself from the rows of the first (grouping, summing, looking things up) |
+| **Scheduling by dates** | Enter a start date, effort and allocation %; the end date and hours per month are calculated from each person's calendar |
+| **Presets** | Ready-made rows a user adds with one click, offered per work item type of project or customer |
 | **Calculations** | Formulas that write results into work item fields automatically |
 | **Rules** | Set values, require fields, restrict values or block save when conditions are met |
 | **Dependent dropdowns** | Pick lists whose options depend on another field (Smart Dropdown control) |
@@ -33,7 +35,8 @@ Everything is configured once per project and works on any work item type you ch
 - **Totals and grouped totals** under the grid, with each figure optionally **written to its own work item field**.
 - **Status columns and colour coding:** turn a number into a labelled status by ranges (for example up to a limit → one label, above → another), with a colour per range. Cells can follow the colour and **whole rows can be tinted** by status.
 - **Child work items:** create child work items from rows (one or all) with field mapping and an automatic parent link.
-- **Everyday tools:** sort, filter, move, duplicate and delete rows, export to **CSV or Excel**; an **Import** button is available as an option per grid.
+- **Presets (ready-made rows):** a **Load preset** list adds a set of rows in one click – **Add** (skips rows already there) or **Replace**. Each preset keeps only the columns you choose (for example activity and effort), so people and dates stay blank for the user. A preset can carry a **rule** (for example *Project type = …* on any work item field) so only matching presets are offered. **Save as preset** on the work item is optional and limited to project administrators and/or chosen teams.
+- **Everyday tools:** sort, filter, move, duplicate (clear copy icon) and delete rows, export to **CSV or Excel**; an **Import** button is available as an option per grid.
 - **Neat layout:** numbers, headings and totals are right-aligned; light and dark themes are supported.
 
 ### Derived grids
@@ -41,6 +44,15 @@ A grid can be **built automatically from another grid** and shown right below it
 - Mark **key** columns (one row per distinct combination, e.g. person + month), **carry** a value from the source, or **aggregate** a source column (sum, average, minimum, maximum, count). Dates can be grouped by day, month, quarter or year.
 - Add columns that users fill in, **calculated** columns, **status** columns and lookups.
 - What users type in the manual columns is remembered per key as the source rows change.
+
+### Scheduling effort by dates
+Instead of one row per month, a grid can use **Start date + Effort (hours) + Allocation %**:
+- The **end date is calculated** and read-only. Allocation is optional and defaults to 100 %.
+- The effort fills the person's **working days one after the other**, up to *hours per day × allocation %* a day. Days off, holidays and leave are skipped. Example: 80 h at 100 % with 8 hours a day is 10 working days; 16 h at 50 % is 4 working days.
+- The hours are split **per month** (a task that runs across two months puts its share in each), and the monthly figures always add up to the entered effort. These monthly figures feed the derived capacity grid and the cross-Epic hours.
+- **Calendar source:** Azure DevOps team capacity (team working days, team days off, each person's days off and capacity per day) or the extension's own calendar table (working week, holidays, hours per day, leave). If a date is not covered by the calendar, the row shows a clear message and adds no hours – nothing is guessed.
+- A row without a start date, effort or resource is flagged as incomplete and adds nothing to the capacity grid until it is complete.
+- In the derived grid the **hours of a month can be adjusted by hand** (the cell is highlighted; clear it to return to the calculated value), the **team comes from the capacity source**, and **hovering a figure shows which rows add up to it**.
 
 ### Calculations
 Define a calculation once and it keeps a field up to date:
@@ -59,7 +71,7 @@ Maintain a "value → category" table once (categories, the values in each, and 
 
 ### Capacity and utilization
 - **Where capacity lives – your choice:**
-  - the extension's own **register**: default hours per person and month plus exceptions (leave, part time), with import/export and a change history; edit access can be limited to chosen Azure DevOps **teams**; or
+  - the extension's own **register**: default hours per person and month plus exceptions (leave, part time), with import/export and a change history; edit access can be limited to chosen Azure DevOps **teams**. A **calendar table** holds the working week, default hours per day and holidays; each person can have their own hours per day, team and leave dates; or
   - **Azure DevOps team capacity** (Boards → Sprints → Capacity): hours per day and days off are read from one yearly iteration and converted to available hours per month (working days − holidays − days off).
 - **Per work item:** a derived grid shows each person's hours for the item, hours on other work items, total hours, available capacity, **utilization %** and a **status**.
 - **Across work items:** each work item publishes its hours when saved, so utilization counts a person's total load.
@@ -99,6 +111,8 @@ Open **Project settings → Grid & Rules**:
 4. **Rules** and **Dependent dropdowns** (optional): build them with the form editors.
 5. Check the **validation list** at the bottom of the page, then press **Save**.
 
+To schedule by dates, open the grid and tick **Users enter a start date, effort and allocation %** under *Dates and effort*; **Add any missing standard columns** creates the columns and links them. For ready-made rows, add a preset under *Presets* (choose its columns, rows and an optional rule).
+
 ### 4. Add the controls to the work item layout
 In the process **Layout** editor of the work item type:
 - **Smart Grid:** add the custom control on the grid's data field and enter the **Grid name**. Leave the control's own *Data field* input empty so the grid and its calculations always read the same field.
@@ -111,7 +125,9 @@ Open **Grid & Rules → Capacity** and choose where capacity is maintained:
 - **Register:** add people on the **Boards → Capacity** page (default hours plus month exceptions), and choose which teams may edit.
 - **Azure DevOps team capacity:** create one iteration for the year, add it to the team, enter hours per day and days off per person under Boards → Sprints → Capacity, select the team(s), and press **Check what is read**.
 
-Then generate a derived capacity grid in the Grids page with the **Quick start** and save.
+For scheduling by dates: with the register, set the **Calendar** (working week, hours per day, holidays) on the same page and, if needed, a person's hours per day and leave (select the person with ⓘ). With Azure DevOps team capacity the team's working days, days off and hours per day are used.
+
+Then generate a derived capacity grid in the Grids page with the **Quick start** and save. For a grid scheduled by dates, use **Fill in for a scheduled source**.
 
 ### 6. Lock calculated fields (optional)
 Open **Read-only fields**, copy the field names, and add the **Read-only Value** control and/or a **Make read-only** process rule for each.
@@ -133,6 +149,10 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 
 **Formula functions:** `IF(cond, a, b)`, `ROUND(x, n)`, `MIN`, `MAX`, `SUM`, `ABS`, `FLOOR`, `CEIL`, `AND`, `OR`, `NOT`, `CONCAT`, and for whole columns `TOTAL`, `COLAVG`, `COLMAX`, `COLMIN`, `COLCOUNT`.
 
+**Scheduling columns:** *Resource* (people picker), *Start date* (date), *Effort* (number), *Allocation %* (number, optional), *End date* (date, calculated). A derived grid reads the source columns **Scheduled month** and **Scheduled hours**.
+
+**Auto-fill overrides:** on a column that fills itself from another, a ticked checkbox column can force a fixed value instead of the lookup result (first ticked rule wins).
+
 **Status ranges:** ranges are checked from the top; the first whose "up to" value is not exceeded wins. Leave "up to" **empty on the last range** so every larger value still gets a status.
 
 ---
@@ -152,6 +172,9 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 | Lists in the admin page say they could not load | Use the **Retry** button; check that the extension has been authorised for work items and projects. |
 | Grid rows disappear after saving | Make sure the data field is a plain **Text (multiple lines)** field on that work item type. |
 | A status or colour is missing for large values | The last status range must have an empty "up to". |
+| The end date stays empty, with a red cell | Hover the cell: usually the person has no capacity in the calendar source, or the date is outside the yearly iteration. Fix the capacity (or the iteration) and reopen the work item. |
+| Teams do not load on an on-premises server | Make sure the extension is the latest version; team and member lists are requested with an older REST version that Azure DevOps Server 2020 accepts. |
+| "Load preset" is empty | A preset with a rule is only offered when the work item field matches; a preset without a rule is offered everywhere. |
 
 ## Support
 Questions and feedback are welcome through the Marketplace Q&A page of this extension.
