@@ -1,59 +1,157 @@
 # Work Item Grid & Rules
 
-Smart editable grids, conditional rules and dependent dropdowns for Azure DevOps work items — configured visually, validated against your real process fields. Works on **Azure DevOps Services** and **Azure DevOps Server 2019+**.
+Turn Azure DevOps work items into small, smart applications: **editable grids with calculations**, **rules and dependent dropdowns**, **capacity and utilization tracking**, and a **visual admin page** to configure all of it – without writing code.
 
-## What you get
+Everything is configured once per project and works on any work item type you choose. Your data stays inside your Azure DevOps organization.
 
-### Smart Grid (work item form control)
-- Column types: **text, number, checkbox, date, dropdown, identity (people picker)**
-- Required, default value, min/max, per-column width
-- **Dependent dropdowns inside cells** (a column's options depend on another column)
-- **Auto-fill columns:** pick one value (e.g. SDLC Activity) and other columns (Phase, Default treatment) fill themselves from a lookup table
-- **Grouped totals:** sum Hours per Treatment (Capitalizable / Expense / Conditional) and write **each group to its own work item field**; a live breakdown is shown under the grid
-- **Row formulas** such as `ROUND([qty] * [price], 2)` and footer **totals** (sum / avg / min / max / count)
-- **Map totals to work item fields** (e.g. Original Estimate)
-- **Import / export** CSV and Excel (.xlsx)
-- **Create child work items** from rows (single or all), with field mapping and parent link
-- Sort, filter, reorder, duplicate rows; dark/light theme aware
+---
 
-### Calculated columns and derived grids
-- **Calculated** column type: formulas over the row (`hours / capacity * 100`) and whole column (`TOTAL(hours)`), with decimals, blank-or-0 for empty inputs and division by zero.
-- **Derived grids:** a second grid built automatically from the first, shown below it – e.g. **Resource Capacity**: one row per resource and month, hours summed, team carried, Available Capacity entered per row, utilization and over-capacity calculated. Manual entries are remembered by resource and month.
+## What's included
 
-### Capacity register (Boards → Capacity)
-Resource managers enter available hours **once**: a default per person and month, plus exceptions for specific months (leave, part time). Import/export CSV or Excel, filter, per-change audit trail. Who may edit is set by **Azure DevOps team** (Project settings → Grid & Rules → Capacity); everyone else sees it read-only. Every Epic's *Resource Capacity* grid reads its Available Capacity from here. Each Epic also publishes its per-person, per-month hours when saved, so every Epic can show **Hours (other Epics)**, **Total hours** and **Utilization % across all Epics** next to **This Epic %**, and managers get a **Utilization overview** (capacity vs. hours of all Epics, over-capacity highlighted). (Access control applies to the extension's pages; it is not an Azure DevOps security boundary.)
+| Component | What it does |
+|---|---|
+| **Smart Grid** (form control) | An editable table inside a work item, stored in a long-text field |
+| **Derived grids** | A second grid that builds itself from the rows of the first (grouping, summing, looking things up) |
+| **Calculations** | Formulas that write results into work item fields automatically |
+| **Rules** | Set values, require fields, restrict values or block save when conditions are met |
+| **Dependent dropdowns** | Pick lists whose options depend on another field (Smart Dropdown control) |
+| **Mappings** | Shared lookup tables ("value → category") reused by any grid column |
+| **Capacity** | A central place for people's available hours, plus a utilization overview across work items |
+| **Read-only Value** (form control) | Shows a calculated field with a lock so users cannot edit it |
+| **Grid & Rules admin page** | Visual builder with live validation against your real process fields |
 
-#### Capacity source switch
-Capacity can be maintained in either place (Grid & Rules → Capacity): the extension's own **register**, or **Azure DevOps team capacity** (Boards → Sprints → Capacity). With team capacity, create one yearly iteration (e.g. “Capacity 2026”), add it to the team, and enter hours per day and days off per person; the extension turns that into available hours per month (working days − holidays − leave).
+---
 
-### Status columns and colour coding
-A column can fill itself with a **status** chosen from ranges of a number – e.g. **Capacity Status** from Utilization %: 0–70 Available (green), above 70–90 Near Capacity (yellow), above 90–100 Fully Allocated (orange), above 100 Overallocated (red). Ranges, labels and colours are editable. Cells can follow a status colour, and a grid can tint **each row** by its status, so every resource's row shows its load at a glance. Numbers, headings and totals are right-aligned so figures line up.
+## Features
+
+### Smart Grid
+- **Column types:** text, number, checkbox, date, dropdown, **people picker** (searches users and groups in your directory), **calculated**, and **status** columns.
+- **Validation:** required cells, default values, minimum / maximum for numbers. Untouched new rows stay calm; optionally block saving while required values are missing.
+- **Dropdowns inside cells**, including **dependent dropdowns** (a cell's options depend on another cell in the same row; a single valid option is picked automatically).
+- **Auto-fill columns:** a column fills itself from another column through a lookup table, so users pick one value and the related values appear.
+- **Formulas:** row formulas (`quantity * price`) and whole-column functions (`TOTAL(amount)`), with decimals, and a choice of blank or zero when an input is empty or a division by zero occurs.
+- **Totals and grouped totals** under the grid, with each figure optionally **written to its own work item field**.
+- **Status columns and colour coding:** turn a number into a labelled status by ranges (for example up to a limit → one label, above → another), with a colour per range. Cells can follow the colour and **whole rows can be tinted** by status.
+- **Child work items:** create child work items from rows (one or all) with field mapping and an automatic parent link.
+- **Everyday tools:** sort, filter, move, duplicate and delete rows, export to **CSV or Excel**; an **Import** button is available as an option per grid.
+- **Neat layout:** numbers, headings and totals are right-aligned; light and dark themes are supported.
+
+### Derived grids
+A grid can be **built automatically from another grid** and shown right below it:
+- Mark **key** columns (one row per distinct combination, e.g. person + month), **carry** a value from the source, or **aggregate** a source column (sum, average, minimum, maximum, count). Dates can be grouped by day, month, quarter or year.
+- Add columns that users fill in, **calculated** columns, **status** columns and lookups.
+- What users type in the manual columns is remembered per key as the source rows change.
+
+### Calculations
+Define a calculation once and it keeps a field up to date:
+1. **Inputs** – give each value a short name. An input is either **any work item field** or a **figure from a grid** (sum, average, minimum, maximum, count – with several filter conditions), or the **top group** of a grid (the group with the highest or lowest total, as a name or a number).
+2. **Formula** – for example `PartA / Total * 100`. Functions: `IF`, `ROUND`, `MIN`, `MAX`, `SUM`, `ABS`, `FLOOR`, `CEIL`, `AND`, `OR`, `NOT`, `CONCAT`, comparisons.
+3. **Result** – the field that receives the answer, decimal places, what to do with empty inputs and division by zero, and whether to **always recalculate** or **only fill while empty**.
+
+Built-in help: a **Test** panel with sample values and **Try on a real work item**, which reads a saved work item and shows exactly what each input contains and why a result is blank.
+
+### Rules and dependent dropdowns
+- **Rules:** *when* all/any conditions are true, *then / otherwise* set a field value, require a field, allow only certain values, or block saving with a message. Scope each rule to chosen work item types.
+- **Dependent dropdowns:** map parent values to allowed child values. Invalid combinations block saving; add the **Smart Dropdown** control to also hide invalid options. Optionally pre-fill the parent from the Area Path.
+
+### Mappings
+Maintain a "value → category" table once (categories, the values in each, and a fallback category for everything else) and use it in any grid column. Adding a value later is a one-place change.
+
+### Capacity and utilization
+- **Where capacity lives – your choice:**
+  - the extension's own **register**: default hours per person and month plus exceptions (leave, part time), with import/export and a change history; edit access can be limited to chosen Azure DevOps **teams**; or
+  - **Azure DevOps team capacity** (Boards → Sprints → Capacity): hours per day and days off are read from one yearly iteration and converted to available hours per month (working days − holidays − days off).
+- **Per work item:** a derived grid shows each person's hours for the item, hours on other work items, total hours, available capacity, **utilization %** and a **status**.
+- **Across work items:** each work item publishes its hours when saved, so utilization counts a person's total load.
+- **Utilization overview:** capacity against allocated hours per person and month, over-capacity highlighted.
 
 ### Read-only calculated fields
-The **Read-only fields** tab lists every field the extension writes (calculation results, grid totals, grouped totals). Lock them with the **Read-only Value** form control (shows the value with a lock, no input) and/or an Azure DevOps process rule *Make read-only* (also blocks bulk edit and the API) – the tab has the steps.
+The **Read-only fields** page lists every field the extension writes (calculation results, grid totals, grouped totals) and explains how to lock them – with the **Read-only Value** control and/or an Azure DevOps process rule.
 
-### Shared mappings (Mappings tab)
-Maintain value → category tables once, e.g. **Resource type**: External ← Vendor, IT Contract · Business ← Business · all other values → Internal. Any grid column can use a mapping, so adding a team is a one-place change. Everything is configurable: categories, their values and the fallback.
+### Visual admin page with live validation
+Project settings → **Grid & Rules**. Form editors first, JSON editor second. Everything is checked live against your process: unknown fields, values that are not in a pick list, non-numeric targets, formulas with unknown names, circular calculations, two things writing to the same field, and more.
 
-### Calculations (standalone, in the same hub)
-Define a calculation once: named inputs (any work item field, or a figure from a grid with several filter conditions), a formula such as `CapexHours / TotalHours * 100`, and the field that receives the result. Choose per calculation whether empty inputs give a blank result or count as 0, how division by zero behaves, and whether the result is always recalculated or only filled while empty. Inputs can also be a **top group** – e.g. the team, period (by month/quarter/year) or SDLC phase with the highest total hours – written to a text field. A Test panel and live validation (unknown variables, wrong field types, circular dependencies, conflicting writers) are built in.
+---
 
-### Conditional rules (observer)
-*When* conditions on any fields → *then / otherwise*: set a field value, require a field, restrict allowed values, or block save with a message. Scope per work item type.
+## Requirements and permissions
+- Azure DevOps Services (designed also for Azure DevOps Server 2019 and later).
+- Permissions requested: **work items (read and write)** and **project and team (read)**.
+- Project administrators configure the extension. Configuration, the capacity register and published hours are stored in your organization's extension data storage. Nothing is sent outside Azure DevOps.
 
-### Dependent dropdowns for fields
-Parent → child picklist mapping with Area Path hints, validation on save, and the **Smart Dropdown** control that hides invalid options. Can import the JSON of the "Dependent Lists" extension.
-
-### Visual rule builder (Project settings → Grid & Rules)
-Form editors first, JSON editor second. Everything is checked live against your organization's real fields and picklist values (unknown fields, values that are not in the picklist, non-numeric total targets, bad formulas, …).
+---
 
 ## Setup
-1. Install the extension. Open **Project settings → Grid & Rules** and define a grid, rules or dependent dropdowns, then **Save**.
-2. **Grid:** create a *Text (multiple lines)* field (e.g. `Custom.GridData`) and enter it as the grid's **Data field** in Project settings → Grid & Rules. In the process layout editor add the custom control → **Smart Grid** on that field and set **Grid name**; leave the control's own *Data field* input empty so the grid and its calculations always read the same field.
-3. **Dependent dropdown:** (optional) on the dependent field add the **Smart Dropdown** control to filter options. Validation works without it.
-4. Rules and dependent-value validation run automatically on every form for the configured work item types.
+
+### 1. Install
+Install the extension into your organization from the Marketplace and open any project.
+
+### 2. Create the fields you need
+In **Organization settings → Process → your process → work item type → New field**:
+- A **Text (multiple lines)** field for each grid's data (plain text, not rich text). You can hide it from the layout.
+- **Decimal / Integer** fields for anything the extension should write (calculation results, grid totals).
+- A **Text** field for text results.
+
+### 3. Define your grid, rules and calculations
+Open **Project settings → Grid & Rules**:
+1. **Grids → + New grid:** name it, enter its **Data field**, add columns (type, required, default, options, formulas, status ranges), and optionally totals, grouped totals and child work items.
+2. **Mappings** (optional): create lookup tables and select them in a column's *Auto-fill* setting.
+3. **Calculations → + New calculation:** add inputs, write the formula, choose the result field and settings, test it, then use **Try on a real work item**.
+4. **Rules** and **Dependent dropdowns** (optional): build them with the form editors.
+5. Check the **validation list** at the bottom of the page, then press **Save**.
+
+### 4. Add the controls to the work item layout
+In the process **Layout** editor of the work item type:
+- **Smart Grid:** add the custom control on the grid's data field and enter the **Grid name**. Leave the control's own *Data field* input empty so the grid and its calculations always read the same field.
+- **Derived grids:** nothing to add – they appear below their source grid. Create and hide only their data field.
+- **Smart Dropdown:** add it on a dependent field to hide invalid options.
+- **Read-only Value:** add it on calculated fields to show them locked.
+
+### 5. Set up capacity (optional)
+Open **Grid & Rules → Capacity** and choose where capacity is maintained:
+- **Register:** add people on the **Boards → Capacity** page (default hours plus month exceptions), and choose which teams may edit.
+- **Azure DevOps team capacity:** create one iteration for the year, add it to the team, enter hours per day and days off per person under Boards → Sprints → Capacity, select the team(s), and press **Check what is read**.
+
+Then generate a derived capacity grid in the Grids page with the **Quick start** and save.
+
+### 6. Lock calculated fields (optional)
+Open **Read-only fields**, copy the field names, and add the **Read-only Value** control and/or a **Make read-only** process rule for each.
+
+---
+
+## Configuration reference
+
+**Column types**
+
+| Type | Notes |
+|---|---|
+| Text, Number, Checkbox, Date | Required, default, min/max (numbers), width |
+| Dropdown | Fixed options or options that depend on another column |
+| People picker | Searches users, optionally groups |
+| Calculated | Formula over the row or the whole column; decimals; blank or zero behaviour |
+| Status | Label and colour chosen from ranges of a number column |
+| Any column | Can **auto-fill** from another column through a lookup, or follow a status colour |
+
+**Formula functions:** `IF(cond, a, b)`, `ROUND(x, n)`, `MIN`, `MAX`, `SUM`, `ABS`, `FLOOR`, `CEIL`, `AND`, `OR`, `NOT`, `CONCAT`, and for whole columns `TOTAL`, `COLAVG`, `COLMAX`, `COLMIN`, `COLCOUNT`.
+
+**Status ranges:** ranges are checked from the top; the first whose "up to" value is not exceeded wins. Leave "up to" **empty on the last range** so every larger value still gets a status.
+
+---
 
 ## Good to know
-- Hiding fields or making them read-only is not possible for extensions; rules can set values, require fields, restrict values and block save.
-- Configuration is stored per project in the extension data service. Only project administrators can open the settings hub.
-- Rows are stored as JSON in the chosen text field (also readable by the older "Data Table" extension's array format).
+- **When things run:** calculations and rules run in the browser when a work item is open and whenever an input changes. A closed work item is not recalculated until it is opened again.
+- **Access control:** limits on who may edit capacity apply to the extension's pages. For enforcement inside Azure DevOps itself, use process rules and permissions.
+- **Storage format:** use plain "Text (multiple lines)" fields for grid data. Rich-text fields can alter stored text.
+- **Hidden data fields:** hiding a data field from the layout is fine; it still stores the data.
+- **Hours across work items** are published when a work item is saved, so very recent edits may not be counted yet.
+
+## Troubleshooting
+| Symptom | What to check |
+|---|---|
+| A calculation result stays empty | Use **Try on a real work item**: it shows the rows read, each input and the reason. Typical causes: the grid has no data field saved, the result field is not on that work item type, or an input is empty. |
+| "Field does not exist" in the validation list | Create the field in the process, then reload the admin page. |
+| Lists in the admin page say they could not load | Use the **Retry** button; check that the extension has been authorised for work items and projects. |
+| Grid rows disappear after saving | Make sure the data field is a plain **Text (multiple lines)** field on that work item type. |
+| A status or colour is missing for large values | The last status range must have an empty "up to". |
+
+## Support
+Questions and feedback are welcome through the Marketplace Q&A page of this extension.

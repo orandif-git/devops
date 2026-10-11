@@ -3,11 +3,13 @@
 Publisher `amanullah-ado` · id `workitem-grid-rules`. See [overview.md](overview.md) for features and user setup.
 
 ## Layout
-- `src/core` – pure logic (formula engine, CSV, grid model, rules engine). Unit tested.
+- `src/core` – pure logic (formula engine, CSV, grid model, derived grids, calculations, capacity, status bands, rules engine). Unit tested.
 - `src/grid` – **Smart Grid** work item form control (React).
 - `src/dropdown` – **Smart Dropdown** form control (filters options by parent field).
 - `src/observer` – invisible **rules observer** (set value / require / restrict / block save, dependent validation, Area Path hints).
-- `src/hub` – project settings hub: visual rule builder, dependent dropdown + grid designers, JSON editor, live validation (`validate.ts`).
+- `src/hub` – project settings hub: visual rule builder, dependent dropdown, grid, mapping, calculation and capacity editors, read-only fields page, JSON editor, live validation (`validate.ts`).
+- `src/capacity` – the Boards **Capacity** page (register editor + utilization overview).
+- `src/readonly` – **Read-only Value** form control for calculated fields.
 - `src/shared` – SDK/REST helpers, config storage (extension data service, one document per project), Excel/CSV.
 
 ## Commands
