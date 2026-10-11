@@ -1,4 +1,5 @@
 import { coerce, defaultFor, newRow, recomputeAll } from "./gridModel";
+import { freshReview, reviewColumns } from "./review";
 import { ColumnDef, GridConfig, GridPreset, GridRow } from "./types";
 
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
@@ -6,7 +7,7 @@ const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
 /** Columns a preset keeps by default: typed-in values that are the same on every work item (not people, dates or calculated values). */
 export function defaultPresetColumns(cfg: GridConfig): string[] {
   const sc = cfg.schedule;
-  const skip = new Set([sc?.resource, sc?.start, sc?.end, sc?.allocation].filter(Boolean) as string[]);
+  const skip = new Set([sc?.resource, sc?.start, sc?.end, sc?.allocation, ...(cfg.review ? reviewColumns(cfg.review) : [])].filter(Boolean) as string[]);
   const auto = (c: ColumnDef) => !!c.lookup || !!c.formula || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated";
   return cfg.columns.filter(c => !auto(c) && c.type !== "identity" && c.type !== "date" && !skip.has(c.id)).map(c => c.id);
 }
@@ -23,7 +24,8 @@ export function presetRows(p: GridPreset, cfg: GridConfig): GridRow[] {
     for (const c of cfg.columns) if (ids.has(c.id) && src[c.id] !== undefined) row[c.id] = coerce(c, src[c.id]);
     return row;
   });
-  return recomputeAll(rows, cfg);
+  // a preset can never hand out approved rows
+  return recomputeAll(cfg.review ? rows.map(r => freshReview(r, cfg.review!)) : rows, cfg);
 }
 
 export interface MergeResult { rows: GridRow[]; added: number; skipped: number }

@@ -10,6 +10,8 @@ import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
 import { GridConfig, GridPreset, GridRow, LookupTable } from "../core/types";
 import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upsertPreset } from "../core/presets";
 import { canSavePresets } from "../shared/presetAccess";
+import { loadActor } from "../shared/reviewAccess";
+import { Actor, freshReview } from "../core/review";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
 import { loadCalendarBook } from "../shared/capacityStore";
@@ -57,11 +59,17 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");
+  // approvals: who is looking at the grid (until known, approved rows stay locked and nobody sees the Approve / Reject buttons)
+  React.useEffect(() => {
+    if (!props.cfg.review) return;
+    loadActor(props.projectId, props.cfg.review).then(setActor).catch(e => setWarn(`Could not work out who may approve: ${(e as Error).message}`));
+  }, [props.cfg.review, props.projectId]);
   const changedRef = React.useRef<string[]>([]);
   const refreshRef = React.useRef<() => Promise<void>>();
   const [presets, setPresets] = React.useState<GridPreset[]>(props.cfg.presets ?? []);
   const [presetList, setPresetList] = React.useState<GridPreset[]>([]);
   const [canSave, setCanSave] = React.useState(false);
+  const [actor, setActor] = React.useState<Actor>();
   const [calVersion, setCalVersion] = React.useState(0);
   const [calError, setCalError] = React.useState("");
   const knownFields = React.useRef<Set<string>>();
@@ -238,7 +246,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     try {
       const { rows: imported, unmatched } = await importFile(file, cfg);
       if (!imported.length) { flash("Nothing to import – is the first row a header row?"); return; }
-      commit([...rowsRef.current, ...imported]);
+      commit([...rowsRef.current, ...(cfg.review ? imported.map(r => freshReview(r, cfg.review!)) : imported)]);      // imported rows must be reviewed (never arrive approved)
       flash(`Imported ${imported.length} row(s)` + (unmatched.length ? `; no matching header for: ${unmatched.join(", ")}` : ""));
     } catch (e) { flash("Import failed: " + (e as Error).message); }
   };
@@ -255,6 +263,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
+        review={cfg.review ? { actor, actorName: SDK.getUser().displayName } : undefined}
         onChange={commit} onImport={onImport} onExport={onExport}
         presetTools={presetList.length || canSave ? { presets: presetList.map(x => ({ id: x.id, name: x.name, count: x.rows.length })), onLoad: loadPreset, canSave, onSave: savePreset } : undefined}
         onCreateChild={id => createChildren([id])}

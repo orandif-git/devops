@@ -1,11 +1,13 @@
 import * as React from "react";
-import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, StatusBand, StatusColor, TotalMapping } from "../core/types";
+import { Aggregate, ApproverRule, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, ReviewConfig, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
 import { needsScheduledRemap, remapToScheduled, SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
 import { defaultPresetColumns } from "../core/presets";
+import { DEFAULT_STATUSES, withReview } from "../core/review";
+import { IdentityInput } from "../grid/IdentityInput";
 import { getProject } from "../shared/ado";
 import { listTeams, TeamRef } from "../shared/capacityStore";
 import "../grid/grid.css";
@@ -238,7 +240,8 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
   const idx = cur ? presets.indexOf(cur) : -1;
   const setPresets = (list: GridPreset[]) => p.onChange({ ...g, presets: list.length ? list : undefined });
   const setCur = (patch: Partial<GridPreset>) => setPresets(setAt(presets, idx, { ...cur!, ...patch }));
-  const typed = p.effective.columns.filter(c => !c.lookup && !c.formula && !c.statusBands && !c.derive && !c.capacity && !c.others && !c.teamOf && c.type !== "calculated" && c.id !== g.schedule?.end);
+  const reviewIds = new Set(g.review ? [g.review.statusColumn, g.review.byColumn, g.review.atColumn, g.review.reasonColumn] : []);
+  const typed = p.effective.columns.filter(c => !reviewIds.has(c.id) && !c.lookup && !c.formula && !c.statusBands && !c.derive && !c.capacity && !c.others && !c.teamOf && c.type !== "calculated" && c.id !== g.schedule?.end);
   const kept = cur ? typed.filter(c => cur.columns.includes(c.id)).map(c => ({ ...c, required: false })) : [];
   const miniRows: GridRow[] = (cur?.rows ?? []).map((r, i) => ({ _id: "pr" + i, ...r }));
   const save = g.presetSave ?? { enabled: false, teams: [], admins: true };
@@ -293,6 +296,111 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
           </>
         )}
       </div>
+    </>
+  );
+}
+
+/** Chips to pick Azure DevOps teams. */
+function TeamChips(p: { all: TeamRef[]; value: { id: string; name: string }[]; onChange(v: { id: string; name: string }[]): void }) {
+  return (
+    <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
+      {p.all.map(t => <span key={t.id} className={"chip" + (p.value.some(x => x.id === t.id) ? " on" : "")} onClick={() => p.onChange(p.value.some(x => x.id === t.id) ? p.value.filter(x => x.id !== t.id) : [...p.value, t])}>{t.name}</span>)}
+      {!p.all.length && <span className="muted">Loading teams…</span>}
+      {p.value.filter(v => !p.all.some(t => t.id === v.id)).map(v => <span key={v.id} className="chip on" title="Not in the current team list" onClick={() => p.onChange(p.value.filter(x => x.id !== v.id))}>{v.name}</span>)}
+    </div>
+  );
+}
+
+/** Named people ("Name <sign-in>") picked from the directory. */
+function PeopleList(p: { value: string[]; projectId: string; onChange(v: string[]): void }) {
+  const [text, setText] = React.useState("");
+  const add = () => { const t = text.trim(); if (t && !p.value.includes(t)) p.onChange([...p.value, t]); setText(""); };
+  return (
+    <div>
+      {p.value.map(x => <div key={x} className="row"><span>{x}</span><button className="btn icon danger fixed" onClick={() => p.onChange(p.value.filter(y => y !== x))}>✕</button></div>)}
+      <div className="row">
+        <div className="grow"><IdentityInput value={text} includeGroups={false} projectId={p.projectId} onChange={setText} /></div>
+        <button className="btn fixed" disabled={!text.trim()} onClick={add}>+ Add person</button>
+      </div>
+    </div>
+  );
+}
+
+/** Approve / reject / pending review for every row: columns, rules, who may decide, locking, totals by status. */
+function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
+  const { g } = p;
+  const rv = g.review;
+  const [teams, setTeams] = React.useState<TeamRef[]>([]);
+  const [projectId, setProjectId] = React.useState("");
+  React.useEffect(() => { getProject().then(pr => { setProjectId(pr.id); return listTeams(pr.id); }).then(setTeams).catch(() => undefined); }, []);
+  const set = (patch: Partial<ReviewConfig>) => p.onChange({ ...g, review: { ...rv!, ...patch } });
+  const textCols = g.columns.filter(c => c.type === "string" && !c.formula && !c.lookup && !c.statusBands && !c.derive);
+  const rules = rv?.approvers ?? [];
+  const setRule = (i: number, patch: Partial<ApproverRule>) => set({ approvers: setAt(rules, i, { ...rules[i], ...patch }) });
+  const [effort, setEffort] = React.useState("");
+  const numCols = g.columns.filter(c => c.type === "number" || c.type === "calculated");
+  const colPick = (label: string, key: "statusColumn" | "byColumn" | "atColumn" | "reasonColumn", optional: boolean) => (
+    <label className="field" style={{ flex: 1 }}><span>{label}</span>
+      <select value={rv![key] ?? ""} onChange={e => set({ [key]: e.target.value || undefined } as Partial<ReviewConfig>)}>
+        {optional && <option value="">(none)</option>}{!optional && !rv![key] && <option value="" />}
+        {textCols.map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
+  );
+  return (
+    <>
+      <h3>Review (approve / reject)</h3>
+      <label><input type="checkbox" checked={!!rv} onChange={e => p.onChange(e.target.checked ? withReview(g) : { ...g, review: undefined })} /> Every row has a review status (<b>Pending review</b>, <b>Approved</b>, <b>Rejected</b>) that chosen people can change one by one or in bulk</label>
+      {rv && (
+        <div className="card">
+          <div className="row">
+            {colPick("Status column", "statusColumn", false)}{colPick("Reviewed by (optional)", "byColumn", true)}{colPick("Reviewed at (optional)", "atColumn", true)}{colPick("Comment / reject reason (optional, typed by the approver)", "reasonColumn", true)}
+          </div>
+          <div className="row">
+            {(["pending", "approved", "rejected"] as const).map(k => (
+              <label className="field" key={k} style={{ flex: 1 }}><span>Name of “{k}”</span>
+                <input value={rv.statuses[k]} onChange={e => set({ statuses: { ...rv.statuses, [k]: e.target.value } })} placeholder={DEFAULT_STATUSES[k]} /></label>
+            ))}
+          </div>
+          <div className="help">Renaming a status later leaves rows saved under the old name as “pending review”. The Approve / Reject buttons set the status; people cannot type it.</div>
+          <label style={{ display: "block" }}><input type="checkbox" checked={rv.resetOnEdit} onChange={e => set({ resetOnEdit: e.target.checked })} /> An edited approved or rejected row goes back to <b>pending review</b> (the review columns and calculated columns do not count)</label>
+          <label style={{ display: "block" }}><input type="checkbox" checked={rv.lockApproved} onChange={e => set({ lockApproved: e.target.checked })} /> <b>Lock approved rows</b>: they cannot be edited, moved or deleted, except by administrators</label>
+          <label style={{ display: "block" }}><input type="checkbox" checked={rv.noSelfApproval} onChange={e => set({ noSelfApproval: e.target.checked })} /> Nobody can approve or reject their <b>own</b> row (the person on the row; this also applies to administrators)</label>
+
+          <div className="help"><b>Who may approve or reject</b> – one rule per group of rows. A rule can be limited to rows where a column has certain values (for example one team approves Capitalizable rows and another the rest). A row that matches no rule can only be decided by administrators.</div>
+          {rules.map((r, i) => (
+            <div className="card" key={r.id}>
+              <div className="row">
+                <label className="field" style={{ flex: 1 }}><span>Rule name</span><input value={r.name} onChange={e => setRule(i, { name: e.target.value })} /></label>
+                <label className="field" style={{ flex: 1 }}><span>Applies to rows where…</span>
+                  <select value={r.when?.column ?? ""} onChange={e => setRule(i, { when: e.target.value ? { column: e.target.value, values: r.when?.values ?? [] } : undefined })}>
+                    <option value="">(all rows)</option>{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+                {r.when && <label className="field" style={{ flex: 1 }}><span>…is (values, comma separated)</span>
+                  <input defaultValue={r.when.values.join(", ")} key={r.when.column} onBlur={e => setRule(i, { when: { column: r.when!.column, values: csv(e.target.value) } })} /></label>}
+                <button className="btn icon danger fixed" onClick={() => set({ approvers: rules.filter((_, j) => j !== i) })}>✕</button>
+              </div>
+              <div className="help">Members of these Azure DevOps teams may decide these rows:</div>
+              <TeamChips all={teams} value={r.teams} onChange={v => setRule(i, { teams: v })} />
+              <div className="help">…and/or these people (use this when a team cannot be read):</div>
+              <PeopleList value={r.people} projectId={projectId} onChange={v => setRule(i, { people: v })} />
+            </div>
+          ))}
+          <button className="btn" onClick={() => set({ approvers: [...rules, { id: "r" + Date.now().toString(36), name: "Approvers " + (rules.length + 1), teams: [], people: [] }] })}>+ Add approver rule</button>
+
+          <div className="help"><b>Grid administrators</b> – besides project administrators, these people may decide every row and edit or remove approved (locked) rows. Project administrator detection is best effort; this list works even when it fails. Team membership counts direct members only.</div>
+          <TeamChips all={teams} value={rv.admins.teams} onChange={v => set({ admins: { ...rv.admins, teams: v } })} />
+          <PeopleList value={rv.admins.people} projectId={projectId} onChange={v => set({ admins: { ...rv.admins, people: v } })} />
+
+          <div className="help"><b>Totals by status</b> – write the approved / pending / rejected figure of a number column to work item fields:</div>
+          <div className="row">
+            <select className="fixed" value={effort} onChange={e => setEffort(e.target.value)}><option value="">Column to add up…</option>{numCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+            <button className="btn fixed" disabled={!effort} onClick={() => {
+              const col = g.columns.find(c => c.id === effort)!;
+              const add = (["approved", "pending", "rejected"] as const).map(k => ({ column: effort, aggregate: "sum" as Aggregate, label: `${col.name} – ${rv.statuses[k]}`, field: "", where: { column: rv.statusColumn, values: [rv.statuses[k]] } }));
+              p.onChange({ ...g, totals: [...(g.totals ?? []), ...add] }); setEffort("");
+            }}>Add three total mappings</button>
+            <span className="muted">then pick the work item field for each under “Push totals to work item fields”</span>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -396,6 +504,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
+      {!g.derived && <ReviewEditor g={g} onChange={p.onChange} />}
       {!g.derived && <PresetsEditor g={g} effective={effective} onChange={p.onChange} />}
       <h3>Push totals to work item fields</h3>
       <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>

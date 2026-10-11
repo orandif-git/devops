@@ -115,6 +115,17 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (src && src.type !== "number" && src.type !== "calculated") add("warn", w, `Status column '${c.id}': '${src.name}' is not a number column, so no status will be set`);
       if (c.statusBands.ranges.length && !isNoLimit(c.statusBands.ranges[c.statusBands.ranges.length - 1].upTo)) add("warn", w, `Status column '${c.id}': the last range has an upper limit, so larger values get no status – leave “up to” empty on the last range`);
     });
+    // ---- review (approve / reject)
+    if (g.review) {
+      const r = g.review;
+      if (g.derived) add("warn", w, "Review is set on a derived grid, where rows cannot be approved – set it on the source grid");
+      const sc = g.columns.find(c => c.id === r.statusColumn);
+      if (sc && (sc.type !== "string" || sc.lookup || sc.formula || sc.statusBands)) add("warn", w, `The review status column '${sc.id}' should be a plain text column`);
+      if (!r.approvers.length && !r.admins.teams.length && !r.admins.people.length) add("warn", w, "Review: no approver rule or grid administrator is set, so only project administrators can approve or reject rows");
+      r.approvers.forEach(a => { if (!a.teams.length && !a.people.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has no team or person, so nobody can use it`); if (a.when && !a.when.values.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has a condition without values, so it never applies`); });
+      if (r.noSelfApproval && !g.schedule && !g.columns.some(c => c.type === "identity")) add("warn", w, "Review: “nobody approves their own row” needs a people-picker column to know who the row is about");
+      if (!r.reasonColumn) add("warn", w, "Review: no comment column is set, so approvers cannot leave a reject reason");
+    }
     // ---- presets
     const presetNames = new Set<string>();
     (g.presets ?? []).forEach(pr => {

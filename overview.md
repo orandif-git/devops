@@ -13,6 +13,7 @@ Everything is configured once per project and works on any work item type you ch
 | **Smart Grid** (form control) | An editable table inside a work item, stored in a long-text field |
 | **Derived grids** | A second grid that builds itself from the rows of the first (grouping, summing, looking things up) |
 | **Scheduling by dates** | Enter a start date, effort and allocation %; the end date and hours per month are calculated from each person's calendar |
+| **Review** | Approve / reject / pending review per row, by chosen teams or people, with locking and totals by status |
 | **Presets** | Ready-made rows a user adds with one click, offered per work item type of project or customer |
 | **Calculations** | Formulas that write results into work item fields automatically |
 | **Rules** | Set values, require fields, restrict values or block save when conditions are met |
@@ -61,6 +62,16 @@ Define a calculation once and it keeps a field up to date:
 3. **Result** – the field that receives the answer, decimal places, what to do with empty inputs and division by zero, and whether to **always recalculate** or **only fill while empty**.
 
 Built-in help: a **Test** panel with sample values and **Try on a real work item**, which reads a saved work item and shows exactly what each input contains and why a result is blank.
+
+### Review (approve / reject)
+Every row can carry a review status – **Pending review**, **Approved** or **Rejected** – that chosen people change with **Approve** / **Reject** buttons on the row or **Approve all / Reject all** for the rows shown:
+- **Who may decide** is set by approver rules: members of Azure DevOps **teams** and/or **named people** (when a team cannot be read). A rule can be limited to rows where a column has certain values (for example one team approves one kind of row and another team the rest). A row that matches no rule can only be decided by administrators. Optionally nobody can decide **their own** row.
+- **Administrators** are project administrators plus an optional list of **grid administrators** (teams or people). They may decide every row and edit or remove approved rows.
+- **Lock approved rows** (optional): an approved row cannot be edited, moved or deleted except by administrators. **Reset on edit** (optional): changing an approved or rejected row sends it back to pending review.
+- Each decision records **who** and **when**, and the approver can type a **comment / reject reason** in the comment column.
+- **Totals by status:** add the approved, pending and rejected figure of a number column to separate work item fields.
+- Rows that are duplicated, imported or loaded from a preset always start as pending review.
+- Approvals are enforced by the extension's pages, not by Azure DevOps itself: someone with edit rights on the work item could still change the stored value by other means. Lock the totals fields with a process rule if you need a hard lock.
 
 ### Rules and dependent dropdowns
 - **Rules:** *when* all/any conditions are true, *then / otherwise* set a field value, require a field, allow only certain values, or block saving with a message. Scope each rule to chosen work item types.
@@ -174,6 +185,7 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 | A status or colour is missing for large values | The last status range must have an empty "up to". |
 | The end date stays empty, with a red cell | Hover the cell: usually the person has no capacity in the calendar source, or the date is outside the yearly iteration. Fix the capacity (or the iteration) and reopen the work item. |
 | Teams do not load on an on-premises server | Make sure the extension is the latest version; team and member lists are requested with an older REST version that Azure DevOps Server 2020 accepts. |
+| Nobody sees Approve / Reject | The user must match an approver rule (team member or named person) or be an administrator; team membership counts direct members only – add people by name if a team cannot be read. |
 | "Load preset" is empty | A preset with a rule is only offered when the work item field matches; a preset without a rule is offered everywhere. |
 
 ## Support
