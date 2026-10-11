@@ -2,12 +2,13 @@ import { bucketValue } from "./calc";
 import { capacityFor, CapacityRegister, monthKey } from "./capacity";
 import { allocKey } from "./allocations";
 import { keyNorm } from "./keys";
+import { expandMonths } from "./schedule";
 import { aggregate, defaultFor, newId, recomputeAll } from "./gridModel";
 import { ColumnDef, GridConfig, GridRow, StatusBand } from "./types";
 
 export { keyNorm };
 
-const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.others || !!c.statusBands || c.type === "calculated";
+const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.teamOf || !!c.others || !!c.statusBands || c.type === "calculated";
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
@@ -23,7 +24,9 @@ const keyOfDerived = (row: GridRow, keys: ColumnDef[]) => keys.map(k => keyNorm(
  *  - manual columns (e.g. Available Capacity) keep what the user entered, matched by key
  *  - a row whose key is no longer in the source disappears, unless it holds manual data (then it stays, with 0 hours)
  */
-export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister, others?: Record<string, number>): GridRow[] {
+export function syncDerived(sourceRowsIn: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister, others?: Record<string, number>, sourceCfg?: GridConfig): GridRow[] {
+  // a scheduled source grid has one row per task: expand it to one row per person and month (_month, _hours)
+  const sourceRows = sourceCfg?.schedule ? expandMonths(sourceRowsIn) : sourceRowsIn;
   const keys = keyColumns(derivedCfg);
   if (!keys.length) return existing;
   const derivedCols = derivedCfg.columns.filter(c => c.derive);
@@ -46,6 +49,12 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
     }
     fillCapacity(row);
     fillOthers(row);
+    fillTeam(row);
+  };
+  // the person's team from the capacity source (when it could be loaded)
+  const fillTeam = (row: GridRow) => {
+    if (!register) return;
+    for (const c of derivedCfg.columns) if (c.teamOf) row[c.id] = register.resources[keyNorm(row[c.teamOf.resource])]?.team ?? "";
   };
   // hours the same person has on all other Epics that month (from the central allocation store, when it could be loaded)
   const fillOthers = (row: GridRow) => {
@@ -72,6 +81,7 @@ export function syncDerived(sourceRows: GridRow[], derivedCfg: GridConfig, exist
     for (const c of derivedCols) if (c.derive!.role === "agg") row[c.id] = 0;      // no hours any more, but keep the manual entry
     fillCapacity(row);
     fillOthers(row);
+    fillTeam(row);
     out.push(row);
   }
   const display = (r: GridRow) => keys.map(k => String(r[k.id] ?? "")).join("\u0001");

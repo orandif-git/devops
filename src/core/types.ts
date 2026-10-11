@@ -50,6 +50,8 @@ export interface ColumnDef {
   others?: { resource: string; period: string };
   /** Derived grids: value is the person's available hours for that month, looked up in the central Capacity register (read-only). */
   capacity?: { resource: string; period: string };
+  /** Derived grids: the person's team(s) from the capacity source (Azure DevOps team capacity or the register). Read-only. */
+  teamOf?: { resource: string };
   /** calculated columns: decimals of numeric results (default 2) */
   decimals?: number;
   /** calculated columns: an empty numeric input blanks the result (default) or counts as 0 */
@@ -106,6 +108,11 @@ export interface GridConfig {
   breakdowns?: Breakdown[];
   /** tint every row by the status of this status column (id), e.g. each resource's row coloured by its Capacity Status */
   rowColorBy?: string;
+  /**
+   * Enter Start date + Effort (+ Allocation %) instead of a month: the End date and the hours per month are calculated
+   * from the person's calendar. Derived grids of this grid use the virtual source columns `_month` and `_hours`.
+   */
+  schedule?: { resource: string; start: string; effort: string; allocation?: string; end: string };
   /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
   derived?: { source: string };
   /** publish this grid's hours (per person and month) to the central store so other Epics can see them */

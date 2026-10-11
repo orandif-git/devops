@@ -1,4 +1,5 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
+import { applySchedule } from "./schedule";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
 
 let seq = 0;
@@ -103,6 +104,11 @@ export function coerce(col: ColumnDef, v: unknown): unknown {
 export function normalizeRow(src: Record<string, unknown>, cfg: GridConfig): GridRow {
   const row: GridRow = { _id: typeof src._id === "string" ? src._id : newId() };
   if (typeof src._childId === "number") row._childId = src._childId;
+  if (cfg.schedule) {                                                      // calculated by the calendar; kept until it is recalculated
+    if (src._months && typeof src._months === "object") row._months = src._months as Record<string, number>;
+    if (typeof src._schedErr === "string") row._schedErr = src._schedErr;
+    if (typeof src._schedNote === "string") row._schedNote = src._schedNote;
+  }
   for (const c of cfg.columns) row[c.id] = src[c.id] === undefined ? defaultFor(c) : coerce(c, src[c.id]);
   return recompute(row, cfg);
 }
@@ -177,6 +183,7 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
       } catch { row[c.id] = null; }
     }
   }
+  if (cfg.schedule) applySchedule(row, cfg.schedule);
   // status columns (e.g. Capacity Status) depend on the final numbers, so they are set last
   for (const c of cfg.columns) {
     if (!c.statusBands) continue;
@@ -193,7 +200,7 @@ function columnAggregate(fn: string, values: unknown[]): number {
 
 /** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
 export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
-  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands)) return rows;
+  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands) && !cfg.schedule) return rows;
   let out = rows.map(r => ({ ...r }));
   const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
   for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
@@ -278,6 +285,22 @@ export function validateRows(rows: GridRow[], cfg: GridConfig): CellError[] {
     if (c.type === "dropdown" && !c.lookup && !c.statusBands && !empty && !optionsFor(c, r).includes(String(v)))
       errs.push({ rowId: r._id, column: c.id, message: `${c.name}: '${v}' is not allowed` });
   }
+  const sc = cfg.schedule;
+  if (sc) {
+    const name = (id: string) => cfg.columns.find(c => c.id === id)?.name ?? id;
+    for (const r of rows) {
+      const filled = [sc.resource, sc.start, sc.effort].filter(id => { const v = r[id]; return v !== "" && v !== null && v !== undefined; });
+      if (filled.length && filled.length < 3) {
+        for (const id of [sc.resource, sc.start, sc.effort]) {
+          const v = r[id];
+          if ((v === "" || v === null || v === undefined) && !errs.some(e => e.rowId === r._id && e.column === id)) errs.push({ rowId: r._id, column: id, message: `${name(id)} is needed to schedule this row` });
+        }
+      }
+      if (sc.allocation && typeof r[sc.allocation] === "number" && (r[sc.allocation] as number) <= 0) errs.push({ rowId: r._id, column: sc.allocation, message: `${name(sc.allocation)} must be above 0` });
+      if (typeof r[sc.effort] === "number" && (r[sc.effort] as number) <= 0) errs.push({ rowId: r._id, column: sc.effort, message: `${name(sc.effort)} must be above 0` });
+      if (typeof r._schedErr === "string" && r._schedErr) errs.push({ rowId: r._id, column: sc.end, message: r._schedErr });
+    }
+  }
   return errs;
 }
 
@@ -323,6 +346,17 @@ export function validateConfig(cfg: GridConfig): string[] {
   const claim = (field: string, who: string) => { if (!field) return; const prev = used.get(field); if (prev) errs.push(`Field '${field}' is written by both ${prev} and ${who}`); else used.set(field, who); };
   for (const t of cfg.totals ?? []) claim(t.field, `total of '${t.column}'`);
   for (const b of cfg.breakdowns ?? []) for (const [g, f] of Object.entries(b.fields ?? {})) claim(f, `breakdown '${g}'`);
+  if (cfg.schedule) {
+    const sc = cfg.schedule;
+    const col = (id: string) => cfg.columns.find(c => c.id === id);
+    if (col(sc.resource)?.type !== "identity" && col(sc.resource)?.type !== "string") errs.push(`Schedule: the resource column '${sc.resource}' must be a people picker (or text) column`);
+    if (col(sc.start)?.type !== "date") errs.push(`Schedule: the start column '${sc.start}' must be a date column`);
+    if (col(sc.effort)?.type !== "number") errs.push(`Schedule: the effort column '${sc.effort}' must be a number column`);
+    if (sc.allocation && col(sc.allocation)?.type !== "number") errs.push(`Schedule: the allocation column '${sc.allocation}' must be a number column`);
+    if (col(sc.end)?.type !== "date") errs.push(`Schedule: the end column '${sc.end}' must be a date column`);
+    const picked = [sc.resource, sc.start, sc.effort, sc.allocation, sc.end].filter(Boolean);
+    if (new Set(picked).size !== picked.length) errs.push("Schedule: each role needs a different column");
+  }
   if (cfg.child?.enabled && !ids.has(cfg.child.titleColumn)) errs.push(`Child title column '${cfg.child.titleColumn}' does not exist`);
   return errs;
 }

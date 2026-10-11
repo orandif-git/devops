@@ -112,7 +112,64 @@ describe("applySchedule on a row", () => {
     setCalendarBook(undefined);
   });
   it("expandMonths gives one pseudo row per month", () => {
-    const out = expandMonths([{ _id: "1", _months: { "2026-10": 40, "2026-11": 40 } }, { _id: "2" }]);
+    const out = expandMonths<Record<string, unknown>>([{ _id: "1", _months: { "2026-10": 40, "2026-11": 40 } }, { _id: "2" }]);
     expect(out.map(r => [r._month, r._hours])).toEqual([["2026-10-01", 40], ["2026-11-01", 40]]);
+  });
+});
+
+import { recomputeAll, validateConfig, validateRows } from "../src/core/gridModel";
+import { syncDerived } from "../src/core/derived";
+import { GridConfig, GridRow } from "../src/core/types";
+
+describe("scheduled grid end to end (timesheet → capacity grid)", () => {
+  const source: GridConfig = {
+    columns: [
+      { id: "res", name: "Resource", type: "identity" },
+      { id: "start", name: "Start date", type: "date" },
+      { id: "alloc", name: "Allocation %", type: "number", defaultValue: 100 },
+      { id: "effort", name: "Effort (h)", type: "number", total: "sum" },
+      { id: "end", name: "End date", type: "date" },
+    ],
+    schedule: { resource: "res", start: "start", effort: "effort", allocation: "alloc", end: "end" },
+  };
+  const target: GridConfig = {
+    columns: [
+      { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: "res" } },
+      { id: "period", name: "Period", type: "string", derive: { role: "key", source: "_month", bucket: "month" } },
+      { id: "team", name: "Team", type: "string", teamOf: { resource: "resource" } },
+      { id: "hours", name: "Hours", type: "number", derive: { role: "agg", source: "_hours", aggregate: "sum" } },
+    ],
+    derived: { source: "T" },
+  };
+  const rec = (name: string, key: string, team: string): CapacityRecord => ({ key, name, defaultHours: null, overrides: {}, team });
+  const people = [rec("Sara M <sara@x.com>", "sara@x.com", "Business Analysis"), rec("Omar H <omar@x.com>", "omar@x.com", "IT Applications")];
+  const rows: GridRow[] = [
+    { _id: "1", res: "Sara M <sara@x.com>", start: "2026-11-02", alloc: 100, effort: 120, end: "" },
+    { _id: "2", res: "Sara M <sara@x.com>", start: "2026-11-16", alloc: 50, effort: 80, end: "" },
+    { _id: "3", res: "Omar H <omar@x.com>", start: "2026-11-09", alloc: 100, effort: 160, end: "" },
+    { _id: "4", res: "Omar H <omar@x.com>", start: "2026-12-07", alloc: 100, effort: 40, end: "" },
+    { _id: "5", res: "Omar H <omar@x.com>", start: "", alloc: 100, effort: 40, end: "" },
+  ];
+  it("produces the monthly capacity rows and keeps the total", () => {
+    setCalendarBook(registerCalendarBook(people, defaultCalendar()));
+    const done = recomputeAll(rows, source);
+    expect(done.map(r => r.end)).toEqual(["2026-11-20", "2026-12-11", "2026-12-04", "2026-12-11", ""]);
+    const reg = { projectDefault: null, resources: Object.fromEntries(people.map(p => [p.key, p])) };
+    const out = syncDerived(done, target, [], reg, undefined, source);
+    const view = out.map(r => [r.resource, r.period, r.team, r.hours]);
+    expect(view).toEqual([
+      ["Omar H <omar@x.com>", "2026-11", "IT Applications", 128],
+      ["Omar H <omar@x.com>", "2026-12", "IT Applications", 72],
+      ["Sara M <sara@x.com>", "2026-11", "Business Analysis", 164],
+      ["Sara M <sara@x.com>", "2026-12", "Business Analysis", 36],
+    ]);
+    expect(out.reduce((a, r) => a + (r.hours as number), 0)).toBe(400);   // the incomplete row adds nothing
+    setCalendarBook(undefined);
+  });
+  it("flags incomplete rows and a bad configuration", () => {
+    const errs = validateRows([{ _id: "x", res: "", start: "", effort: 40, alloc: 100, end: "" }], source);
+    expect(errs.map(e => e.column).sort()).toEqual(["res", "start"]);
+    expect(validateConfig({ ...source, schedule: { ...source.schedule!, start: "effort" } }).join("|")).toMatch(/start column/);
+    expect(validateConfig(source)).toEqual([]);
   });
 });
