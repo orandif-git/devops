@@ -157,7 +157,13 @@ export function Grid(p: GridProps) {
           <button className="btn primary" onClick={addRow}>+ Add row</button>
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           {pt && pt.presets.length > 0 && (
-            <select value={presetPick} onChange={e => { setPresetPick(e.target.value); setSaving(false); }} title="Add ready-made rows to this grid">
+            <select value={presetPick} title="Add ready-made rows to this grid" onChange={e => {
+              const id = e.target.value;
+              setSaving(false);
+              // nothing to add to or replace: load straight away, only ask when rows already exist
+              if (id && rows.length === 0) { const ids = pt.onLoad(id, "add"); setPristine(new Set(ids)); setPresetPick(""); }
+              else setPresetPick(id);
+            }}>
               <option value="">Load preset…</option>{pt.presets.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           )}

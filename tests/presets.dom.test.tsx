@@ -45,8 +45,27 @@ describe("Grid: duplicate button and presets", () => {
     expect((dates[0] as HTMLInputElement).disabled).toBe(false);               // Start date
   });
 
-  it("Load preset: pick, choose Add or Replace; loaded rows stay calm (no red cells) until touched", () => {
+  it("Load preset on an empty grid loads straight away, without asking, and the rows stay calm", () => {
     let current: GridRow[] = [];
+    const holder: { m?: ReturnType<typeof mount> } = {};
+    const tools = {
+      presets: [{ id: "p1", name: "Standard", count: 2 }], canSave: false, onSave: () => undefined,
+      onLoad: (id: string, mode: "add" | "replace") => {
+        const before = new Set(current.map(r => r._id));
+        current = mergePreset(current, preset, cfg, mode).rows; holder.m!.set(current);
+        return current.filter(r => !before.has(r._id)).map(r => r._id);
+      },
+    };
+    const m = mount([], tools); holder.m = m;
+    const sel = m.host.querySelector("select[title]") as HTMLSelectElement;
+    act(() => { sel.value = "p1"; Simulate.change(sel); });
+    expect(m.host.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(m.host.querySelector(".presetbar")).toBeNull();                      // no Add / Replace question
+    expect(m.host.querySelector(".err-cell")).toBeNull();
+  });
+
+  it("Load preset with rows already present asks Add or Replace; loaded rows stay calm (no red cells) until touched", () => {
+    let current: GridRow[] = [newRow(cfg)];
     const holder: { m?: ReturnType<typeof mount> } = {};
     const tools = {
       presets: [{ id: "p1", name: "Standard", count: 2 }],
@@ -59,15 +78,14 @@ describe("Grid: duplicate button and presets", () => {
         return res.rows.filter(r => !before.has(r._id)).map(r => r._id);
       },
     };
-    const m = mount([], tools); holder.m = m;
+    const m = mount(current, tools); holder.m = m;
     const sel = m.host.querySelector("select[title]") as HTMLSelectElement;
     expect(Array.from(sel.options).map(o => o.textContent)).toEqual(["Load preset…", "Standard"]);
     act(() => { sel.value = "p1"; Simulate.change(sel); });
     expect(m.host.querySelector(".presetbar")!.textContent).toContain("Load Standard (2 rows)");
     const add = Array.from(m.host.querySelectorAll(".presetbar button")).find(b => /Add to existing/.test(b.textContent ?? "")) as HTMLElement;
     act(() => { Simulate.click(add); });
-    expect(m.host.querySelectorAll("tbody tr")).toHaveLength(2);
-    expect(m.host.querySelector(".err-cell")).toBeNull();                       // required cells are empty but not highlighted yet
+    expect(m.host.querySelectorAll("tbody tr")).toHaveLength(3);                // the existing blank row + 2 from the preset
     expect(m.host.querySelector(".presetbar")).toBeNull();                      // panel closed again
   });
 
