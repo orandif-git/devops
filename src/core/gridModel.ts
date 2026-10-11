@@ -1,5 +1,6 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { applySchedule } from "./schedule";
+import { ensureStatus } from "./review";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
 
 let seq = 0;
@@ -188,6 +189,7 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
     }
   }
   if (cfg.schedule) applySchedule(row, cfg.schedule);
+  if (cfg.review) ensureStatus(row, cfg.review);
   // status columns (e.g. Capacity Status) depend on the final numbers, so they are set last
   for (const c of cfg.columns) {
     if (!c.statusBands) continue;
@@ -204,7 +206,7 @@ function columnAggregate(fn: string, values: unknown[]): number {
 
 /** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
 export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
-  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands) && !cfg.schedule) return rows;
+  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands) && !cfg.schedule && !cfg.review) return rows;
   let out = rows.map(r => ({ ...r }));
   const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
   for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
@@ -360,6 +362,17 @@ export function validateConfig(cfg: GridConfig): string[] {
     if (col(sc.end)?.type !== "date") errs.push(`Schedule: the end column '${sc.end}' must be a date column`);
     const picked = [sc.resource, sc.start, sc.effort, sc.allocation, sc.end].filter(Boolean);
     if (new Set(picked).size !== picked.length) errs.push("Schedule: each role needs a different column");
+  }
+  if (cfg.review) {
+    const r = cfg.review;
+    const col = (id?: string) => cfg.columns.find(c => c.id === id);
+    if (!col(r.statusColumn)) errs.push(`Review: the status column '${r.statusColumn}' does not exist`);
+    for (const [label, id] of [["reviewed-by", r.byColumn], ["reviewed-at", r.atColumn], ["comment", r.reasonColumn]] as const) if (id && !col(id)) errs.push(`Review: the ${label} column '${id}' does not exist`);
+    const picked = [r.statusColumn, r.byColumn, r.atColumn, r.reasonColumn].filter(Boolean);
+    if (new Set(picked).size !== picked.length) errs.push("Review: each review column must be a different column");
+    const labels = [r.statuses?.pending, r.statuses?.approved, r.statuses?.rejected].map(v => String(v ?? "").trim().toLowerCase());
+    if (labels.some(v => !v) || new Set(labels).size !== labels.length) errs.push("Review: the three status names must be filled in and different");
+    for (const a of r.approvers ?? []) if (a.when?.column && !col(a.when.column)) errs.push(`Review: approver rule '${a.name}' uses unknown column '${a.when.column}'`);
   }
   if (cfg.child?.enabled && !ids.has(cfg.child.titleColumn)) errs.push(`Child title column '${cfg.child.titleColumn}' does not exist`);
   return errs;

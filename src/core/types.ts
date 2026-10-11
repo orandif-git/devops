@@ -107,6 +107,39 @@ export interface Breakdown {
   fields?: Record<string, string>;
 }
 
+/** A team or person reference used in approval settings. */
+export interface TeamRef { id: string; name: string }
+
+/** Who may approve / reject which rows. A rule applies to a row when its `when` condition holds (no condition = every row). */
+export interface ApproverRule {
+  id: string;
+  name: string;
+  teams: TeamRef[];
+  /** "Display Name <sign-in>" – used when teams cannot be read */
+  people: string[];
+  when?: { column: string; values: string[] };
+}
+
+/** Approve / reject / pending review of every row, by the people you choose. */
+export interface ReviewConfig {
+  /** column that holds the status (text); changed by the Approve / Reject buttons, not typed */
+  statusColumn: string;
+  /** optional columns filled in when someone decides: who, when, and a reason the approver may type */
+  byColumn?: string;
+  atColumn?: string;
+  reasonColumn?: string;
+  statuses: { pending: string; approved: string; rejected: string };
+  /** an edited approved / rejected row goes back to pending review (the review columns themselves do not count) */
+  resetOnEdit: boolean;
+  /** an approved row cannot be edited, moved or deleted except by administrators */
+  lockApproved: boolean;
+  /** the person on the row cannot decide their own row */
+  noSelfApproval: boolean;
+  approvers: ApproverRule[];
+  /** besides project administrators: may decide every row and edit / remove locked rows */
+  admins: { teams: TeamRef[]; people: string[] };
+}
+
 /** A named set of ready-made rows a user can load into a grid with one click (e.g. the standard SDLC activities). */
 export interface GridPreset {
   id: string;
@@ -120,6 +153,8 @@ export interface GridPreset {
 
 export interface GridConfig {
   columns: ColumnDef[];
+  /** approve / reject / pending review per row */
+  review?: ReviewConfig;
   /** ready-made rows, loaded with the "Load preset" button */
   presets?: GridPreset[];
   /** let people save the current rows as a preset from the work item ("Save as preset") */
