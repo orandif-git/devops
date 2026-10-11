@@ -3,7 +3,7 @@ import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, Gr
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
-import { SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
+import { needsScheduledRemap, remapToScheduled, SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
 import { defaultPresetColumns } from "../core/presets";
 import { getProject } from "../shared/ado";
@@ -72,7 +72,7 @@ function StatusEditor(p: { col: ColumnDef; numeric: ColumnDef[]; onChange(sb: Co
       {sb.ranges.map((r, i) => (
         <div className="row" key={i}>
           <span className="fixed">up to</span>
-          <input className="fixed" style={{ width: 90 }} type="number" placeholder="no limit" value={r.upTo ?? ""} onChange={e => set(setAt(sb.ranges, i, { ...r, upTo: e.target.value === "" ? null : +e.target.value }))} />
+          <input className="fixed" style={{ width: 90 }} type="number" placeholder="no limit" value={r.upTo ?? ""} onChange={e => set(setAt(sb.ranges, i, { ...r, upTo: e.target.value === "" || Number.isNaN(+e.target.value) ? null : +e.target.value }))} />
           <span className="fixed">→</span>
           <input placeholder="Label, e.g. Available" value={r.label} onChange={e => set(setAt(sb.ranges, i, { ...r, label: e.target.value }))} />
           <select className="fixed" value={r.color} onChange={e => set(setAt(sb.ranges, i, { ...r, color: e.target.value as StatusColor }))}>{COLORS.map(c => <option key={c}>{c}</option>)}</select>
@@ -85,9 +85,9 @@ function StatusEditor(p: { col: ColumnDef; numeric: ColumnDef[]; onChange(sb: Co
   );
 }
 
-function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; onChange(c: ColumnDef): void; onDelete(): void }) {
+function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; open: boolean; onToggle(): void; canUp: boolean; canDown: boolean; onMove(d: -1 | 1): void; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
-  const [open, setOpen] = React.useState(false);
+  const open = p.open;
   const set = (patch: Partial<ColumnDef>) => p.onChange({ ...c, ...patch });
   return (
     <>
@@ -97,7 +97,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
         <td><select value={c.type} onChange={e => set({ type: e.target.value as ColumnType })}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></td>
         <td style={{ textAlign: "center" }}><input type="checkbox" checked={!!c.required} onChange={e => set({ required: e.target.checked })} /></td>
         <td><select value={c.total ?? ""} onChange={e => set({ total: (e.target.value || undefined) as Aggregate | undefined })}>{AGG.map(a => <option key={a} value={a}>{a || "—"}</option>)}</select></td>
-        <td><button className="btn icon" onClick={() => setOpen(!open)}>{open ? "▾" : "▸"}</button><button className="btn icon danger" onClick={p.onDelete}>✕</button></td>
+        <td style={{ whiteSpace: "nowrap" }}><button className="btn icon" title="Move column up" aria-label="Move column up" disabled={!p.canUp} onClick={() => p.onMove(-1)}>↑</button><button className="btn icon" title="Move column down" aria-label="Move column down" disabled={!p.canDown} onClick={() => p.onMove(1)}>↓</button><button className="btn icon" title={open ? "Hide settings" : "Show settings"} onClick={p.onToggle}>{open ? "▾" : "▸"}</button><button className="btn icon danger" title="Delete column" onClick={p.onDelete}>✕</button></td>
       </tr>
       {open && (
         <tr><td colSpan={6}>
@@ -304,6 +304,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const sourceCols: ColumnDef[] | undefined = source ? [...source.columns, ...(source.schedule ? (SCHEDULE_VIRTUAL as unknown as ColumnDef[]) : [])] : undefined;
   const [pick, setPick] = React.useState({ resource: "", period: "", hours: "", team: "" });
   const [fromRegister, setFromRegister] = React.useState(true);
+  const [openCols, setOpenCols] = React.useState<Set<number>>(new Set());
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
@@ -343,6 +344,13 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
             <label className="field" style={{ flex: 1 }}><span>Source grid</span>
               <select value={g.derived.source} onChange={e => p.onChange({ ...g, derived: { source: e.target.value } })}><option value="" />{sourceNames.map(n => <option key={n}>{n}</option>)}</select></label>
           </div>
+          {source && needsScheduledRemap(g, source) && (
+            <div className="card">
+              <div className="err">The source grid “{g.derived.source}” is scheduled by dates, so it no longer has the old month and hours columns this grid reads.</div>
+              <div className="help">The months come straight from each row's start date, effort and calendar – no separate Period column is needed.</div>
+              <button className="btn primary" onClick={() => p.onChange(remapToScheduled(g, source))}>Use the scheduled month and hours</button>
+            </div>
+          )}
           <div className="help">The source grid's control shows this grid below it. Mark which columns are <b>keys</b> (one row per distinct combination), carried or summed from the source; other columns stay manual or calculated. It needs its own long-text data field.</div>
           <div className="card">
             <label><input type="checkbox" checked={!!g.allocation} onChange={e => p.onChange({ ...g, allocation: e.target.checked ? capacityAllocation() : undefined })} /> <b>Publish this grid's hours</b> (per person and month) so other Epics can count them in “Hours (other Epics)”. Published when the work item is saved.</label>
@@ -380,7 +388,12 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
-        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={sourceCols} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={sourceCols}
+          open={openCols.has(i)} onToggle={() => setOpenCols(o => { const n = new Set(o); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
+          canUp={i > 0} canDown={i < g.columns.length - 1}
+          onMove={d => { const j = i + d; if (j < 0 || j >= g.columns.length) return; const cols = [...g.columns]; [cols[i], cols[j]] = [cols[j], cols[i]];
+            setOpenCols(o => { const n = new Set<number>(); o.forEach(k => n.add(k === i ? j : k === j ? i : k)); return n; }); p.onChange({ ...g, columns: cols }); }}
+          onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       {!g.derived && <PresetsEditor g={g} effective={effective} onChange={p.onChange} />}

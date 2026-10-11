@@ -257,3 +257,45 @@ describe("shipped scheduled example", () => {
     setCalendarBook(undefined);
   });
 });
+
+import { needsScheduledRemap, remapToScheduled } from "../src/core/schedule";
+import { isNoLimit } from "../src/core/gridModel";
+describe("fixing a derived grid after the source became scheduled", () => {
+  const source: GridConfig = {
+    columns: [
+      { id: "resource", name: "Resource", type: "identity" }, { id: "startdate", name: "Start date", type: "date" },
+      { id: "Hours", name: "Hours", type: "number" }, { id: "enddate", name: "End date", type: "date" },
+    ],
+    schedule: { resource: "resource", start: "startdate", effort: "Hours", end: "enddate" },
+  };
+  const old: GridConfig = {
+    columns: [
+      { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: "resource" } },
+      { id: "period", name: "Period", type: "string", derive: { role: "key", source: "period", bucket: "month" } },
+      { id: "hours", name: "Hours (this Epic)", type: "number", derive: { role: "agg", source: "Hours", aggregate: "sum" } },
+    ],
+    derived: { source: "T" },
+  };
+  it("re-points the missing period and the effort aggregate", () => {
+    expect(needsScheduledRemap(old, source)).toBe(true);
+    const fixed = remapToScheduled(old, source);
+    expect(fixed.columns.map(c => c.derive!.source)).toEqual(["resource", "_month", "_hours"]);
+    expect(fixed.columns[1].derive!.bucket).toBe("month");
+    expect(needsScheduledRemap(fixed, source)).toBe(false);
+    expect(validateProject({ ...emptyCfg(), grids: { T: source, D: { ...fixed, dataField: "Custom.D" } } } as never, makeCatalog([], [])).filter(i => /not a column|Scheduled/.test(i.message))).toEqual([]);
+  });
+  it("an empty 'up to' means no limit, in every form", () => {
+    expect([null, undefined, "", NaN].every(isNoLimit)).toBe(true);
+    expect(isNoLimit(0)).toBe(false);
+    expect(isNoLimit(100)).toBe(false);
+  });
+});
+const emptyCfg = () => ({ version: 1, rules: [], cascades: [], grids: {}, calculations: [], lookups: {} });
+
+describe("status range warning", () => {
+  const mk = (upTo: unknown) => ({ ...emptyCfg(), grids: { G: { columns: [{ id: "u", name: "U", type: "number" }, { id: "s", name: "S", type: "string", statusBands: { source: "u", ranges: [{ upTo: 50, label: "ok", color: "green" }, { upTo, label: "high", color: "red" }] } }] } } }) as never;
+  it("is not shown when the last 'up to' is empty (null, missing or NaN) but is when it has a limit", () => {
+    for (const v of [null, undefined, NaN]) expect(validateProject(mk(v), makeCatalog([], [])).map(i => i.message).join()).not.toMatch(/upper limit/);
+    expect(validateProject(mk(100), makeCatalog([], [])).map(i => i.message).join()).toMatch(/upper limit/);
+  });
+});

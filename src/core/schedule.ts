@@ -191,3 +191,36 @@ export function withSchedule(g: GridConfig): GridConfig {
   const end = ensure("enddate", () => ({ name: "End date", type: "date" }), ["date"], sc?.end ?? cols.find(c => c.type === "date" && c.id !== start && /end/i.test(c.id + c.name))?.id);
   return { ...g, columns: cols, schedule: { resource, start, effort, allocation, end } };
 }
+
+/**
+ * A derived grid built on a grid that is scheduled by dates reads the virtual source columns _month and _hours.
+ * Re-point derived columns whose source column no longer exists (e.g. the old Period and Hours columns):
+ * date-like KEY columns → _month (grouped by month), aggregated columns → _hours, person columns → the schedule's resource.
+ */
+export function remapToScheduled(g: GridConfig, source: GridConfig): GridConfig {
+  const sc = source.schedule;
+  if (!sc) return g;
+  const exists = (id: string) => source.columns.some(c => c.id === id);
+  const columns = g.columns.map(c => {
+    const d = c.derive;
+    if (!d || d.source === "_month" || d.source === "_hours") return c;
+    const label = `${c.id} ${c.name}`;
+    // an aggregate of the effort column would count the whole effort in every month the task touches
+    if (d.role === "agg" && (d.source === sc.effort || !exists(d.source))) return { ...c, derive: { ...d, source: "_hours", adjustable: d.adjustable ?? true } };
+    if (d.role === "key" && (d.source === sc.start || (!exists(d.source) && (d.bucket || /period|month|date/i.test(label))))) return { ...c, derive: { ...d, source: "_month", bucket: "month" as const } };
+    if (!exists(d.source) && /resource|person|name/i.test(label)) return { ...c, derive: { ...d, source: sc.resource } };
+    return c;
+  });
+  return { ...g, columns };
+}
+
+/** Does a derived grid still point at columns that a scheduled source replaced (missing columns, the effort or the start date)? */
+export const needsScheduledRemap = (g: GridConfig, source: GridConfig | undefined): boolean => {
+  const sc = source?.schedule;
+  if (!source || !sc) return false;
+  return g.columns.some(c => {
+    const d = c.derive;
+    if (!d || d.source === "_month" || d.source === "_hours") return false;
+    return !source.columns.some(x => x.id === d.source) || (d.role === "agg" && d.source === sc.effort) || (d.role === "key" && d.source === sc.start && d.bucket === "month");
+  });
+};

@@ -50,12 +50,15 @@ export function serialize(rows: GridRow[]): string {
   return JSON.stringify({ version: 1, rows }).replace(/[<>&\u2028\u2029]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
+/** An empty "up to" (null, missing or not a number) means: no upper limit. */
+export const isNoLimit = (v: unknown) => v === null || v === undefined || v === "" || (typeof v === "number" && Number.isNaN(v));
+
 /** Band for a number: first range with value <= upTo (null upTo = no limit). Empty / non-numeric values have no band. */
 export function bandFor(value: unknown, ranges: StatusBand[]): StatusBand | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   const n = typeof value === "number" ? value : parseFloat(String(value));
   if (!Number.isFinite(n)) return undefined;
-  return ranges.find(r => r.upTo === null || r.upTo === undefined || n <= r.upTo);
+  return ranges.find(r => isNoLimit(r.upTo) || n <= (r.upTo as number));
 }
 
 /** Band currently applying to a cell that is coloured by a status column (colorBy). */
@@ -320,7 +323,7 @@ export function validateConfig(cfg: GridConfig): string[] {
       if (!cfg.columns.some(x => x.id === sb.source)) errs.push(`'${c.id}': status source column '${sb.source}' does not exist`);
       if (!sb.ranges.length) errs.push(`'${c.id}' has no status ranges`);
       sb.ranges.forEach((r, i) => { if (!r.label.trim()) errs.push(`'${c.id}': range ${i + 1} has no label`); });
-      for (let i = 1; i < sb.ranges.length; i++) { const a = sb.ranges[i - 1].upTo, b = sb.ranges[i].upTo; if (a === null || (b !== null && b <= a)) errs.push(`'${c.id}': ranges must go up (range ${i + 1} should be higher than range ${i}, and only the last one may have no limit)`); }
+      for (let i = 1; i < sb.ranges.length; i++) { const a = sb.ranges[i - 1].upTo, b = sb.ranges[i].upTo; if (isNoLimit(a) || (!isNoLimit(b) && (b as number) <= (a as number))) errs.push(`'${c.id}': ranges must go up (range ${i + 1} should be higher than range ${i}, and only the last one may have no limit)`); }
     }
     if (cfg.rowColorBy && !cfg.columns.some(x => x.id === cfg.rowColorBy && x.statusBands)) errs.push(`Row colour: '${cfg.rowColorBy}' is not a status column`);
     if (c.colorBy && !cfg.columns.some(x => x.id === c.colorBy && x.statusBands)) errs.push(`'${c.id}' is coloured by '${c.colorBy}', which is not a status column`);

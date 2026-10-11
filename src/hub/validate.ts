@@ -1,4 +1,4 @@
-import { validateConfig as validateGrid } from "../core/gridModel";
+import { isNoLimit, validateConfig as validateGrid } from "../core/gridModel";
 import { checkFormula } from "../core/expr";
 import { ProjectConfig } from "../core/types";
 import { orderCalculations, undefinedVariables } from "../core/calc";
@@ -113,7 +113,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (!c.statusBands) return;
       const src = g.columns.find(x => x.id === c.statusBands!.source);
       if (src && src.type !== "number" && src.type !== "calculated") add("warn", w, `Status column '${c.id}': '${src.name}' is not a number column, so no status will be set`);
-      if (c.statusBands.ranges.length && c.statusBands.ranges[c.statusBands.ranges.length - 1].upTo !== null) add("warn", w, `Status column '${c.id}': the last range has an upper limit, so larger values get no status – leave “up to” empty on the last range`);
+      if (c.statusBands.ranges.length && !isNoLimit(c.statusBands.ranges[c.statusBands.ranges.length - 1].upTo)) add("warn", w, `Status column '${c.id}': the last range has an upper limit, so larger values get no status – leave “up to” empty on the last range`);
     });
     // ---- presets
     const presetNames = new Set<string>();
@@ -174,10 +174,11 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         }
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
-        else if (src && !src.columns.some(x => x.id === c.derive!.source) && !(src.schedule && (c.derive.source === "_month" || c.derive.source === "_hours"))) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
+        else if (src && !src.columns.some(x => x.id === c.derive!.source) && !(src.schedule && (c.derive.source === "_month" || c.derive.source === "_hours"))) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'${src.schedule ? " – it is scheduled by dates, so use the “Scheduled month” / “Scheduled hours” source (button “Use the scheduled month and hours” in this grid)" : ""}`);
         else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
       if (src?.schedule && !g.columns.some(c => c.derive?.source === "_month") && g.columns.some(c => c.derive)) add("warn", w, `The source grid '${g.derived.source}' is scheduled by dates, so month columns should use the source “Scheduled month” (_month) and hours the “Scheduled hours” (_hours)`);
+      if (src?.schedule) g.columns.forEach(c => { if (c.derive?.role === "agg" && c.derive.source === src.schedule!.effort) add("warn", w, `Column '${c.id}' adds up the effort of '${g.derived!.source}', which would count the whole effort in every month the task touches – use “Scheduled hours” (_hours) instead`); });
       if (src && !src.schedule && g.columns.some(c => c.derive?.source === "_month" || c.derive?.source === "_hours")) add("error", w, `Source grid '${g.derived.source}' is not scheduled, so “Scheduled month/hours” do not exist`);
     } else if (g.schedule && !g.dataField) add("warn", w, "No data field set – it must then be set on the form control");
     else if (g.allocation) add("warn", w, "This grid is set to publish hours, but it is not derived, so nothing is published");
@@ -224,7 +225,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
   for (const [name, t] of Object.entries(raw.lookups ?? {})) {
     const w = `Mapping “${name}”`;
     if (!Object.keys(t.map).length && !t.fallback) add("error", w, "The mapping has no values and no fallback");
-    if (!Object.values(raw.grids).some(g => g.columns.some(c => c.lookup?.table === name))) add("warn", w, "No grid column uses this mapping");
+    if (!Object.values(raw.grids).some(g => g.columns.some(c => c.lookup?.table === name))) add("warn", w, "No grid column uses this mapping yet – add a column that auto-fills from another column (Grids → column → Auto-fill → Mapping), or delete the mapping if you no longer need it");
   }
 
   // ---- calculations
