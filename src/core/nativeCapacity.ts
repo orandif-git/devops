@@ -21,7 +21,7 @@ export interface NativeTeam {
 const DAY = 86400000;
 const parse = (iso: string) => { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return Date.UTC(y, m - 1, d); };
 const iso = (t: number) => new Date(t).toISOString().slice(0, 10);
-const inRanges = (t: number, ranges: DayRange[]) => ranges.some(r => t >= parse(r.start) && t <= parse(r.end));
+export const inRanges = (t: number, ranges: DayRange[]) => ranges.some(r => t >= parse(r.start) && t <= parse(r.end));
 
 export const WEEKDAYS: Record<string, number> = { sunday: 0, monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6 };
 /** The API returns day names ("monday") or numbers depending on the version. */
@@ -50,6 +50,7 @@ export function recordsFromNative(teams: NativeTeam[]): CapacityRecord[] {
         if (!key) continue;
         const rec = people.get(key) ?? { key, name: m.name, defaultHours: null, overrides: {} };
         people.set(key, rec);
+        if (team.teamName && !(rec.team ?? "").split(", ").includes(team.teamName)) rec.team = rec.team ? `${rec.team}, ${team.teamName}` : team.teamName;
         for (let t = first; t <= last; t += DAY) {
           const month = iso(t).slice(0, 7);
           if (rec.overrides[month] === undefined) rec.overrides[month] = 0;          // covered month: at least 0, never "unknown"

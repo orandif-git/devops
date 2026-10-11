@@ -12,6 +12,12 @@ export interface CapacityRecord {
   defaultHours: number | null;
   /** "2026-03" -> hours (leave, part time, holidays …) */
   overrides: Record<string, number>;
+  /** the person's team (from Azure DevOps team capacity, or typed in the register) */
+  team?: string;
+  /** hours per working day (calendar-based scheduling); falls back to the calendar's default */
+  hoursPerDay?: number;
+  /** days off (inclusive "YYYY-MM-DD" ranges) skipped when effort is scheduled */
+  leave?: { start: string; end: string }[];
   updatedBy?: string;
   updatedAt?: string;
   history?: CapacityChange[];
