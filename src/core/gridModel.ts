@@ -125,6 +125,8 @@ export function optionsFor(col: ColumnDef, row: GridRow): string[] {
   return col.options ?? [];
 }
 
+const isTicked = (v: unknown) => v === true || v === 1 || (typeof v === "string" && v.toLowerCase() === "true");
+
 /** Recalculate formula columns and clear dependent values that are no longer valid. Mutates & returns row. */
 export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): GridRow {
   const changed = new Set<string>(); // columns reset or auto-filled during this pass; their dependants must be re-derived
@@ -132,7 +134,8 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
     if (c.lookup) {
       const src = String(row[c.lookup.column] ?? "");
       const key = Object.keys(c.lookup.map).find(k => k.toLowerCase() === src.toLowerCase());
-      row[c.id] = coerce(c, key !== undefined ? c.lookup.map[key] : c.lookup.fallback ?? "");
+      const hit = c.overrides?.find(o => isTicked(row[o.when]));
+      row[c.id] = coerce(c, hit ? hit.value : key !== undefined ? c.lookup.map[key] : c.lookup.fallback ?? "");
       continue;
     }
     if (c.dependsOn && c.type === "dropdown") {
@@ -301,6 +304,12 @@ export function validateConfig(cfg: GridConfig): string[] {
       if (!cfg.columns.some(x => x.id === c.lookup!.column)) errs.push(`'${c.id}' looks up unknown column '${c.lookup.column}'`);
       else if (c.lookup.column === c.id) errs.push(`'${c.id}' cannot look up itself`);
       if (!Object.keys(c.lookup.map).length) errs.push(`'${c.id}' has an empty lookup table`);
+      for (const o of c.overrides ?? []) {
+        const w = cfg.columns.find(x => x.id === o.when);
+        if (!w) errs.push(`'${c.id}' override uses unknown column '${o.when}'`);
+        else if (w.type !== "boolean") errs.push(`'${c.id}' override column '${o.when}' must be a checkbox column`);
+        if (!String(o.value ?? "").trim()) errs.push(`'${c.id}' override for '${o.when}' has no value`);
+      }
     }
     if (c.dependsOn && !cfg.columns.some(x => x.id === c.dependsOn!.column)) errs.push(`'${c.id}' depends on unknown column '${c.dependsOn.column}'`);
   }

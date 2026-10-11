@@ -35,6 +35,11 @@ export interface ColumnDef {
     table?: string;
   };
   /**
+   * Auto-fill overrides: when the checkbox column `when` is ticked, the column gets `value` instead of the lookup result.
+   * The first ticked rule wins. Only used together with `lookup`.
+   */
+  overrides?: { when: string; value: string }[];
+  /**
    * Status column: text label chosen from the number in column `source` by ranges, e.g. 0-70 Available, 70-90 Near Capacity.
    * Ranges are checked in order; the first with value <= upTo wins; the last should have upTo = null.
    */

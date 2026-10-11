@@ -163,6 +163,26 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
                     <option value="">— none (user enters the value) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
                   </select></label>
                 {c.lookup && <LookupPanel key={(c.lookup.table ?? "") + "|" + c.lookup.column} col={c} source={p.others.find(o => o.id === c.lookup!.column)} onChange={lookup => set({ lookup })} />}
+                {c.lookup && (() => {
+                  const boxes = p.others.filter(o => o.type === "boolean" && o.id !== c.id);
+                  const ov = c.overrides ?? [];
+                  const upd = (i: number, patch: Partial<{ when: string; value: string }>) => set({ overrides: ov.map((o, j) => (j === i ? { ...o, ...patch } : o)) });
+                  return (
+                    <div className="field">
+                      <span>Overrides – when a checkbox is ticked, use this value instead of the mapping (first ticked rule wins)</span>
+                      {ov.map((o, i) => (
+                        <div key={i} className="row" style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 4 }}>
+                          <span>When</span>
+                          <select value={o.when} onChange={e => upd(i, { when: e.target.value })}><option value="" />{boxes.map(b => <option key={b.id} value={b.id}>{b.name} ({b.id})</option>)}</select>
+                          <span>is ticked →</span>
+                          <input defaultValue={o.value} placeholder="value, e.g. Capitalizable" onBlur={e => upd(i, { value: e.target.value })} />
+                          <button type="button" onClick={() => set({ overrides: ov.filter((_, j) => j !== i).length ? ov.filter((_, j) => j !== i) : undefined })}>✕</button>
+                        </div>
+                      ))}
+                      <div><button type="button" disabled={!boxes.length} title={boxes.length ? "" : "Add a checkbox column first"} onClick={() => set({ overrides: [...ov, { when: boxes[0]?.id ?? "", value: "" }] })}>+ Add override</button></div>
+                    </div>
+                  );
+                })()}
               </>
             )}
             {c.type === "identity" && (

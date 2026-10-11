@@ -286,3 +286,23 @@ describe("shared mappings", () => {
     expect(validateProject(c, cat).filter(i => /not a value/.test(i.message))).toEqual([]);
   });
 });
+
+describe("auto-fill override by checkbox", () => {
+  const g: GridConfig = {
+    columns: [
+      { id: "act", name: "Activity", type: "dropdown", options: ["Idea", "Training"] },
+      { id: "contract", name: "Is Contractor", type: "boolean" },
+      { id: "tr", name: "Treatment", type: "string", lookup: { column: "act", map: { Idea: "Expense", Training: "Conditional" } }, overrides: [{ when: "contract", value: "Capitalizable" }] },
+    ],
+  };
+  it("uses the mapping when unticked and the override when ticked", () => {
+    expect(recompute({ _id: "1", act: "Training", contract: false }, g).tr).toBe("Conditional");
+    expect(recompute({ _id: "2", act: "Training", contract: true }, g).tr).toBe("Capitalizable");
+    expect(recompute({ _id: "3", act: "Idea", contract: true }, g).tr).toBe("Capitalizable");
+  });
+  it("validates the override", () => {
+    const bad = { columns: [...g.columns.slice(0, 2), { ...g.columns[2], overrides: [{ when: "act", value: "" }] }] } as GridConfig;
+    expect(validateConfig(bad).join("|")).toMatch(/must be a checkbox/);
+    expect(validateConfig(bad).join("|")).toMatch(/has no value/);
+  });
+});

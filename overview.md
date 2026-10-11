@@ -28,7 +28,7 @@ Everything is configured once per project and works on any work item type you ch
 - **Column types:** text, number, checkbox, date, dropdown, **people picker** (searches users and groups in your directory), **calculated**, and **status** columns.
 - **Validation:** required cells, default values, minimum / maximum for numbers. Untouched new rows stay calm; optionally block saving while required values are missing.
 - **Dropdowns inside cells**, including **dependent dropdowns** (a cell's options depend on another cell in the same row; a single valid option is picked automatically).
-- **Auto-fill columns:** a column fills itself from another column through a lookup table, so users pick one value and the related values appear.
+- **Auto-fill columns:** a column fills itself from another column through a lookup table, so users pick one value and the related values appear. Add **overrides** so a ticked checkbox column forces a fixed value instead of the lookup result.
 - **Formulas:** row formulas (`quantity * price`) and whole-column functions (`TOTAL(amount)`), with decimals, and a choice of blank or zero when an input is empty or a division by zero occurs.
 - **Totals and grouped totals** under the grid, with each figure optionally **written to its own work item field**.
 - **Status columns and colour coding:** turn a number into a labelled status by ranges (for example up to a limit → one label, above → another), with a colour per range. Cells can follow the colour and **whole rows can be tinted** by status.
