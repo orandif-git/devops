@@ -16,12 +16,12 @@ import { onFormEvent, writeGrid } from "./formWriter";
  * A grid whose rows are built automatically from the source grid shown above it
  * (e.g. Resource Capacity from the timesheet). Manual columns stay editable and are remembered by key.
  */
-export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: GridRow[]; sourceReady: boolean; projectId: string }) {
+export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: GridConfig; sourceRows: GridRow[]; sourceReady: boolean; projectId: string }) {
   const { cfg } = p;
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [loaded, setLoaded] = React.useState(false);
   const [warn, setWarn] = React.useState("");
-  const usesRegister = cfg.columns.some(c => c.capacity);
+  const usesRegister = cfg.columns.some(c => c.capacity || c.teamOf);
   const [register, setRegister] = React.useState<CapacityRegister>();
   const [registerTried, setRegisterTried] = React.useState(!usesRegister);
   const usesOthers = cfg.columns.some(c => c.others);
@@ -97,10 +97,10 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceRows: Grid
   // keep the rows in step with the source grid (waits until both sides have been read from the form)
   React.useEffect(() => {
     if (!loaded || !p.sourceReady || !registerTried || !othersTried) return;
-    const next = syncDerived(p.sourceRows, cfg, rowsRef.current, register, others);
+    const next = syncDerived(p.sourceRows, cfg, rowsRef.current, register, others, p.sourceCfg);
     if (!sameRows(next, rowsRef.current)) apply(next);
     if (!publishedOnce.current) { publishedOnce.current = true; publish(); }    // first load: make sure the store reflects the saved Epic
-  }, [p.sourceRows, p.sourceReady, loaded, cfg, apply, register, registerTried, others, othersTried, publish]);
+  }, [p.sourceRows, p.sourceCfg, p.sourceReady, loaded, cfg, apply, register, registerTried, others, othersTried, publish]);
 
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
   return (

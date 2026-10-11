@@ -173,3 +173,22 @@ describe("scheduled grid end to end (timesheet → capacity grid)", () => {
     expect(validateConfig(source)).toEqual([]);
   });
 });
+
+import { withSchedule } from "../src/core/schedule";
+describe("withSchedule (admin helper)", () => {
+  it("adds the standard columns to an empty grid", () => {
+    const g = withSchedule({ columns: [{ id: "act", name: "Activity", type: "string" }] });
+    expect(g.columns.map(c => c.id)).toEqual(["act", "resource", "startdate", "allocation", "effort", "enddate"]);
+    expect(g.schedule).toEqual({ resource: "resource", start: "startdate", effort: "effort", allocation: "allocation", end: "enddate" });
+    expect(validateConfig(g)).toEqual([]);
+  });
+  it("re-uses existing identity, date and hours columns of the current timesheet", () => {
+    const g = withSchedule({ columns: [
+      { id: "resource", name: "Resource", type: "identity" }, { id: "period", name: "Period", type: "date" }, { id: "Hours", name: "Hours", type: "number" },
+    ] });
+    expect(g.schedule!.resource).toBe("resource");
+    expect(g.schedule!.effort).toBe("Hours");
+    expect(validateConfig(g)).toEqual([]);
+    expect(withSchedule(g)).toEqual(g);                 // running it again changes nothing
+  });
+});

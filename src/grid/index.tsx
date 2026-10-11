@@ -9,7 +9,9 @@ import { emitFormEvent } from "./formWriter";
 import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
 import { GridConfig, GridRow, LookupTable } from "../core/types";
 import { applySharedLookups } from "../core/sharedLookups";
-import { mappedTotals, parseStored, serialize, validateConfig, validateRows } from "../core/gridModel";
+import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
+import { loadCalendarBook } from "../shared/capacityStore";
+import { setCalendarBook } from "../core/schedule";
 import { downloadFile, getFormService, getProject, init, loadConfig, witClient } from "../shared/ado";
 import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
@@ -53,6 +55,8 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");
+  const [calVersion, setCalVersion] = React.useState(0);
+  const [calError, setCalError] = React.useState("");
   const knownFields = React.useRef<Set<string>>();
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastWritten = React.useRef<string | null>(null);
@@ -117,6 +121,21 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     // block save while rows are invalid
     return () => window.clearTimeout(timer.current);
   }, [cfg, readField]);
+
+  // scheduled grids: load the people's calendars, then recalculate the end dates and monthly hours (saved only when something changed)
+  React.useEffect(() => {
+    if (!cfg.schedule) return;
+    let live = true;
+    loadCalendarBook(props.projectId)
+      .then(book => { if (live) { setCalendarBook(book); setCalError(""); setCalVersion(v => v + 1); } })
+      .catch(e => { if (live) setCalError(`Could not read the calendar: ${(e as Error).message}. End dates and monthly hours are not recalculated.`); });
+    return () => { live = false; };
+  }, [cfg.schedule, props.projectId]);
+  React.useEffect(() => {
+    if (!ready || !cfg.schedule || !calVersion) return;
+    const next = recomputeAll(rowsRef.current, cfg);
+    if (serialize(next) !== serialize(rowsRef.current)) commit(next);
+  }, [ready, calVersion, cfg, commit]);
 
   // keep the iframe height in sync with the content
   React.useEffect(() => {
@@ -188,11 +207,12 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   return (
     <div ref={rootRef}>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
+      {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
         onChange={commit} onImport={onImport} onExport={onExport}
         onCreateChild={id => createChildren([id])}
         onCreateAllChildren={() => createChildren(rowsRef.current.filter(r => !r._childId).map(r => r._id))} />
-      {props.derived.map(d => <DerivedGrid key={d.name} name={d.name} cfg={d.cfg} sourceRows={rows} sourceReady={ready} projectId={props.projectId} />)}
+      {props.derived.map(d => <DerivedGrid key={d.name} name={d.name} cfg={d.cfg} sourceCfg={cfg} sourceRows={rows} sourceReady={ready} projectId={props.projectId} />)}
     </div>
   );
 }

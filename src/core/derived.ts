@@ -100,6 +100,7 @@ export const CAPACITY_BANDS: StatusBand[] = [
   { upTo: null, label: "Overallocated", color: "red" },
 ];
 
+export const TEAM_FROM_CAPACITY = "@capacity";
 export interface CapacityPicks { resource: string; period: string; hours: string; team?: string }
 
 /**
@@ -108,11 +109,13 @@ export interface CapacityPicks { resource: string; period: string; hours: string
  * (Step D adds Other-Epics hours, Total hours and the all-Epics Utilization %.)
  */
 export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: boolean } = {}): ColumnDef[] {
+  // picks.team === TEAM_FROM_CAPACITY: the person's team comes from the capacity source instead of a source column
   const cols: ColumnDef[] = [
     { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: picks.resource }, width: 220 },
     { id: "period", name: "Period", type: "string", derive: { role: "key", source: picks.period, bucket: "month" } },
   ];
-  if (picks.team) cols.push({ id: "team", name: "Team", type: "string", derive: { role: "first", source: picks.team } });
+  if (picks.team === TEAM_FROM_CAPACITY) cols.push({ id: "team", name: "Team", type: "string", teamOf: { resource: "resource" } });
+  else if (picks.team) cols.push({ id: "team", name: "Team", type: "string", derive: { role: "first", source: picks.team } });
   cols.push(
     { id: "hours", name: "Hours (this Epic)", type: "number", derive: { role: "agg", source: picks.hours, aggregate: "sum" }, total: "sum" },
     { id: "otherhours", name: "Hours (other Epics)", type: "number", defaultValue: 0, others: { resource: "resource", period: "period" } },

@@ -145,13 +145,20 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
           if (!keyIds.includes(c.others.resource) || !keyIds.includes(c.others.period)) add("error", w, `Column '${c.id}': the person and month columns must be KEY columns`);
           if (!Object.values(cfg.grids).some(x => x.allocation)) add("warn", w, `Column '${c.id}' shows hours of other Epics, but no grid publishes its hours yet – turn on “Publish this grid's hours”`);
         }
+        if (c.teamOf) {
+          const keyIds = g.columns.filter(x => x.derive?.role === "key").map(x => x.id);
+          if (!keyIds.includes(c.teamOf.resource)) add("error", w, `Column '${c.id}': the person column must be one of the KEY columns`);
+        }
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
-        else if (src && !src.columns.some(x => x.id === c.derive!.source)) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
+        else if (src && !src.columns.some(x => x.id === c.derive!.source) && !(src.schedule && (c.derive.source === "_month" || c.derive.source === "_hours"))) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'`);
         else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
-    } else if (g.allocation) add("warn", w, "This grid is set to publish hours, but it is not derived, so nothing is published");
-    else if (g.columns.some(c => c.capacity || c.others)) add("warn", w, "A column takes its value from the Capacity register, but this grid is not derived, so it is ignored");
+      if (src?.schedule && !g.columns.some(c => c.derive?.source === "_month") && g.columns.some(c => c.derive)) add("warn", w, `The source grid '${g.derived.source}' is scheduled by dates, so month columns should use the source “Scheduled month” (_month) and hours the “Scheduled hours” (_hours)`);
+      if (src && !src.schedule && g.columns.some(c => c.derive?.source === "_month" || c.derive?.source === "_hours")) add("error", w, `Source grid '${g.derived.source}' is not scheduled, so “Scheduled month/hours” do not exist`);
+    } else if (g.schedule && !g.dataField) add("warn", w, "No data field set – it must then be set on the form control");
+    else if (g.allocation) add("warn", w, "This grid is set to publish hours, but it is not derived, so nothing is published");
+    else if (g.columns.some(c => c.capacity || c.others || c.teamOf)) add("warn", w, "A column takes its value from the Capacity register, but this grid is not derived, so it is ignored");
     else if (g.columns.some(c => c.derive)) add("warn", w, "Some columns have a source set, but this grid is not marked as derived, so they are ignored");
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
     if (!g.dataField) add("warn", w, "No data field set – it must then be set on the form control");

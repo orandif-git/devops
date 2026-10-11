@@ -1,5 +1,6 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
+import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
 import { dataManager, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
 
@@ -17,8 +18,10 @@ export interface CapacitySettings {
   editorTeams: TeamRef[];
   /** hours per month for registered people who have no default of their own */
   defaultHours: number | null;
+  /** source = "register": working week, hours per day and holidays used when effort is scheduled by dates */
+  calendar: CalendarSettings;
 }
-export const defaultSettings = (): CapacitySettings => ({ source: "register", capacityTeams: [], editorTeams: [], defaultHours: null });
+export const defaultSettings = (): CapacitySettings => ({ source: "register", capacityTeams: [], editorTeams: [], defaultHours: null, calendar: defaultCalendar() });
 
 const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
@@ -29,7 +32,8 @@ const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not
 export async function loadSettings(projectId: string): Promise<CapacitySettings> {
   try {
     const doc = await (await dataManager()).getDocument(COLLECTION, settingsId(projectId));
-    return { ...defaultSettings(), ...(doc?.settings as Partial<CapacitySettings> | undefined) };
+    const stored = doc?.settings as Partial<CapacitySettings> | undefined;
+    return { ...defaultSettings(), ...stored, calendar: { ...defaultCalendar(), ...(stored?.calendar ?? {}) } };
   } catch (e) { if (is404(e)) return defaultSettings(); throw e; }
 }
 
@@ -95,6 +99,16 @@ export async function loadCapacityRecords(projectId: string, settings?: Capacity
   const s = settings ?? await loadSettings(projectId);
   if (s.source === "teams") return { records: recordsFromNative((await readNativeCapacity(s.capacityTeams)).teams), source: "teams" };
   return { records: await listRecords(projectId), source: "register" };
+}
+
+/** Calendars of the people, from whichever source is configured (used to turn start date + effort into months). */
+export async function loadCalendarBook(projectId: string): Promise<CalendarBook> {
+  const s = await loadSettings(projectId);
+  if (s.source === "teams") {
+    if (!s.capacityTeams.length) throw new Error("No team is selected for Azure DevOps team capacity (Grid & Rules → Capacity).");
+    return nativeCalendarBook((await readNativeCapacity(s.capacityTeams)).teams);
+  }
+  return registerCalendarBook(await listRecords(projectId), s.calendar);
 }
 
 export async function loadRegister(projectId: string): Promise<CapacityRegister> {

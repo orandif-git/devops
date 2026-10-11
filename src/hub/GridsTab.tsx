@@ -2,7 +2,8 @@ import * as React from "react";
 import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
-import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate } from "../core/derived";
+import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
+import { SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
@@ -128,19 +129,23 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
               <div className="card">
                 <div className="row">
                   <label className="field" style={{ flex: 1 }}><span>Where does this column's value come from?</span>
-                    <select value={c.capacity ? "register" : c.others ? "others" : c.derive?.role ?? ""} onChange={e => {
+                    <select value={c.capacity ? "register" : c.teamOf ? "team" : c.others ? "others" : c.derive?.role ?? ""} onChange={e => {
                       const v = e.target.value;
-                      if (v === "others") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: undefined, others: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); return; }
-                      if (v === "register") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); }
-                      else set({ capacity: undefined, others: undefined, derive: v ? { role: v as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: v === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined });
+                      if (v === "others") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: undefined, teamOf: undefined, others: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); return; }
+                      if (v === "team") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, capacity: undefined, others: undefined, teamOf: { resource: keys[0]?.id ?? "" } }); return; }
+                      if (v === "register") { const keys = p.others.filter(o => o.derive?.role === "key"); set({ derive: undefined, teamOf: undefined, capacity: { resource: keys[0]?.id ?? "", period: keys[1]?.id ?? "" } }); }
+                      else set({ capacity: undefined, others: undefined, teamOf: undefined, derive: v ? { role: v as "key" | "first" | "agg", source: c.derive?.source ?? "", aggregate: v === "agg" ? c.derive?.aggregate ?? "sum" : undefined } : undefined });
                     }}>
                       <option value="">Entered by the user / calculated here</option>
                       <option value="register">From the Capacity register (hours available for the person and month)</option>
+                      <option value="team">The person's team (from the capacity source)</option>
                       <option value="others">Hours on all OTHER Epics (person and month, from the central store)</option>
                       <option value="key">Source column – KEY (one row per distinct value)</option>
                       <option value="first">Source column – first value in the group</option>
                       <option value="agg">Source column – aggregate (sum, …)</option>
                     </select></label>
+                  {c.teamOf && <label className="field" style={{ flex: 1 }}><span>Person column (key)</span>
+                    <select value={c.teamOf.resource} onChange={e => set({ teamOf: { resource: e.target.value } })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>}
                   {(c.capacity || c.others) && (() => { const ref = (c.capacity ?? c.others)!; const upd = (patch: Partial<{ resource: string; period: string }>) => set(c.capacity ? { capacity: { ...ref, ...patch } } : { others: { ...ref, ...patch } }); return (<>
                     <label className="field" style={{ flex: 1 }}><span>Person column (key)</span>
                       <select value={ref.resource} onChange={e => upd({ resource: e.target.value })}><option value="" />{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
@@ -221,6 +226,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const g = p.g;
   const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
   const source = g.derived ? p.grids[g.derived.source] : undefined;
+  const sourceCols: ColumnDef[] | undefined = source ? [...source.columns, ...(source.schedule ? (SCHEDULE_VIRTUAL as unknown as ColumnDef[]) : [])] : undefined;
   const [pick, setPick] = React.useState({ resource: "", period: "", hours: "", team: "" });
   const [fromRegister, setFromRegister] = React.useState(true);
   const { lookups } = React.useContext(Ctx);
@@ -235,6 +241,25 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       <label><input type="checkbox" checked={!!g.allowImport} onChange={e => p.onChange({ ...g, allowImport: e.target.checked || undefined })} /> Allow importing rows from a CSV / Excel file (adds an Import button; Export is always available)</label>
       <br />
       <label title="Off: required/invalid cells are only highlighted. On: the work item cannot be saved while any exist."><input type="checkbox" checked={!!g.blockSave} onChange={e => p.onChange({ ...g, blockSave: e.target.checked })} /> Block saving the work item while required values are missing</label>
+      {!g.derived && (
+        <>
+          <h3>Dates and effort</h3>
+          <label><input type="checkbox" checked={!!g.schedule} onChange={e => p.onChange(e.target.checked ? withSchedule(g) : { ...g, schedule: undefined })} /> Users enter a <b>start date, effort (hours) and allocation %</b> instead of a month. The end date and the hours per month are calculated from the person's calendar (working week, days off, hours per day).</label>
+          {g.schedule && (
+            <div className="card">
+              <div className="row">
+                {([["resource", "Resource (people picker)", ["identity", "string"]], ["start", "Start date", ["date"]], ["effort", "Effort (hours)", ["number"]], ["allocation", "Allocation % (optional, empty = 100)", ["number"]], ["end", "End date (calculated)", ["date"]]] as [keyof NonNullable<GridConfig["schedule"]>, string, ColumnType[]][]).map(([k, label, types]) => (
+                  <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
+                    <select value={g.schedule![k] ?? ""} onChange={e => p.onChange({ ...g, schedule: { ...g.schedule!, [k]: e.target.value || undefined } as NonNullable<GridConfig["schedule"]> })}>
+                      <option value="" />{g.columns.filter(c => types.includes(c.type)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.id})</option>)}</select></label>
+                ))}
+              </div>
+              <div className="help">Where the calendar comes from is set on <b>Capacity</b>: Azure DevOps team capacity (working days, days off and hours per day) or this extension's own table. The effort fills the working days in turn (hours per day × allocation %), so 80 h at 100 % over an 8-hour day is 10 working days. A derived grid built from this one uses the “Scheduled month” and “Scheduled hours” source columns.</div>
+              <button className="btn" onClick={() => p.onChange(withSchedule(g))}>Add any missing standard columns</button>
+            </div>
+          )}
+        </>
+      )}
       <h3>Build this grid automatically from another grid</h3>
       <label><input type="checkbox" checked={!!g.derived} onChange={e => p.onChange({ ...g, derived: e.target.checked ? { source: sourceNames[0] ?? "" } : undefined })} disabled={!g.derived && !sourceNames.length} /> This is a derived grid (rows are created from the source grid, e.g. Resource Capacity from the timesheet)</label>
       {g.derived && (
@@ -262,8 +287,9 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
               <div className="row">
                 {([["resource", "Resource"], ["period", "Period (date)"], ["hours", "Hours"], ["team", "Team (optional)"]] as const).map(([k, label]) => (
                   <label className="field" key={k} style={{ flex: 1 }}><span>{label}</span>
-                    <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{source.columns.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}</select></label>
+                    <select value={pick[k]} onChange={e => setPick({ ...pick, [k]: e.target.value })}><option value="" />{sourceCols!.map(sc => <option key={sc.id} value={sc.id}>{sc.name}</option>)}{k === "team" && <option value={TEAM_FROM_CAPACITY}>From the capacity source (recommended)</option>}</select></label>
                 ))}
+                {source.schedule && <button className="btn fixed" title="Use the scheduled month and hours of the source grid" onClick={() => setPick({ resource: source.schedule!.resource, period: "_month", hours: "_hours", team: TEAM_FROM_CAPACITY })}>Fill in for a scheduled source</button>}
                 <button className="btn fixed" disabled={!pick.resource || !pick.period || !pick.hours}
                   onClick={() => p.onChange({ ...g, columns: capacityTemplate({ ...pick, team: pick.team || undefined }, { fromRegister }), allocation: capacityAllocation(), rowColorBy: CAPACITY_ROW_COLOR })}>{g.columns.length ? "Generate columns (replaces current)" : "Generate columns"}</button>
               </div>
@@ -279,7 +305,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
       <h3>Columns</h3>
       <table className="cols">
         <thead><tr><th>Id</th><th>Header</th><th>Type</th><th>Req.</th><th>Total</th><th /></tr></thead>
-        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={source?.columns} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+        <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={sourceCols} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       <h3>Push totals to work item fields</h3>

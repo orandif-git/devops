@@ -1,4 +1,5 @@
 import { CapacityRecord } from "./capacity";
+import { ColumnDef, ColumnType, GridConfig } from "./types";
 import { keyNorm } from "./keys";
 import { DayRange, inRanges, NativeTeam } from "./nativeCapacity";
 
@@ -170,3 +171,23 @@ export const SCHEDULE_VIRTUAL = [
   { id: "_month", name: "Scheduled month", type: "date" as const },
   { id: "_hours", name: "Scheduled hours", type: "number" as const },
 ];
+
+/** Make sure the columns a scheduled grid needs exist (re-using existing ones), and point the schedule at them. */
+export function withSchedule(g: GridConfig): GridConfig {
+  const cols: ColumnDef[] = [...g.columns];
+  const sc = g.schedule;
+  const ensure = (id: string, make: () => Omit<ColumnDef, "id">, types: ColumnType[], preferred?: string) => {
+    const hit = (preferred && cols.find(c => c.id === preferred && types.includes(c.type))) || cols.find(c => c.id === id && types.includes(c.type));
+    if (hit) return hit.id;
+    let use = id;
+    for (let n = 2; cols.some(c => c.id === use); n++) use = id + n;
+    cols.push({ ...make(), id: use });
+    return use;
+  };
+  const resource = ensure("resource", () => ({ name: "Resource", type: "identity", required: true }), ["identity", "string"], sc?.resource ?? cols.find(c => c.type === "identity")?.id);
+  const start = ensure("startdate", () => ({ name: "Start date", type: "date", required: true }), ["date"], sc?.start);
+  const allocation = ensure("allocation", () => ({ name: "Allocation %", type: "number", defaultValue: 100, min: 0 }), ["number"], sc?.allocation);
+  const effort = ensure("effort", () => ({ name: "Effort (h)", type: "number", required: true, min: 0, total: "sum" }), ["number"], sc?.effort ?? cols.find(c => c.type === "number" && c.id !== allocation)?.id);
+  const end = ensure("enddate", () => ({ name: "End date", type: "date" }), ["date"], sc?.end ?? cols.find(c => c.type === "date" && c.id !== start && /end/i.test(c.id + c.name))?.id);
+  return { ...g, columns: cols, schedule: { resource, start, effort, allocation, end } };
+}
