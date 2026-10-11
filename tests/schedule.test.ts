@@ -299,3 +299,18 @@ describe("status range warning", () => {
     expect(validateProject(mk(100), makeCatalog([], [])).map(i => i.message).join()).toMatch(/upper limit/);
   });
 });
+
+describe("scheduled hours are numbers", () => {
+  it("adding up the scheduled hours does not warn that the source is not a number column", () => {
+    const src: GridConfig = { columns: [
+      { id: "res", name: "Resource", type: "identity" }, { id: "start", name: "Start", type: "date" }, { id: "effort", name: "Effort", type: "number" }, { id: "end", name: "End", type: "date" },
+    ], schedule: { resource: "res", start: "start", effort: "effort", end: "end" }, dataField: "Custom.T" };
+    const cap: GridConfig = { columns: [
+      { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: "res" } },
+      { id: "period", name: "Period", type: "string", derive: { role: "key", source: "_month", bucket: "month" } },
+      { id: "hours", name: "Hours", type: "number", derive: { role: "agg", source: "_hours", aggregate: "sum" } },
+    ], derived: { source: "T" }, dataField: "Custom.C" };
+    const msgs = validateProject({ ...emptyCfg(), grids: { T: src, C: cap } } as never, makeCatalog([], [])).map(i => i.message).join("|");
+    expect(msgs).not.toMatch(/not a number/);
+  });
+});

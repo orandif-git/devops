@@ -192,7 +192,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
         else if (src && !src.columns.some(x => x.id === c.derive!.source) && !(src.schedule && (c.derive.source === "_month" || c.derive.source === "_hours"))) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'${src.schedule ? " – it is scheduled by dates, so use the “Scheduled month” / “Scheduled hours” source (button “Use the scheduled month and hours” in this grid)" : ""}`);
-        else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
+        else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && c.derive.source !== "_hours" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
       if (src?.schedule && !g.columns.some(c => c.derive?.source === "_month") && g.columns.some(c => c.derive)) add("warn", w, `The source grid '${g.derived.source}' is scheduled by dates, so month columns should use the source “Scheduled month” (_month) and hours the “Scheduled hours” (_hours)`);
       if (src?.schedule) g.columns.forEach(c => { if (c.derive?.role === "agg" && c.derive.source === src.schedule!.effort) add("warn", w, `Column '${c.id}' adds up the effort of '${g.derived!.source}', which would count the whole effort in every month the task touches – use “Scheduled hours” (_hours) instead`); });
