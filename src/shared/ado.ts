@@ -1,5 +1,5 @@
 import * as SDK from "azure-devops-extension-sdk";
-import { CommonServiceIds, getClient, IExtensionDataService, IProjectPageService } from "azure-devops-extension-api";
+import { CommonServiceIds, getClient, IExtensionDataService, ILocationService, IProjectPageService } from "azure-devops-extension-api";
 import { CoreRestClient } from "azure-devops-extension-api/Core";
 import { WorkRestClient } from "azure-devops-extension-api/Work";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
@@ -35,6 +35,30 @@ export const coreClient = () => getClient(CoreRestClient, restOptions());
 export const workClient = () => getClient(WorkRestClient, restOptions());
 
 export { withTimeout };
+
+/**
+ * GET with an explicit, old REST api-version. The typed clients request the newest version (7.x), which Azure DevOps Server 2020
+ * (max 6.1) rejects with HTTP 400. Version 5.0 is accepted by Server 2019+ and by Services.
+ */
+export async function getCompat<T>(path: string, query: Record<string, string | number> = {}): Promise<T> {
+  const loc = await SDK.getService<ILocationService>(CommonServiceIds.LocationService);
+  const base = (await loc.getServiceLocation()).replace(/\/+$/, "");
+  const token = await SDK.getAccessToken();
+  const qs = new URLSearchParams({ ...Object.fromEntries(Object.entries(query).map(([k, v]) => [k, String(v)])), "api-version": "5.0" });
+  const res = await fetch(`${base}/_apis/${path}?${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  return (await res.json()) as T;
+}
+
+export interface TeamLite { id: string; name: string }
+export interface MemberLite { identity?: { id?: string; displayName: string; uniqueName: string } }
+
+export async function getTeamsCompat(projectId: string, top = 200): Promise<TeamLite[]> {
+  return (await getCompat<{ value: TeamLite[] }>(`projects/${projectId}/teams`, { $top: top })).value;
+}
+export async function getTeamMembersCompat(projectId: string, teamId: string, top = 500): Promise<MemberLite[]> {
+  return (await getCompat<{ value: MemberLite[] }>(`projects/${projectId}/teams/${teamId}/members`, { $top: top })).value;
+}
 
 // ---------- config storage (extension data service, one document per project) ----------
 const COLLECTION = "wig-config";
@@ -111,12 +135,11 @@ let peopleCache: Promise<Person[]> | undefined;
 /** Project team members (works on Services and Server). */
 export function listPeople(projectId: string): Promise<Person[]> {
   peopleCache ??= (async () => {
-    const core = await coreClient();
-    const teams = await core.getTeams(projectId, false, 50);
+    const teams = await withTimeout(getTeamsCompat(projectId, 50), "Loading teams");
     const seen = new Map<string, Person>();
     for (const t of teams) {
       try {
-        for (const m of await core.getTeamMembersWithExtendedProperties(projectId, t.id, 500)) {
+        for (const m of await withTimeout(getTeamMembersCompat(projectId, t.id, 500), "Loading team members")) {
           const id = m.identity;
           if (!id?.uniqueName) continue;
           seen.set(id.uniqueName.toLowerCase(), { displayName: id.displayName, uniqueName: id.uniqueName, text: `${id.displayName} <${id.uniqueName}>` });

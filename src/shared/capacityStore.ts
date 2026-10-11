@@ -1,7 +1,7 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
-import { coreClient, dataManager, getProject, withTimeout, workClient } from "./ado";
+import { dataManager, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
 
 const COLLECTION = "wig-capacity";
 
@@ -107,7 +107,7 @@ export async function loadRegister(projectId: string): Promise<CapacityRegister>
 }
 
 export const listTeams = async (projectId: string): Promise<TeamRef[]> =>
-  (await withTimeout((await coreClient()).getTeams(projectId, false, 200), "Loading teams")).map(t => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
+  (await withTimeout(getTeamsCompat(projectId, 200), "Loading teams")).map(t => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
 
 /**
  * May the current user edit capacity? Yes when no team is configured, or when they are a (direct) member of a configured team.
@@ -117,10 +117,9 @@ export const listTeams = async (projectId: string): Promise<TeamRef[]> =>
 export async function checkCanEdit(projectId: string, settings: CapacitySettings): Promise<{ canEdit: boolean; reason: string }> {
   if (!settings.editorTeams.length) return { canEdit: true, reason: "No editor team is configured, so any project member may edit." };
   const me = SDK.getUser().id.toLowerCase();
-  const core = await coreClient();
   for (const t of settings.editorTeams) {
     try {
-      const members = await core.getTeamMembersWithExtendedProperties(projectId, t.id, 1000);
+      const members = await withTimeout(getTeamMembersCompat(projectId, t.id, 1000), "Loading team members");
       if (members.some(m => m.identity?.id?.toLowerCase() === me)) return { canEdit: true, reason: `You are a member of the team “${t.name}”.` };
     } catch { /* team not readable: treat as not a member */ }
   }
