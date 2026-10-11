@@ -107,8 +107,23 @@ export interface Breakdown {
   fields?: Record<string, string>;
 }
 
+/** A named set of ready-made rows a user can load into a grid with one click (e.g. the standard SDLC activities). */
+export interface GridPreset {
+  id: string;
+  name: string;
+  /** ids of the columns this preset keeps (the others, e.g. person and dates, stay blank) */
+  columns: string[];
+  rows: Record<string, unknown>[];
+  /** only offered on work items whose field has one of the values, ALL conditions must hold; empty = offered everywhere */
+  when?: { field: string; values: string[] }[];
+}
+
 export interface GridConfig {
   columns: ColumnDef[];
+  /** ready-made rows, loaded with the "Load preset" button */
+  presets?: GridPreset[];
+  /** let people save the current rows as a preset from the work item ("Save as preset") */
+  presetSave?: { enabled: boolean; teams: { id: string; name: string }[]; admins: boolean };
   breakdowns?: Breakdown[];
   /** tint every row by the status of this status column (id), e.g. each resource's row coloured by its Capacity Status */
   rowColorBy?: string;

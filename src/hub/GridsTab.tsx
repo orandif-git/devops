@@ -1,10 +1,13 @@
 import * as React from "react";
-import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridRow, StatusBand, StatusColor, TotalMapping } from "../core/types";
+import { Aggregate, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
 import { SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
+import { defaultPresetColumns } from "../core/presets";
+import { getProject } from "../shared/ado";
+import { listTeams, TeamRef } from "../shared/capacityStore";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
 import { csv, Ctx, delAt, FieldInput, setAt } from "./ui";
@@ -223,6 +226,77 @@ function Preview({ cfg: raw }: { cfg: GridConfig }) {
     onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />;
 }
 
+
+/** Ready-made rows ("presets") for a grid: which rows, which columns they keep, when they are offered, and who may save new ones. */
+function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: GridConfig): void }) {
+  const { g } = p;
+  const presets = g.presets ?? [];
+  const [sel, setSel] = React.useState(0);
+  const [teams, setTeams] = React.useState<TeamRef[]>([]);
+  React.useEffect(() => { getProject().then(pr => listTeams(pr.id)).then(setTeams).catch(() => undefined); }, []);
+  const cur: GridPreset | undefined = presets[Math.min(sel, presets.length - 1)];
+  const idx = cur ? presets.indexOf(cur) : -1;
+  const setPresets = (list: GridPreset[]) => p.onChange({ ...g, presets: list.length ? list : undefined });
+  const setCur = (patch: Partial<GridPreset>) => setPresets(setAt(presets, idx, { ...cur!, ...patch }));
+  const typed = p.effective.columns.filter(c => !c.lookup && !c.formula && !c.statusBands && !c.derive && !c.capacity && !c.others && !c.teamOf && c.type !== "calculated" && c.id !== g.schedule?.end);
+  const kept = cur ? typed.filter(c => cur.columns.includes(c.id)).map(c => ({ ...c, required: false })) : [];
+  const miniRows: GridRow[] = (cur?.rows ?? []).map((r, i) => ({ _id: "pr" + i, ...r }));
+  const save = g.presetSave ?? { enabled: false, teams: [], admins: true };
+  const setSave = (patch: Partial<NonNullable<GridConfig["presetSave"]>>) => p.onChange({ ...g, presetSave: { ...save, ...patch } });
+  const when = cur?.when ?? [];
+  return (
+    <>
+      <h3>Presets (ready-made rows)</h3>
+      <div className="help">A preset is a named set of rows users add to the grid with <b>Load preset</b>, e.g. the standard activities with their default effort. People and dates stay blank for the user to fill in. Give a preset a rule (e.g. Project type = Implementation) to offer it only on matching work items.</div>
+      <div className="row">
+        <select className="fixed" value={idx} onChange={e => setSel(+e.target.value)}>{presets.map((x, i) => <option key={x.id} value={i}>{x.name || "(unnamed)"}</option>)}{!presets.length && <option value={-1}>(no presets yet)</option>}</select>
+        <button className="btn fixed" onClick={() => { const id = "p" + Date.now().toString(36); setPresets([...presets, { id, name: "Preset " + (presets.length + 1), columns: defaultPresetColumns(p.effective), rows: [] }]); setSel(presets.length); }}>+ New preset</button>
+        {cur && <button className="btn danger fixed" onClick={() => { setPresets(presets.filter((_, i) => i !== idx)); setSel(0); }}>Delete preset</button>}
+      </div>
+      {cur && (
+        <div className="card">
+          <label className="field"><span>Name (shown in the Load preset list)</span><input value={cur.name} onChange={e => setCur({ name: e.target.value })} /></label>
+          <div className="help"><b>Offer this preset only when…</b> (all conditions must hold; leave empty to offer it on every work item)</div>
+          {when.map((w, i) => (
+            <div className="row" key={i}>
+              <FieldInput value={w.field} onChange={field => setCur({ when: setAt(when, i, { ...w, field }) })} placeholder="Custom.ProjectType" />
+              <span className="fixed">is</span>
+              <input placeholder="value, or several separated by commas" defaultValue={w.values.join(", ")} key={w.field + i} onBlur={e => setCur({ when: setAt(when, i, { ...w, values: csv(e.target.value) }) })} />
+              <button className="btn icon danger fixed" onClick={() => setCur({ when: when.filter((_, j) => j !== i).length ? when.filter((_, j) => j !== i) : undefined })}>✕</button>
+            </div>
+          ))}
+          <button className="btn" onClick={() => setCur({ when: [...when, { field: "", values: [] }] })}>+ Add condition</button>
+          <div className="help"><b>Columns this preset keeps</b> (the others, such as people and dates, stay blank; calculated columns fill themselves in):</div>
+          <div className="row" style={{ flexWrap: "wrap" }}>
+            {typed.map(c => <label key={c.id} className="fixed"><input type="checkbox" checked={cur.columns.includes(c.id)} onChange={e => setCur({ columns: e.target.checked ? [...cur.columns, c.id] : cur.columns.filter(x => x !== c.id) })} /> {c.name}</label>)}
+          </div>
+          {kept.length > 0 && (
+            <>
+              <div className="help"><b>Rows</b></div>
+              <Grid cfg={{ columns: kept }} rows={miniRows} readOnly={false} projectId="" busyChildren={false} status=""
+                onChange={rows => setCur({ rows: rows.map(r => Object.fromEntries(kept.map(c => [c.id, r[c.id]]))) })}
+                onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />
+            </>
+          )}
+        </div>
+      )}
+      <div className="card">
+        <label><input type="checkbox" checked={save.enabled} onChange={e => setSave({ enabled: e.target.checked })} /> Show <b>Save as preset</b> on the work item (keeps the typed-in values of the current rows as a preset)</label>
+        {save.enabled && (
+          <>
+            <div className="help">Who may save: project administrators and/or members of the chosen teams. This is checked in the extension; it hides the button from others but is not a security boundary of Azure DevOps. Project administrator detection is best effort – if it cannot be read, only the team rule grants access.</div>
+            <label><input type="checkbox" checked={save.admins} onChange={e => setSave({ admins: e.target.checked })} /> Project administrators</label>
+            <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "6px 0" }}>
+              {teams.map(t => <span key={t.id} className={"chip" + (save.teams.some(x => x.id === t.id) ? " on" : "")} onClick={() => setSave({ teams: save.teams.some(x => x.id === t.id) ? save.teams.filter(x => x.id !== t.id) : [...save.teams, t] })}>{t.name}</span>)}
+              {!teams.length && <span className="muted">Loading teams…</span>}
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
 function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; onChange(g: GridConfig): void; issues: Issue[] }) {
   const g = p.g;
   const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
@@ -309,6 +383,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
         <tbody>{g.columns.map((c, i) => <ColumnRow key={i} c={c} others={g.columns} statusCols={g.columns.filter(x => x.statusBands)} sourceCols={sourceCols} onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
+      {!g.derived && <PresetsEditor g={g} effective={effective} onChange={p.onChange} />}
       <h3>Push totals to work item fields</h3>
       <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>
       {(g.totals ?? []).map((t, i) => {

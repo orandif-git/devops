@@ -19,6 +19,14 @@ export interface GridProps {
   onImport(file: File): void;
   onExport(kind: "csv" | "xlsx"): void;
   status: string;
+  /** "Load preset" / "Save as preset" tools (source grids only) */
+  presetTools?: {
+    presets: { id: string; name: string; count: number }[];
+    /** returns the ids of the rows that were added, so they can stay calm (no red highlighting) until touched */
+    onLoad(id: string, mode: "add" | "replace"): string[];
+    canSave: boolean;
+    onSave(name: string): void;
+  };
   /** hover text explaining where a (calculated) figure comes from, e.g. which tasks make up the hours */
   cellInfo?(row: GridRow, col: ColumnDef): string | undefined;
 }
@@ -42,6 +50,11 @@ export function Grid(p: GridProps) {
   // rows added with "Add row" that the user has not touched yet: no red highlighting
   const [pristine, setPristine] = React.useState<Set<string>>(new Set());
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const [presetPick, setPresetPick] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const [saveName, setSaveName] = React.useState("");
+  const pt = p.presetTools;
+  const pickedPreset = pt?.presets.find(x => x.id === presetPick);
 
   const allErrors = React.useMemo(() => validateRows(rows, cfg), [rows, cfg]);
   const errors = React.useMemo(() => allErrors.filter(e => !pristine.has(e.rowId)), [allErrors, pristine]);
@@ -143,6 +156,12 @@ export function Grid(p: GridProps) {
         <div className="toolbar">
           <button className="btn primary" onClick={addRow}>+ Add row</button>
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
+          {pt && pt.presets.length > 0 && (
+            <select value={presetPick} onChange={e => { setPresetPick(e.target.value); setSaving(false); }} title="Add ready-made rows to this grid">
+              <option value="">Load preset…</option>{pt.presets.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          )}
+          {pt?.canSave && <button className="btn" onClick={() => { setSaving(s => !s); setPresetPick(""); }} title="Keep the rows of this grid as a preset others can load">Save as preset…</button>}
           <span className="spacer" />
           {cfg.allowImport && <>
             <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
@@ -152,6 +171,24 @@ export function Grid(p: GridProps) {
           <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
           {childOn && <button className="btn" disabled={p.busyChildren || !pendingChildren} onClick={p.onCreateAllChildren}>
             Create {cfg.child!.workItemType}s ({pendingChildren})</button>}
+        </div>
+      )}
+      {!lockedRows && pickedPreset && pt && (
+        <div className="toolbar presetbar">
+          <span>Load <b>{pickedPreset.name}</b> ({pickedPreset.count} row{pickedPreset.count === 1 ? "" : "s"}):</span>
+          <button className="btn primary" title="Keep the current rows and add the preset's rows that are not there yet"
+            onClick={() => { const ids = pt.onLoad(pickedPreset.id, "add"); setPristine(s => { const n = new Set(s); ids.forEach(i => n.add(i)); return n; }); setPresetPick(""); }}>Add to existing rows</button>
+          <button className="btn" title="Remove all current rows and start from the preset"
+            onClick={() => { const ids = pt.onLoad(pickedPreset.id, "replace"); setPristine(new Set(ids)); setPresetPick(""); }}>Replace all rows{rows.length ? ` (removes ${rows.length})` : ""}</button>
+          <button className="btn" onClick={() => setPresetPick("")}>Cancel</button>
+        </div>
+      )}
+      {!lockedRows && saving && pt?.canSave && (
+        <div className="toolbar presetbar">
+          <input type="text" placeholder="Preset name" value={saveName} onChange={e => setSaveName(e.target.value)} style={{ width: 220 }} />
+          <button className="btn primary" disabled={!saveName.trim() || !rows.length} onClick={() => { pt.onSave(saveName.trim()); setSaving(false); setSaveName(""); }}>Save preset</button>
+          <button className="btn" onClick={() => setSaving(false)}>Cancel</button>
+          <span className="muted">Keeps the typed-in values of the current rows (not people or dates). A preset with the same name is replaced.</span>
         </div>
       )}
       {lockedRows && (

@@ -7,17 +7,19 @@ import { Grid } from "./Grid";
 import { DerivedGrid } from "./DerivedGrid";
 import { emitFormEvent } from "./formWriter";
 import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
-import { GridConfig, GridRow, LookupTable } from "../core/types";
+import { GridConfig, GridPreset, GridRow, LookupTable } from "../core/types";
+import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upsertPreset } from "../core/presets";
+import { canSavePresets } from "../shared/presetAccess";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
 import { loadCalendarBook } from "../shared/capacityStore";
 import { setCalendarBook } from "../core/schedule";
-import { downloadFile, getFormService, getProject, init, loadConfig, witClient } from "../shared/ado";
+import { downloadFile, getFormService, getProject, init, loadConfig, saveConfig, witClient } from "../shared/ado";
 import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
 interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
 
-interface Resolved { cfg: GridConfig; derived: { name: string; cfg: GridConfig }[]; notice?: string }
+interface Resolved { cfg: GridConfig; derived: { name: string; cfg: GridConfig }[]; notice?: string; gridName?: string }
 
 async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolved> {
   let cfg: GridConfig | undefined;
@@ -45,16 +47,21 @@ async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolve
   if (!cfg.dataField) throw new Error("No data field set. Pick a long-text field in the 'Data field' input.");
   const problems = validateConfig(cfg);
   if (problems.length) throw new Error("Invalid grid configuration: " + problems.join("; "));
-  return { cfg, derived, notice };
+  return { cfg, derived, notice, gridName: inputs.GridName?.trim() || undefined };
 }
 
-function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: string; projectId: string; projectName: string }) {
+function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: string; gridName?: string; projectId: string; projectName: string }) {
   const { cfg } = props;
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [ready, setReady] = React.useState(false);
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");
+  const changedRef = React.useRef<string[]>([]);
+  const refreshRef = React.useRef<() => Promise<void>>();
+  const [presets, setPresets] = React.useState<GridPreset[]>(props.cfg.presets ?? []);
+  const [presetList, setPresetList] = React.useState<GridPreset[]>([]);
+  const [canSave, setCanSave] = React.useState(false);
   const [calVersion, setCalVersion] = React.useState(0);
   const [calError, setCalError] = React.useState("");
   const knownFields = React.useRef<Set<string>>();
@@ -112,7 +119,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   React.useEffect(() => {
     SDK.register(SDK.getContributionId(), () => ({
       onLoaded: () => { resetCalcRunner(); readField().then(() => { setReady(true); applyCalculations(); }); emitFormEvent({ type: "loaded" }); },
-      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && cfg.dataField! in a.changedFields) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
+      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && changedRef.current.some(f => f in a.changedFields)) refreshRef.current?.().catch(() => undefined); if (a.changedFields && cfg.dataField! in a.changedFields) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
       onSaved: () => { readField(); emitFormEvent({ type: "saved" }); },
       onReset: () => { lastWritten.current = null; readField(); emitFormEvent({ type: "reset" }); },
       onRefreshed: () => { readField(); emitFormEvent({ type: "refreshed" }); },
@@ -121,6 +128,45 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     // block save while rows are invalid
     return () => window.clearTimeout(timer.current);
   }, [cfg, readField]);
+
+  // presets offered on this work item (their rules read fields of the work item) and who may save new ones
+  const ruleFields = React.useMemo(() => Array.from(new Set(presets.flatMap(x => (x.when ?? []).map(w => w.field).filter(Boolean)))), [presets]);
+  const refreshPresets = React.useCallback(async () => {
+    if (!presets.length) { setPresetList([]); return; }
+    const svc = await getFormService();
+    const values: Record<string, unknown> = {};
+    for (const f of ruleFields) { try { values[f] = await svc.getFieldValue(f); } catch { values[f] = undefined; } }
+    const text = (v: unknown) => (v && typeof v === "object" ? ((v as { displayName?: string; name?: string }).displayName ?? (v as { name?: string }).name ?? "") : v);
+    setPresetList(presets.filter(x => presetApplies(x, f => text(values[f]))));
+  }, [presets, ruleFields]);
+  React.useEffect(() => { if (ready) refreshPresets().catch(() => undefined); }, [ready, refreshPresets]);
+  React.useEffect(() => { if (props.gridName && cfg.presetSave?.enabled) canSavePresets(props.projectId, cfg.presetSave).then(setCanSave).catch(() => setCanSave(false)); }, [props.gridName, props.projectId, cfg.presetSave]);
+  changedRef.current = ruleFields;
+  refreshRef.current = refreshPresets;
+
+  const loadPreset = (id: string, mode: "add" | "replace"): string[] => {
+    const preset = presetList.find(x => x.id === id);
+    if (!preset) return [];
+    const before = new Set(rowsRef.current.map(r => r._id));
+    const res = mergePreset(rowsRef.current, preset, cfg, mode);
+    commit(res.rows);
+    flash(`Loaded ${res.added} row${res.added === 1 ? "" : "s"} from “${preset.name}”${res.skipped ? `; ${res.skipped} already there` : ""}. Now fill in the rest.`);
+    return res.rows.filter(r => !before.has(r._id)).map(r => r._id);
+  };
+  const savePreset = async (name: string) => {
+    try {
+      if (!props.gridName) throw new Error("this grid is configured inline, not by name");
+      const project = await loadConfig(props.projectId);
+      const g = project.grids[props.gridName];
+      if (!g) throw new Error(`grid '${props.gridName}' no longer exists`);
+      const existing = (g.presets ?? []).find(x => x.name.trim().toLowerCase() === name.toLowerCase());
+      const preset = presetFromRows(rowsRef.current, cfg, name, existing?.columns ?? defaultPresetColumns(cfg));
+      const list = upsertPreset(g.presets, preset);
+      await saveConfig(props.projectId, { ...project, grids: { ...project.grids, [props.gridName]: { ...g, presets: list } } });
+      setPresets(list);
+      flash(`Saved preset “${name}” (${preset.rows.length} rows). Add a rule for it under Project settings → Grid & Rules if it should only show on some work items.`);
+    } catch (e) { flash("Could not save the preset: " + (e as Error).message); }
+  };
 
   // scheduled grids: load the people's calendars, then recalculate the end dates and monthly hours (saved only when something changed)
   React.useEffect(() => {
@@ -210,6 +256,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
         onChange={commit} onImport={onImport} onExport={onExport}
+        presetTools={presetList.length || canSave ? { presets: presetList.map(x => ({ id: x.id, name: x.name, count: x.rows.length })), onLoad: loadPreset, canSave, onSave: savePreset } : undefined}
         onCreateChild={id => createChildren([id])}
         onCreateAllChildren={() => createChildren(rowsRef.current.filter(r => !r._childId).map(r => r._id))} />
       {props.derived.map(d => <DerivedGrid key={d.name} name={d.name} cfg={d.cfg} sourceCfg={cfg} sourceRows={rows} sourceReady={ready} projectId={props.projectId} />)}
@@ -223,8 +270,8 @@ async function main() {
   try {
     const inputs = (SDK.getConfiguration().witInputs ?? {}) as Inputs;
     const project = await getProject();
-    const { cfg, derived, notice } = await resolveConfig(inputs, project.id);
-    ReactDOM.render(<App cfg={cfg} derived={derived} notice={notice} projectId={project.id} projectName={project.name} />, root);
+    const { cfg, derived, notice, gridName } = await resolveConfig(inputs, project.id);
+    ReactDOM.render(<App cfg={cfg} derived={derived} notice={notice} gridName={gridName} projectId={project.id} projectName={project.name} />, root);
   } catch (e) {
     root.innerHTML = `<div style="padding:8px" class="err">${String((e as Error).message).replace(/</g, "&lt;")}</div>`;
     SDK.resize(undefined, 80);

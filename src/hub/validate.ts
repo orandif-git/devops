@@ -115,6 +115,29 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (src && src.type !== "number" && src.type !== "calculated") add("warn", w, `Status column '${c.id}': '${src.name}' is not a number column, so no status will be set`);
       if (c.statusBands.ranges.length && c.statusBands.ranges[c.statusBands.ranges.length - 1].upTo !== null) add("warn", w, `Status column '${c.id}': the last range has an upper limit, so larger values get no status – leave “up to” empty on the last range`);
     });
+    // ---- presets
+    const presetNames = new Set<string>();
+    (g.presets ?? []).forEach(pr => {
+      const pw = `${w} › preset “${pr.name || "(unnamed)"}”`;
+      if (!pr.name.trim()) add("error", pw, "The preset has no name");
+      else if (presetNames.has(pr.name.trim().toLowerCase())) add("error", pw, "Another preset has the same name");
+      presetNames.add(pr.name.trim().toLowerCase());
+      pr.columns.forEach(id => { if (!g.columns.some(c => c.id === id)) add("error", pw, `It keeps the column '${id}', which does not exist`); });
+      if (!pr.rows.length) add("warn", pw, "The preset has no rows");
+      (pr.when ?? []).forEach(wh => {
+        if (!wh.field) add("error", pw, "A rule has no field");
+        else { checkField(pw, wh.field, []); if (!wh.values.length) add("warn", pw, `The rule on ${wh.field} has no value, so it never matches`); }
+      });
+      const bad = new Set<string>();
+      pr.rows.forEach(r => pr.columns.forEach(id => {
+        const c = g.columns.find(x => x.id === id);
+        const v = String(r[id] ?? "");
+        const opts = c?.options ?? (c?.dependsOn ? Object.values(c.dependsOn.map).flat() : undefined);
+        if (c && c.type === "dropdown" && v && opts && !opts.some(o => o.toLowerCase() === v.toLowerCase())) bad.add(`${c.name}: ${v}`);
+      }));
+      if (bad.size) add("warn", pw, `Some values are not in the column's options: ${Array.from(bad).slice(0, 4).join("; ")}${bad.size > 4 ? "…" : ""}`);
+    });
+    if (g.presetSave?.enabled && !g.presetSave.admins && !g.presetSave.teams.length) add("warn", w, "“Save as preset” is on, but neither project administrators nor a team may use it");
     // ---- derived grids
     if (g.derived) {
       const src = cfg.grids[g.derived.source];
