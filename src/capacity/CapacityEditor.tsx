@@ -104,6 +104,24 @@ export function CapacityEditor(p: EditorProps) {
   const effective = (r: CapacityRecord, m: string) => r.overrides[m] ?? r.defaultHours ?? null;
   const monthTotal = (m: string) => shown.reduce((s, r) => s + (effective(r, m) ?? 0), 0);
   const sel = records.find(r => r.key === selected);
+  const [leaveFrom, setLeaveFrom] = React.useState("");
+  const [leaveTo, setLeaveTo] = React.useState("");
+  const person = (r: CapacityRecord) => r.name.split(" <")[0];
+  const commitTeam = (r: CapacityRecord, text: string) => { const v = text.trim(); if (v === (r.team ?? "")) return; persist({ ...r, team: v || undefined }, `${person(r)}: team ${r.team || "none"} → ${v || "none"}`); };
+  const commitPerDay = (r: CapacityRecord, text: string) => {
+    const v = parseHours(text);
+    if (v === "invalid" || (v !== null && v > 24)) return flash("Hours per day must be a number between 0 and 24.", true);
+    if (v === (r.hoursPerDay ?? null)) return;
+    persist({ ...r, hoursPerDay: v ?? undefined }, `${person(r)}: hours per day ${r.hoursPerDay ?? "default"} → ${v ?? "default"}`);
+  };
+  const addLeave = (r: CapacityRecord) => {
+    if (!leaveFrom) return flash("Pick the first day off.", true);
+    const end = leaveTo || leaveFrom;
+    if (end < leaveFrom) return flash("The last day off is before the first.", true);
+    persist({ ...r, leave: [...(r.leave ?? []), { start: leaveFrom, end }].sort((a, b) => a.start.localeCompare(b.start)) }, `${person(r)}: leave ${leaveFrom}${end !== leaveFrom ? " → " + end : ""} added`);
+    setLeaveFrom(""); setLeaveTo("");
+  };
+  const removeLeave = (r: CapacityRecord, i: number) => persist({ ...r, leave: (r.leave ?? []).filter((_, j) => j !== i) }, `${person(r)}: leave ${r.leave![i].start} removed`);
 
   return (
     <div className="capacity">
@@ -149,6 +167,20 @@ export function CapacityEditor(p: EditorProps) {
       </div>
       <div className={msg.bad ? "err" : "muted"} style={{ marginTop: 6 }}>{msg.text}</div>
       <div className="help">Each person has a <b>default</b> number of hours per month. Type a number in a month only for an <b>exception</b> (leave, part time, holidays); clear it to use the default again. Every Epic's Resource Capacity grid reads these values.</div>
+      {sel && (
+        <div className="card">
+          <strong>Calendar – {sel.name}</strong>
+          <div className="help">Used when users enter a start date and effort: the effort fills this person's working days. Hours per day and leave override the calendar defaults (Capacity settings).</div>
+          <div className="row">
+            <label className="field" style={{ flex: 1 }}><span>Team</span><input disabled={!p.canEdit} defaultValue={sel.team ?? ""} key={"t" + sel.key + (sel.team ?? "")} onBlur={e => commitTeam(sel, e.target.value)} /></label>
+            <label className="field" style={{ width: 150 }}><span>Hours per day</span><input disabled={!p.canEdit} placeholder="calendar default" defaultValue={sel.hoursPerDay ?? ""} key={"h" + sel.key + (sel.hoursPerDay ?? "")} onBlur={e => commitPerDay(sel, e.target.value)} /></label>
+          </div>
+          <div className="help"><b>Leave (days off)</b></div>
+          {(sel.leave ?? []).map((l, i) => <div key={i}>{l.start}{l.end !== l.start ? ` → ${l.end}` : ""} {p.canEdit && <button className="btn icon danger" title="Remove" onClick={() => removeLeave(sel, i)}>✕</button>}</div>)}
+          {!(sel.leave ?? []).length && <div className="muted">No leave entered.</div>}
+          {p.canEdit && <div className="row"><input type="date" value={leaveFrom} onChange={e => setLeaveFrom(e.target.value)} /><span className="fixed">to</span><input type="date" value={leaveTo} onChange={e => setLeaveTo(e.target.value)} /><button className="btn fixed" onClick={() => addLeave(sel)}>+ Add leave</button></div>}
+        </div>
+      )}
       {sel && (
         <div className="card">
           <strong>Change history – {sel.name}</strong>

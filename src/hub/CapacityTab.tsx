@@ -10,6 +10,8 @@ import {
   saveRecord, saveSettings, TeamRef,
 } from "../shared/capacityStore";
 
+const WEEK: [number, string][] = [[0, "Sun"], [1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"]];
+
 /**
  * Admin view of capacity: choose WHERE capacity is maintained (this register, or Azure DevOps team capacity),
  * who may edit the register (teams), the project default, and see the overview and the people.
@@ -46,7 +48,9 @@ export function CapacityTab(p: { projectId: string }) {
   const toggle = (key: "editorTeams" | "capacityTeams", t: TeamRef) =>
     setSettings(s => ({ ...s, [key]: s[key].some(x => x.id === t.id) ? s[key].filter(x => x.id !== t.id) : [...s[key], t] }));
   const save = async () => {
-    try { await saveSettings(p.projectId, settings); setSaved(JSON.stringify(settings)); setMsg("Capacity settings saved."); setReport(undefined); setVersion(v => v + 1); }
+    if (settings.source === "register" && !settings.calendar.workingDays.length) { setMsg("Tick at least one working day in the calendar."); return; }
+    const clean = { ...settings, calendar: { ...settings.calendar, holidays: settings.calendar.holidays.filter(h => h.start && (!h.end || h.end >= h.start)) } };
+    try { await saveSettings(p.projectId, clean); setSettings(clean); setSaved(JSON.stringify(clean)); setMsg(clean.calendar.holidays.length === settings.calendar.holidays.length ? "Capacity settings saved." : "Capacity settings saved (holidays without a valid date were dropped)."); setReport(undefined); setVersion(v => v + 1); }
     catch (e) { setMsg("Save failed: " + (e as Error).message); }
   };
   const check = async () => {
@@ -94,6 +98,33 @@ export function CapacityTab(p: { projectId: string }) {
           <button className="btn primary" disabled={!dirty} onClick={save}>Save settings</button><span className="muted">{msg}</span>
         </div>
       </div>
+
+      {settings.source === "register" && (
+        <div className="card">
+          <h3 style={{ margin: "0 0 4px" }}>Calendar (used when users enter a start date and effort)</h3>
+          <div className="help">The effort fills a person's working days in turn, so the end date and the hours per month follow the working week, holidays, the person's hours per day and their leave. With Azure DevOps team capacity this comes from the team settings instead.</div>
+          <div className="row">
+            <span className="fixed">Working week:</span>
+            {WEEK.map(([n, label]) => (
+              <label key={n} className="fixed"><input type="checkbox" checked={settings.calendar.workingDays.includes(n)}
+                onChange={e => setSettings(s => ({ ...s, calendar: { ...s.calendar, workingDays: e.target.checked ? [...s.calendar.workingDays, n].sort() : s.calendar.workingDays.filter(d => d !== n) } }))} /> {label}</label>
+            ))}
+            <label className="fixed">Default hours per day <input style={{ width: 60 }} value={settings.calendar.hoursPerDay} onChange={e => { const v = parseFloat(e.target.value); setSettings(s => ({ ...s, calendar: { ...s.calendar, hoursPerDay: Number.isFinite(v) && v >= 0 && v <= 24 ? v : s.calendar.hoursPerDay } })); }} /></label>
+          </div>
+          <div className="help"><b>Holidays</b> (days nobody works)</div>
+          {settings.calendar.holidays.map((h, i) => (
+            <div className="row" key={i}>
+              <input type="date" value={h.start} onChange={e => setSettings(s => ({ ...s, calendar: { ...s.calendar, holidays: s.calendar.holidays.map((x, j) => (j === i ? { ...x, start: e.target.value } : x)) } }))} />
+              <span className="fixed">to</span>
+              <input type="date" value={h.end ?? ""} onChange={e => setSettings(s => ({ ...s, calendar: { ...s.calendar, holidays: s.calendar.holidays.map((x, j) => (j === i ? { ...x, end: e.target.value || undefined } : x)) } }))} />
+              <input placeholder="Name (optional)" value={h.name ?? ""} onChange={e => setSettings(s => ({ ...s, calendar: { ...s.calendar, holidays: s.calendar.holidays.map((x, j) => (j === i ? { ...x, name: e.target.value || undefined } : x)) } }))} />
+              <button className="btn icon danger fixed" onClick={() => setSettings(s => ({ ...s, calendar: { ...s.calendar, holidays: s.calendar.holidays.filter((_, j) => j !== i) } }))}>✕</button>
+            </div>
+          ))}
+          <button className="btn" onClick={() => setSettings(s => ({ ...s, calendar: { ...s.calendar, holidays: [...s.calendar.holidays, { start: "" }] } }))}>+ Add holiday</button>
+          <div className="help">Hours per day and leave of a person are set in the register below (select a person with ⓘ).</div>
+        </div>
+      )}
 
       {settings.source === "register" && (
         <div className="card">
