@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid &amp; Rules – setup layout prototype</title>
+<style>
+  :root {
+    --bg: #ffffff; --bg2: #faf9f8; --card: #ffffff; --fg: #201f1e; --fg2: #605e5c; --line: #e1dfdd; --hover: #f3f2f1; --sel: #eff6fc;
+    --accent: #0078d4; --accent-fg: #ffffff; --ok: #107c10; --warn: #8a6d00; --err: #d13438; --warn-bg: #fff4ce; --err-bg: #fde7e9; --ok-bg: #dff6dd; --chip: #f3f2f1;
+    --shadow: 0 1.6px 3.6px rgba(0,0,0,.13), 0 .3px .9px rgba(0,0,0,.1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1a19; --bg2: #201f1e; --card: #252423; --fg: #f3f2f1; --fg2: #c8c6c4; --line: #3b3a39; --hover: #323130; --sel: #1a2c3d;
+      --accent: #2899f5; --accent-fg: #0b0b0b; --ok: #6bb700; --warn: #f7d56a; --err: #f1707b; --warn-bg: #433519; --err-bg: #442726; --ok-bg: #2a3a22; --chip: #323130;
+      --shadow: 0 1.6px 3.6px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1a19; --bg2: #201f1e; --card: #252423; --fg: #f3f2f1; --fg2: #c8c6c4; --line: #3b3a39; --hover: #323130; --sel: #1a2c3d;
+    --accent: #2899f5; --accent-fg: #0b0b0b; --ok: #6bb700; --warn: #f7d56a; --err: #f1707b; --warn-bg: #433519; --err-bg: #442726; --ok-bg: #2a3a22; --chip: #323130;
+    --shadow: 0 1.6px 3.6px rgba(0,0,0,.5);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg2); color: var(--fg); font: 14px/1.45 "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .topbar { background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex; align-items: center; gap: 8px; color: var(--fg2); flex-wrap: wrap; }
+  .topbar b { color: var(--fg); }
+  .topbar .sp { flex: 1; }
+  .shell { display: flex; min-height: calc(100vh - 45px); }
+  nav.side { width: 232px; flex: none; background: var(--bg); border-right: 1px solid var(--line); padding: 12px 0; }
+  nav.side h4 { margin: 12px 16px 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg2); font-weight: 600; }
+  nav.side button { display: flex; width: 100%; align-items: center; gap: 8px; text-align: left; border: 0; background: none; padding: 8px 16px; cursor: pointer; border-left: 3px solid transparent; }
+  nav.side button:hover { background: var(--hover); }
+  nav.side button.on { background: var(--sel); border-left-color: var(--accent); font-weight: 600; }
+  nav.side .badge { margin-left: auto; }
+  main { flex: 1; min-width: 0; }
+  .cmdbar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .cmdbar h1 { margin: 0; font-size: 20px; font-weight: 600; }
+  .cmdbar .sp { flex: 1; }
+  .page { display: none; padding: 20px 24px 60px; max-width: 1280px; }
+  .page.on { display: block; }
+  .btn { border: 1px solid var(--line); background: var(--bg); padding: 5px 12px; border-radius: 2px; cursor: pointer; }
+  .btn:hover { background: var(--hover); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  .btn.primary:hover { filter: brightness(.92); }
+  .btn.sm { padding: 2px 8px; font-size: 12px; }
+  .btn.ghost { border-color: transparent; background: none; color: var(--accent); padding: 5px 8px; }
+  .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 10px; background: var(--chip); color: var(--fg2); white-space: nowrap; }
+  .badge.ok { background: var(--ok-bg); color: var(--ok); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .badge.err { background: var(--err-bg); color: var(--err); }
+  .badge.acc { background: var(--sel); color: var(--accent); }
+  .muted { color: var(--fg2); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 2px; padding: 16px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .card h3 { margin: 0 0 2px; font-size: 16px; font-weight: 600; }
+  .card .sub { color: var(--fg2); margin-bottom: 12px; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 150px; }
+  .field > span { font-size: 12px; color: var(--fg2); }
+  input[type=text], input[type=number], input[type=date], select { border: 1px solid var(--line); background: var(--bg); padding: 5px 8px; border-radius: 2px; min-height: 30px; }
+  input:focus, select:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-weight: 600; color: var(--fg2); font-size: 12px; }
+  tr.sel td { background: var(--sel); }
+  .pivot { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 0 0 16px; overflow-x: auto; }
+  .pivot button { border: 0; background: none; padding: 9px 12px; cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; color: var(--fg2); }
+  .pivot button:hover { color: var(--fg); }
+  .pivot button.on { color: var(--fg); font-weight: 600; border-bottom-color: var(--accent); }
+  .pivotpage { display: none; }
+  .pivotpage.on { display: block; }
+  .split { display: grid; grid-template-columns: 250px 1fr; gap: 16px; align-items: start; }
+  .list { background: var(--card); border: 1px solid var(--line); border-radius: 2px; }
+  .list button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 10px 12px; cursor: pointer; border-left: 3px solid transparent; }
+  .list button:hover { background: var(--hover); }
+  .list button.on { background: var(--sel); border-left-color: var(--accent); }
+  .list .tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .step { display: flex; gap: 14px; align-items: flex-start; }
+  .step .num { flex: none; width: 28px; height: 28px; border-radius: 50%; background: var(--sel); color: var(--accent); display: grid; place-items: center; font-weight: 600; }
+  .step.done .num { background: var(--ok-bg); color: var(--ok); }
+  .step .body { flex: 1; }
+  .step h3 { margin-bottom: 2px; }
+  .progress { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin: 6px 0 16px; }
+  .progress i { display: block; height: 100%; background: var(--accent); }
+  .tile { border: 1px solid var(--line); border-radius: 2px; padding: 12px; background: var(--card); display: flex; flex-direction: column; gap: 6px; }
+  .tile .t { font-weight: 600; }
+  .tile .v { font-size: 22px; font-weight: 600; }
+  .tile button { align-self: flex-start; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 12px; }
+  .flow .node { border: 1px solid var(--line); border-radius: 2px; padding: 6px 10px; background: var(--card); }
+  .flow .node.calc { background: var(--sel); border-color: var(--accent); }
+  .flow .arrow { color: var(--fg2); }
+  .help { background: var(--sel); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 8px 0 12px; color: var(--fg); }
+  .toggle { display: flex; gap: 10px; align-items: flex-start; }
+  .toggle input { margin-top: 4px; }
+  .issue { display: flex; gap: 10px; align-items: flex-start; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .issue:last-child { border-bottom: 0; }
+  .issue .ic { flex: none; width: 20px; text-align: center; font-weight: 700; }
+  .issue.err .ic { color: var(--err); } .issue.warn .ic { color: var(--warn); }
+  .issue .grow { flex: 1; }
+  .mini th, .mini td { padding: 4px 6px; font-size: 12px; }
+  .tint-g { background: var(--ok-bg); } .tint-y { background: var(--warn-bg); } .tint-r { background: var(--err-bg); }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { border: 1px solid var(--line); border-radius: 14px; padding: 2px 10px; background: var(--bg); cursor: pointer; }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  details { border: 1px solid var(--line); border-radius: 2px; margin-bottom: 8px; background: var(--card); }
+  details > summary { cursor: pointer; padding: 10px 12px; font-weight: 600; }
+  details > div { padding: 0 12px 12px; }
+  .notes { position: fixed; right: 16px; bottom: 16px; z-index: 20; }
+  .notes .panel { display: none; width: min(420px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--card); border: 1px solid var(--line); box-shadow: var(--shadow); padding: 14px; margin-bottom: 8px; }
+  .notes.open .panel { display: block; }
+  .notes h4 { margin: 10px 0 4px; }
+  .notes ul { margin: 4px 0 4px 18px; padding: 0; }
+  @media (max-width: 860px) {
+    .shell { flex-direction: column; }
+    nav.side { width: auto; display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 0; }
+    nav.side h4 { display: none; }
+    nav.side button { width: auto; border-left: 0; border-bottom: 3px solid transparent; white-space: nowrap; }
+    nav.side button.on { border-bottom-color: var(--accent); }
+    .split { grid-template-columns: 1fr; }
+    .page { padding: 16px; }
+    .cmdbar { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span>Azure DevOps</span> / <span>CB Tech Portfolio</span> / <span>Project settings</span> / <b>Grid &amp; Rules</b>
+  <span class="sp"></span>
+  <span class="badge">Layout prototype – nothing here is saved</span>
+  <button class="btn sm" id="themeBtn" type="button">Light / dark</button>
+</div>
+
+<div class="shell">
+  <nav class="side" aria-label="Grid &amp; Rules sections">
+    <h4>Start</h4>
+    <button type="button" data-go="start" class="on">Getting started <span class="badge ok">3 of 5</span></button>
+    <h4>Build</h4>
+    <button type="button" data-go="grids">Grids <span class="badge">2</span></button>
+    <button type="button" data-go="calcs">Calculations <span class="badge">12</span></button>
+    <button type="button" data-go="rules">Rules &amp; dropdowns <span class="badge">0</span></button>
+    <button type="button" data-go="lists">Shared lists <span class="badge">1</span></button>
+    <h4>People &amp; time</h4>
+    <button type="button" data-go="capacity">Capacity &amp; calendar</button>
+    <h4>Check</h4>
+    <button type="button" data-go="health">Health check <span class="badge warn">4</span></button>
+  </nav>
+
+  <main>
+    <div class="cmdbar">
+      <h1 id="pageTitle">Getting started</h1>
+      <span class="badge warn" id="statusBadge">No errors · 4 warnings</span>
+      <span class="sp"></span>
+      <button class="btn" type="button">Discard</button>
+      <button class="btn primary" type="button">Save</button>
+    </div>
+
+    <!-- ============ GETTING STARTED ============ -->
+    <section class="page on" id="p-start" data-title="Getting started">
+      <div class="card">
+        <h3>Set up in five steps</h3>
+        <div class="sub">Follow the steps in order. Each one opens the screen where you do it. You can come back here at any time.</div>
+        <div class="progress" aria-label="3 of 5 steps done"><i style="width:60%"></i></div>
+      </div>
+      <div class="card step done">
+        <div class="num">✓</div>
+        <div class="body"><h3>1 · Create the fields</h3><div class="sub">Plain “Text (multiple lines)” fields for each grid, and number fields for anything the extension writes.</div>
+          <span class="badge ok">All fields found on Epic</span> <button class="btn ghost" type="button" data-go="health">Field checklist</button></div>
+      </div>
+      <div class="card step done">
+        <div class="num">✓</div>
+        <div class="body"><h3>2 · Design a grid</h3><div class="sub">Columns, auto-fill, dates and effort, review, presets and totals.</div>
+          <span class="badge ok">2 grids</span> <button class="btn ghost" type="button" data-go="grids">Open Grids</button></div>
+      </div>
+      <div class="card step done">
+        <div class="num">✓</div>
+        <div class="body"><h3>3 · Add the control to the work item layout</h3><div class="sub">Add the Smart Grid control on the grid's data field and type the grid name.</div>
+          <span class="badge ok">Epic · SDLC Timesheet</span> <button class="btn ghost" type="button">Show me how</button></div>
+      </div>
+      <div class="card step">
+        <div class="num">4</div>
+        <div class="body"><h3>4 · Set up capacity <span class="badge">optional</span></h3><div class="sub">Where capacity and the working calendar come from, and who may edit it.</div>
+          <span class="badge warn">Team capacity: 2 people have no hours per day</span> <button class="btn primary sm" type="button" data-go="capacity">Continue</button></div>
+      </div>
+      <div class="card step">
+        <div class="num">5</div>
+        <div class="body"><h3>5 · Check and publish</h3><div class="sub">Live checks against your process, then Save.</div>
+          <span class="badge warn">4 warnings</span> <button class="btn ghost" type="button" data-go="health">Open Health check</button></div>
+      </div>
+    </section>
+
+    <!-- ============ GRIDS ============ -->
+    <section class="page" id="p-grids" data-title="Grids">
+      <div class="split">
+        <div>
+          <button class="btn primary" type="button" style="width:100%;margin-bottom:8px">+ New grid</button>
+          <div class="list" id="gridList">
+            <button type="button" class="on" data-grid="ts"><b>SDLC Timesheet</b><span class="muted">Custom.ResourceDataTable</span><span class="tags"><span class="badge acc">Scheduled by dates</span><span class="badge acc">Review</span></span></button>
+            <button type="button" data-grid="cap"><b>Resource Capacity</b><span class="muted">Custom.CapacityData</span><span class="tags"><span class="badge">Derived from SDLC Timesheet</span></span></button>
+          </div>
+        </div>
+        <div>
+          <div class="card" style="padding:12px 16px">
+            <div class="row" style="margin:0;align-items:center">
+              <div style="flex:1"><div style="font-size:18px;font-weight:600" id="gridName">SDLC Timesheet</div><div class="muted" id="gridSub">Stores its rows in Custom.ResourceDataTable · shown on Epic</div></div>
+              <button class="btn" type="button">Duplicate</button><button class="btn" type="button">Delete</button>
+            </div>
+          </div>
+          <div class="pivot" id="gridPivot" role="tablist">
+            <button type="button" class="on" data-pv="overview">Overview</button>
+            <button type="button" data-pv="columns">Columns <span class="badge">11</span></button>
+            <button type="button" data-pv="dates">Dates &amp; effort</button>
+            <button type="button" data-pv="review">Review <span class="badge warn">1</span></button>
+            <button type="button" data-pv="presets">Presets <span class="badge">1</span></button>
+            <button type="button" data-pv="totals">Totals &amp; fields <span class="badge">3</span></button>
+            <button type="button" data-pv="child">Child items</button>
+          </div>
+
+          <!-- Overview -->
+          <div class="pivotpage on" data-pvpage="overview">
+            <div class="grid3">
+              <div class="tile"><span class="t">Columns</span><span class="v">11</span><span class="muted">3 auto-fill · 1 calculated</span><button class="btn sm" type="button" data-pvgo="columns">Edit columns</button></div>
+              <div class="tile"><span class="t">Dates &amp; effort</span><span class="v">On</span><span class="muted">Start + effort + allocation → end date</span><button class="btn sm" type="button" data-pvgo="dates">Edit</button></div>
+              <div class="tile"><span class="t">Review</span><span class="v">Secure</span><span class="muted">2 approver rules · locked when approved</span><button class="btn sm" type="button" data-pvgo="review">Edit</button></div>
+              <div class="tile"><span class="t">Presets</span><span class="v">1</span><span class="muted">“Standard activities”</span><button class="btn sm" type="button" data-pvgo="presets">Edit</button></div>
+              <div class="tile"><span class="t">Totals &amp; fields</span><span class="v">3</span><span class="muted">written to 3 work item fields</span><button class="btn sm" type="button" data-pvgo="totals">Edit</button></div>
+              <div class="tile"><span class="t">Child items</span><span class="v">Off</span><span class="muted">Create Tasks from rows</span><button class="btn sm" type="button" data-pvgo="child">Turn on</button></div>
+            </div>
+            <div class="card" style="margin-top:16px">
+              <h3>Needs attention</h3>
+              <div class="issue warn"><span class="ic">!</span><div class="grow">Review: approver rule “PMO” has no team or person, so nobody can use it.</div><button class="btn sm" type="button" data-pvgo="review">Fix</button></div>
+              <div class="issue warn"><span class="ic">!</span><div class="grow">Totals: “Approved effort” has no work item field yet.</div><button class="btn sm" type="button" data-pvgo="totals">Fix</button></div>
+            </div>
+          </div>
+
+          <!-- Columns -->
+          <div class="pivotpage" data-pvpage="columns">
+            <div class="split" style="grid-template-columns:1fr 320px">
+              <div class="card">
+                <div class="row" style="align-items:center;margin-bottom:6px"><div style="flex:1"><h3>Columns</h3><div class="sub" style="margin:0">Order here is the order users see. Select a column to edit its settings.</div></div><button class="btn primary sm" type="button">+ Add column</button></div>
+                <div class="chips" style="margin-bottom:10px"><span class="chip">+ Start, effort and end date</span><span class="chip">+ Review columns</span><span class="chip">+ Auto-fill column</span></div>
+                <table>
+                  <thead><tr><th style="width:62px"></th><th>Header</th><th>Id</th><th>Type</th><th>Req.</th><th>Total</th></tr></thead>
+                  <tbody id="colRows">
+                    <tr data-col="0"><td><button class="btn sm" type="button" aria-label="Move up">↑</button><button class="btn sm" type="button" aria-label="Move down">↓</button></td><td>SDLC Activity</td><td class="muted">sdlcactivity</td><td>dropdown</td><td>✓</td><td>—</td></tr>
+                    <tr data-col="1"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Phase <span class="badge">auto-fill</span></td><td class="muted">phase</td><td>text</td><td></td><td>—</td></tr>
+                    <tr data-col="2" class="sel"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Default treatment <span class="badge">auto-fill</span></td><td class="muted">treatment</td><td>text</td><td></td><td>—</td></tr>
+                    <tr data-col="3"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Team</td><td class="muted">team</td><td>dropdown</td><td>✓</td><td>—</td></tr>
+                    <tr data-col="4"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Resource</td><td class="muted">resource</td><td>people</td><td>✓</td><td>—</td></tr>
+                    <tr data-col="5"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Start date</td><td class="muted">startdate</td><td>date</td><td>✓</td><td>—</td></tr>
+                    <tr data-col="6"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>Effort (h)</td><td class="muted">effort</td><td>number</td><td>✓</td><td>sum</td></tr>
+                    <tr data-col="7"><td><button class="btn sm" type="button">↑</button><button class="btn sm" type="button">↓</button></td><td>End date <span class="badge">calculated</span></td><td class="muted">enddate</td><td>date</td><td></td><td>—</td></tr>
+                    <tr><td colspan="6" class="muted">+ 3 more (Allocation %, Is Contractor, Review status)</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div>
+                <div class="card">
+                  <h3>Default treatment</h3><div class="sub">Settings for the selected column</div>
+                  <div class="row"><label class="field"><span>Header</span><input type="text" value="Default treatment"></label></div>
+                  <details open><summary>Auto-fill from another column</summary><div>
+                    <label class="field"><span>Fill from</span><select><option>SDLC Activity</option></select></label>
+                    <label class="field" style="margin-top:8px"><span>Mapping</span><select><option>Custom – defined for this column</option></select></label>
+                    <div class="help">A ticked checkbox can force a fixed value instead:</div>
+                    <div class="row"><span>When</span><select><option>Is Contractor</option></select><span>is ticked →</span><input type="text" value="Capitalizable"></div>
+                  </div></details>
+                  <details><summary>Validation &amp; default</summary><div class="muted">Required, default value, min / max, width.</div></details>
+                  <details><summary>Status &amp; colour</summary><div class="muted">Colour from ranges of a number column.</div></details>
+                </div>
+                <div class="card">
+                  <h3>What users see</h3>
+                  <table class="mini"><thead><tr><th>SDLC Activity</th><th>Treatment</th><th>Effort</th></tr></thead>
+                  <tbody><tr><td>Technical design</td><td>Capitalizable</td><td>40</td></tr><tr><td>User training</td><td class="tint-y">Expense</td><td>16</td></tr></tbody></table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dates & effort -->
+          <div class="pivotpage" data-pvpage="dates">
+            <div class="card">
+              <label class="toggle"><input type="checkbox" checked><span><b>Users enter a start date, effort and allocation %</b><br><span class="muted">The end date and the hours per month are calculated from each person's calendar. Turn off to keep one row per month.</span></span></label>
+            </div>
+            <div class="card">
+              <h3>Which columns do what?</h3><div class="sub">Pick the columns, or let the extension add the standard ones.</div>
+              <div class="flow">
+                <div class="node"><span class="muted">Resource</span><br><select><option>Resource</option></select></div><span class="arrow">+</span>
+                <div class="node"><span class="muted">Start date</span><br><select><option>Start date</option></select></div><span class="arrow">+</span>
+                <div class="node"><span class="muted">Effort (h)</span><br><select><option>Effort (h)</option></select></div><span class="arrow">+</span>
+                <div class="node"><span class="muted">Allocation % (optional)</span><br><select><option>Allocation %</option></select></div><span class="arrow">→</span>
+                <div class="node calc"><span class="muted">End date (calculated)</span><br><select><option>End date</option></select></div>
+              </div>
+              <button class="btn" type="button">Add any missing standard columns</button>
+            </div>
+            <div class="card">
+              <h3>Calendar used</h3>
+              <div class="sub">Azure DevOps team capacity (2 teams) · working days, days off and hours per day are read from the yearly iteration.</div>
+              <button class="btn" type="button" data-go="capacity">Change in Capacity &amp; calendar</button>
+            </div>
+            <div class="card">
+              <h3>Try it</h3><div class="sub">80 h for Aman S from 26 Oct 2026 at 100 %, Monday to Friday, 8 h a day.</div>
+              <table class="mini"><thead><tr><th>Month</th><th>Hours</th></tr></thead><tbody><tr><td>2026-10</td><td>40</td></tr><tr><td>2026-11</td><td>40</td></tr></tbody></table>
+              <div class="muted" style="margin-top:6px">End date 06 Nov 2026 · 10 working days</div>
+            </div>
+          </div>
+
+          <!-- Review -->
+          <div class="pivotpage" data-pvpage="review">
+            <div class="card">
+              <label class="toggle"><input type="checkbox" checked><span><b>Every row has a review status</b><br><span class="muted">Pending review, Approved or Rejected, changed by chosen people one by one or in bulk.</span></span></label>
+            </div>
+            <div class="grid2">
+              <div class="card">
+                <h3>1 · Who may approve</h3><div class="sub">One rule per group of rows. A row with no matching rule can only be decided by administrators.</div>
+                <div class="card" style="box-shadow:none;margin-bottom:8px"><b>Finance</b> <span class="badge">rows where Treatment = Capitalizable</span><div class="chips" style="margin-top:6px"><span class="chip on">Finance team</span></div></div>
+                <div class="card" style="box-shadow:none;margin-bottom:8px"><b>PMO</b> <span class="badge">all other rows</span> <span class="badge warn">no team or person</span><div class="chips" style="margin-top:6px"><span class="chip">PMO</span><span class="chip">IT Leads</span><span class="chip">+ person</span></div></div>
+                <button class="btn" type="button">+ Add approver rule</button>
+                <div class="help">Grid administrators (besides project administrators) may decide every row and edit locked rows: <span class="chip on">Admin</span></div>
+              </div>
+              <div class="card">
+                <h3>2 · What happens after a decision</h3>
+                <label class="toggle"><input type="checkbox" checked><span><b>Lock approved rows</b><br><span class="muted">Only administrators can edit, move or delete them.</span></span></label><br>
+                <label class="toggle"><input type="checkbox" checked><span><b>Edits send a row back to pending</b></span></label><br>
+                <label class="toggle"><input type="checkbox"><span><b>Nobody decides their own row</b></span></label>
+              </div>
+            </div>
+            <div class="card">
+              <h3>3 · Secure approvals <span class="badge acc">optional · recommended</span></h3>
+              <div class="sub">Decisions are kept in a separate field that only the approvers can change, enforced by Azure DevOps.</div>
+              <div class="row"><label class="toggle"><input type="checkbox" checked><span><b>Use secure approvals</b></span></label><label class="field"><span>Approvals field</span><input type="text" value="Custom.ReviewData"></label></div>
+              <div class="grid3">
+                <div class="tile"><span class="t">① Field on the work item type</span><span class="badge ok">Found on Epic</span></div>
+                <div class="tile"><span class="t">② Process rule: read-only unless in approver group</span><span class="badge warn">Cannot be checked – do it in Process settings</span></div>
+                <div class="tile"><span class="t">③ Test as a non-member</span><span class="badge">Not done</span><button class="btn sm" type="button">How to test</button></div>
+              </div>
+            </div>
+            <div class="card">
+              <h3>4 · Columns and totals</h3>
+              <div class="muted">Status, reviewed by, reviewed at and comment columns are created for you. Add approved / pending / rejected totals under <a href="#" data-pvgo="totals">Totals &amp; fields</a>.</div>
+            </div>
+          </div>
+
+          <!-- Presets -->
+          <div class="pivotpage" data-pvpage="presets">
+            <div class="split" style="grid-template-columns:240px 1fr">
+              <div class="list"><button type="button" class="on"><b>Standard activities</b><span class="muted">3 rows · offered everywhere</span></button><button type="button"><b>+ New preset</b></button></div>
+              <div>
+                <div class="card">
+                  <div class="row"><label class="field"><span>Name</span><input type="text" value="Standard activities"></label></div>
+                  <div class="help">Offer this preset only when… <span class="muted">(leave empty to offer it on every work item)</span></div>
+                  <div class="row"><label class="field"><span>Field</span><input type="text" placeholder="Custom.ProjectType"></label><span>is</span><label class="field"><span>Value</span><input type="text" placeholder="Implementation"></label></div>
+                  <div class="help">Columns this preset keeps:</div>
+                  <div class="chips"><span class="chip on">SDLC Activity</span><span class="chip on">Team</span><span class="chip on">Effort (h)</span><span class="chip">Is Contractor</span></div>
+                </div>
+                <div class="card"><h3>Rows</h3>
+                  <table class="mini"><thead><tr><th>SDLC Activity</th><th>Team</th><th>Effort</th></tr></thead><tbody><tr><td>Technical design</td><td>IT Applications</td><td>40</td></tr><tr><td>Development and coding</td><td>IT Applications</td><td>120</td></tr><tr><td>System integration testing</td><td>Quality Assurance</td><td>40</td></tr></tbody></table>
+                </div>
+                <div class="card"><label class="toggle"><input type="checkbox" checked><span><b>Show “Save as preset” on the work item</b><br><span class="muted">For project administrators and members of: <span class="chip on">Admin</span></span></span></label></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Totals -->
+          <div class="pivotpage" data-pvpage="totals">
+            <div class="card">
+              <div class="row" style="align-items:center"><div style="flex:1"><h3>Totals written to work item fields</h3><div class="sub" style="margin:0">Whenever rows change, the figure is written to the field.</div></div><button class="btn primary sm" type="button">+ Add total</button><button class="btn sm" type="button">+ Totals by review status</button></div>
+              <table>
+                <thead><tr><th>Figure</th><th>Only rows where</th><th>Work item field</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td>Sum of Effort (h)</td><td class="muted">all rows</td><td>Custom.TotalProjectManhours</td><td><span class="badge ok">OK</span></td></tr>
+                  <tr><td>Sum of Effort (h)</td><td class="muted">Review status = Approved</td><td class="muted">— choose a field —</td><td><span class="badge warn">Needs a field</span></td></tr>
+                  <tr><td>By Treatment: Capitalizable · Expense · Pending</td><td class="muted">grouped</td><td>3 fields</td><td><span class="badge ok">OK</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Child items -->
+          <div class="pivotpage" data-pvpage="child">
+            <div class="card"><label class="toggle"><input type="checkbox"><span><b>Create child work items from rows</b><br><span class="muted">Choose the work item type, the title column and which columns fill which fields. The parent link is added automatically.</span></span></label></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ CALCULATIONS ============ -->
+    <section class="page" id="p-calcs" data-title="Calculations">
+      <div class="split">
+        <div class="list"><button type="button" class="on"><b>Capitalization %</b><span class="muted">→ Custom.CapitalizationPercent</span><span class="tags"><span class="badge ok">Enabled</span></span></button><button type="button"><b>Peak Demand Team</b><span class="muted">→ Custom.PeakTeam</span></button><button type="button"><b>Overall Capacity Utilization</b><span class="muted">→ Custom.OverallUtilization</span></button></div>
+        <div>
+          <div class="pivot"><button class="on" type="button">1 · Inputs</button><button type="button">2 · Formula</button><button type="button">3 · Result</button><button type="button">Test</button></div>
+          <div class="card"><h3>Inputs</h3><div class="sub">Give each value a short name. It is a work item field or a figure from a grid.</div>
+            <table><thead><tr><th>Name</th><th>Comes from</th><th></th></tr></thead><tbody><tr><td>CapexHours</td><td>Sum of Effort (h) in SDLC Timesheet where Treatment = Capitalizable</td><td><span class="badge ok">OK</span></td></tr><tr><td>TotalHours</td><td>Sum of Effort (h) in SDLC Timesheet</td><td><span class="badge ok">OK</span></td></tr></tbody></table></div>
+          <div class="muted">Same editors as today, split into the three steps you already follow: inputs, formula, result – with Test always one click away.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ RULES ============ -->
+    <section class="page" id="p-rules" data-title="Rules &amp; dropdowns">
+      <div class="pivot"><button class="on" type="button">Rules <span class="badge">0</span></button><button type="button">Dependent dropdowns <span class="badge">0</span></button></div>
+      <div class="card"><h3>No rules yet</h3><div class="sub">Rules set values, require fields, restrict values or block saving when conditions are met.</div><button class="btn primary" type="button">+ New rule</button></div>
+    </section>
+
+    <!-- ============ SHARED LISTS ============ -->
+    <section class="page" id="p-lists" data-title="Shared lists">
+      <div class="split">
+        <div class="list"><button type="button" class="on"><b>Resource type</b><span class="muted">Team → Internal / External / Business</span><span class="tags"><span class="badge warn">Not used by any grid</span></span></button></div>
+        <div class="card"><h3>Resource type</h3><div class="sub">A value → category list you maintain once and reuse in any grid column.</div>
+          <div class="help">Not used yet. Add a column that fills itself from another column and pick this list, or delete it.</div>
+          <button class="btn" type="button" data-go="grids">Use it in a grid column</button> <button class="btn" type="button">Delete</button></div>
+      </div>
+    </section>
+
+    <!-- ============ CAPACITY ============ -->
+    <section class="page" id="p-capacity" data-title="Capacity &amp; calendar">
+      <div class="pivot" id="capPivot"><button type="button" class="on" data-cp="src">Source &amp; calendar</button><button type="button" data-cp="people">People</button><button type="button" data-cp="util">Utilization overview</button></div>
+      <div class="pivotpage on" data-cppage="src">
+        <div class="card"><h3>Where is capacity maintained?</h3><div class="sub">Both the available hours and the working calendar come from here.</div>
+          <div class="grid2">
+            <label class="card" style="margin:0;cursor:pointer"><span class="toggle"><input type="radio" name="src"><span><b>This extension's register</b><br><span class="muted">Hours per person and month, calendar table, edited here.</span></span></span></label>
+            <label class="card" style="margin:0;cursor:pointer;border-color:var(--accent)"><span class="toggle"><input type="radio" name="src" checked><span><b>Azure DevOps team capacity</b><br><span class="muted">Read from Boards → Sprints → Capacity. Working days, days off and hours per day.</span></span></span></label>
+          </div></div>
+        <div class="card"><h3>Teams that hold the capacity</h3><div class="chips" style="margin:8px 0"><span class="chip on">IT Applications</span><span class="chip on">Integration</span><span class="chip">Quality Assurance</span><span class="chip">Business</span></div>
+          <button class="btn" type="button">Check what is read</button> <span class="badge warn">2 people have no hours per day</span></div>
+        <div class="card"><h3>Who may edit capacity</h3><div class="sub">Not needed with team capacity: it is edited in Azure DevOps.</div></div>
+      </div>
+      <div class="pivotpage" data-cppage="people"><div class="card"><h3>People</h3><div class="sub">Read-only with team capacity. With the register: default hours, monthly exceptions, hours per day, team and leave.</div></div></div>
+      <div class="pivotpage" data-cppage="util"><div class="card"><h3>Utilization overview</h3><div class="sub">Capacity against allocated hours per person and month, across all Epics.</div></div></div>
+    </section>
+
+    <!-- ============ HEALTH ============ -->
+    <section class="page" id="p-health" data-title="Health check">
+      <div class="card"><div class="row" style="align-items:center;margin:0"><div style="flex:1"><h3>Live checks against your process</h3><div class="sub" style="margin:0">0 errors · 4 warnings. Save is allowed with warnings.</div></div><span class="badge ok">0 errors</span><span class="badge warn">4 warnings</span></div></div>
+      <div class="card">
+        <h3>SDLC Timesheet</h3>
+        <div class="issue warn"><span class="ic">!</span><div class="grow">Review: approver rule “PMO” has no team or person.</div><button class="btn sm" type="button" data-go="grids">Fix in Review</button></div>
+        <div class="issue warn"><span class="ic">!</span><div class="grow">Totals: “Approved effort” has no work item field.</div><button class="btn sm" type="button" data-go="grids">Fix in Totals</button></div>
+        <h3 style="margin-top:14px">Resource Capacity</h3>
+        <div class="issue warn"><span class="ic">!</span><div class="grow">The source grid is scheduled by dates, so month columns should use the scheduled month.</div><button class="btn sm" type="button">Use scheduled month and hours</button></div>
+        <h3 style="margin-top:14px">Shared lists</h3>
+        <div class="issue warn"><span class="ic">!</span><div class="grow">“Resource type” is not used by any grid column.</div><button class="btn sm" type="button" data-go="lists">Open</button></div>
+      </div>
+      <details><summary>Advanced · Read-only fields</summary><div class="muted">Every field the extension writes, with how to lock it.</div></details>
+      <details><summary>Advanced · JSON import / export</summary><div class="muted">The whole configuration as JSON, for backup or copying to another project.</div></details>
+    </section>
+  </main>
+</div>
+
+<div class="notes" id="notes">
+  <div class="panel">
+    <b>Design notes</b>
+    <h4>Why this layout</h4>
+    <ul>
+      <li><b>Left navigation in the order you work</b>: start → build → people &amp; time → check. Same pattern as Azure DevOps settings pages.</li>
+      <li><b>Grid editor split into tabs</b> (Overview, Columns, Dates &amp; effort, Review, Presets, Totals, Child items) instead of one long page. The Overview tab shows the state of each part and what needs attention.</li>
+      <li><b>Master and detail</b>: a list on the left, the selected item on the right, for grids, calculations, presets and lists.</li>
+      <li><b>One save bar</b> at the top with the live error / warning count, always visible.</li>
+      <li><b>Every warning has a Fix button</b> that jumps to the right place.</li>
+    </ul>
+    <h4>Where today's tabs go</h4>
+    <ul>
+      <li>Rules + Dependent dropdowns → <b>Rules &amp; dropdowns</b> (two tabs)</li>
+      <li>Grids → <b>Grids</b> (seven tabs)</li>
+      <li>Mappings → <b>Shared lists</b></li>
+      <li>Calculations → <b>Calculations</b></li>
+      <li>Capacity → <b>Capacity &amp; calendar</b> (source, people, overview)</li>
+      <li>Read-only fields + JSON + validation list → <b>Health check</b></li>
+    </ul>
+    <h4>Not changed</h4>
+    <ul><li>Logic, saved configuration and the work item controls stay exactly as they are. Only the setup screens are regrouped.</li></ul>
+  </div>
+  <button class="btn primary" type="button" id="notesBtn">Design notes</button>
+</div>
+
+<script>
+(function () {
+  var $ = function (s, r) { return (r || document).querySelector(s); };
+  var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
+  function go(page) {
+    $$(".page").forEach(function (p) { p.classList.toggle("on", p.id === "p-" + page); });
+    $$("nav.side button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-go") === page); });
+    $("#pageTitle").innerHTML = $("#p-" + page).getAttribute("data-title");
+    window.scrollTo(0, 0);
+  }
+  function pivot(name) {
+    $$("#gridPivot button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-pv") === name); });
+    $$("[data-pvpage]").forEach(function (p) { p.classList.toggle("on", p.getAttribute("data-pvpage") === name); });
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest("[data-go]");
+    if (t) { e.preventDefault(); go(t.getAttribute("data-go")); return; }
+    var g = e.target.closest("[data-pvgo]");
+    if (g) { e.preventDefault(); go("grids"); pivot(g.getAttribute("data-pvgo")); return; }
+    var pv = e.target.closest("[data-pv]");
+    if (pv) { pivot(pv.getAttribute("data-pv")); return; }
+    var cp = e.target.closest("[data-cp]");
+    if (cp) { $$("#capPivot button").forEach(function (b) { b.classList.toggle("on", b === cp); }); $$("[data-cppage]").forEach(function (p) { p.classList.toggle("on", p.getAttribute("data-cppage") === cp.getAttribute("data-cp")); }); return; }
+    var gr = e.target.closest("[data-grid]");
+    if (gr) {
+      $$("#gridList button").forEach(function (b) { b.classList.toggle("on", b === gr); });
+      var cap = gr.getAttribute("data-grid") === "cap";
+      $("#gridName").textContent = cap ? "Resource Capacity" : "SDLC Timesheet";
+      $("#gridSub").textContent = cap ? "Built automatically from SDLC Timesheet · stores manual entries in Custom.CapacityData" : "Stores its rows in Custom.ResourceDataTable · shown on Epic";
+      return;
+    }
+    var row = e.target.closest("#colRows tr[data-col]");
+    if (row && !e.target.closest("button")) { $$("#colRows tr").forEach(function (r) { r.classList.toggle("sel", r === row); }); return; }
+  });
+  $("#notesBtn").addEventListener("click", function () { $("#notes").classList.toggle("open"); });
+  // deep link, e.g. #grids/review
+  var h = location.hash.replace('#', '').split('/');
+  if (h[0] && $('#p-' + h[0])) { go(h[0]); if (h[1]) pivot(h[1]); }
+  var root = document.documentElement;
+  $("#themeBtn").addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") ? root.getAttribute("data-theme") === "dark" : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    root.setAttribute("data-theme", dark ? "light" : "dark");
+  });
+})();
+</script>
+</body>
+</html>
