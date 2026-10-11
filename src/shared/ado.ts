@@ -41,8 +41,10 @@ export { withTimeout };
  * (max 6.1) rejects with HTTP 400. Version 5.0 is accepted by Server 2019+ and by Services.
  */
 export async function getCompat<T>(path: string, query: Record<string, string | number> = {}): Promise<T> {
-  const loc = await SDK.getService<ILocationService>(CommonServiceIds.LocationService);
-  const base = (await loc.getServiceLocation()).replace(/\/+$/, "");
+  // Services: the organization address directly (the location service can stall inside an extension frame, see restOptions); Server: ask the host
+  let base = "";
+  try { const h = SDK.getHost(); if (h.isHosted && h.name) base = `https://dev.azure.com/${h.name}`; } catch { /* use the location service */ }
+  if (!base) base = (await withTimeout((await SDK.getService<ILocationService>(CommonServiceIds.LocationService)).getServiceLocation(), "Finding the server address")).replace(/\/+$/, "");
   const token = await SDK.getAccessToken();
   const qs = new URLSearchParams({ ...Object.fromEntries(Object.entries(query).map(([k, v]) => [k, String(v)])), "api-version": "5.0" });
   const res = await fetch(`${base}/_apis/${path}?${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
