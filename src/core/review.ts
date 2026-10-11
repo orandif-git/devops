@@ -111,6 +111,12 @@ export function resetRow(row: GridRow, r: ReviewConfig): GridRow {
 
 const auto = (c: ColumnDef, cfg: GridConfig) => !!c.formula || !!c.lookup || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated" || c.id === cfg.schedule?.end;
 
+/** The columns a person types in (not calculated, not the review columns): what an approval vouches for. */
+export function typedColumns(cfg: GridConfig): ColumnDef[] {
+  const skip = new Set(cfg.review ? reviewColumns(cfg.review) : []);
+  return cfg.columns.filter(c => !skip.has(c.id) && !auto(c, cfg));
+}
+
 /**
  * After a cell edit: an edited approved / rejected row goes back to pending review (when configured).
  * Only columns a person types in count; calculated columns and the review columns do not.
@@ -118,8 +124,7 @@ const auto = (c: ColumnDef, cfg: GridConfig) => !!c.formula || !!c.lookup || !!c
 export function resetOnEdit(before: GridRow[], after: GridRow[], cfg: GridConfig): GridRow[] {
   const r = cfg.review;
   if (!r || !r.resetOnEdit) return after;
-  const skip = new Set(reviewColumns(r));
-  const typed = cfg.columns.filter(c => !skip.has(c.id) && !auto(c, cfg));
+  const typed = typedColumns(cfg);
   const prev = new Map(before.map(b => [b._id, b]));
   return after.map(row => {
     const old = prev.get(row._id);

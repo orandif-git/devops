@@ -365,6 +365,25 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
           <label style={{ display: "block" }}><input type="checkbox" checked={rv.lockApproved} onChange={e => set({ lockApproved: e.target.checked })} /> <b>Lock approved rows</b>: they cannot be edited, moved or deleted, except by administrators</label>
           <label style={{ display: "block" }}><input type="checkbox" checked={rv.noSelfApproval} onChange={e => set({ noSelfApproval: e.target.checked })} /> Nobody can approve or reject their <b>own</b> row (the person on the row; this also applies to administrators)</label>
 
+          <div className="card">
+            <label><input type="checkbox" checked={!!rv.secure} onChange={e => set({ secure: e.target.checked ? { dataField: rv.secure?.dataField ?? "" } : undefined })} /> <b>Secure approvals</b> – keep the decisions in a separate field that only the approvers can change, enforced by Azure DevOps</label>
+            {rv.secure && (
+              <>
+                <label className="field"><span>Approvals field (long text, plain text, different from the grid's data field)</span>
+                  <FieldInput value={rv.secure.dataField} onChange={dataField => set({ secure: { dataField } })} placeholder="Custom.ReviewData" /></label>
+                <div className="help">
+                  <b>Set up once, by a process administrator:</b>
+                  <ol style={{ margin: "4px 0 4px 18px" }}>
+                    <li>Add this long-text field to the work item type (it can be hidden from the layout).</li>
+                    <li>In the process, add a rule on that field: <b>make it read-only</b> unless the current user is a <b>member of the approver group</b> (a team or security group).</li>
+                    <li>Test it: as someone outside the group, try to change the field (for example in a query results grid or Excel); Azure DevOps must refuse.</li>
+                  </ol>
+                  Each approval stores a fingerprint of the row. A row that is changed after approval, by any means, counts as <b>pending</b> again, and totals and calculations use only decisions that still match. Because a process rule works per group, the approver rules below (for example one team per kind of row) are still checked by the extension only; the field rule enforces who may approve at all.
+                  The “Approved” totals pushed to work item fields are recalculated by the extension from the verified decisions; do not make those fields read-only with a rule, because the extension writes them for whoever edits the grid.
+                </div>
+              </>
+            )}
+          </div>
           <div className="help"><b>Who may approve or reject</b> – one rule per group of rows. A rule can be limited to rows where a column has certain values (for example one team approves Capitalizable rows and another the rest). A row that matches no rule can only be decided by administrators.</div>
           {rules.map((r, i) => (
             <div className="card" key={r.id}>

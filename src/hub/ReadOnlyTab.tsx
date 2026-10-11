@@ -31,7 +31,7 @@ export function ReadOnlyTab(p: { config: ProjectConfig }) {
         <li>Organization settings → Process → your process → work item type → <b>Rules</b> → <b>New rule</b>.</li>
         <li>Name it e.g. “Calculated fields are read-only”. Leave <b>Conditions</b> empty (applies always).</li>
         <li>Action: <b>Make read-only</b> → choose the field → repeat for each field. Save.</li>
-        <li>The extension can still fill the field: read-only rules stop people, not the extension.</li>
+        <li><b>Test it once:</b> edit a grid on a work item and check the field still fills. A read-only rule is meant to stop people, not the extension, but if the field stays empty after the rule is on, remove the rule from that field and rely on option A.</li>
       </ol>
       <div className="help">Use A for a clear display, B for real enforcement. Using both is fine. Note: neither can stop an organization administrator from changing a field through the process settings.</div>
     </div>

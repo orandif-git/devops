@@ -124,6 +124,12 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (!r.approvers.length && !r.admins.teams.length && !r.admins.people.length) add("warn", w, "Review: no approver rule or grid administrator is set, so only project administrators can approve or reject rows");
       r.approvers.forEach(a => { if (!a.teams.length && !a.people.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has no team or person, so nobody can use it`); if (a.when && !a.when.values.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has a condition without values, so it never applies`); });
       if (r.noSelfApproval && !g.schedule && !g.columns.some(c => c.type === "identity")) add("warn", w, "Review: “nobody approves their own row” needs a people-picker column to know who the row is about");
+      if (r.secure?.dataField) {
+        const f = checkField(w, r.secure.dataField, []);
+        if (f && NUMERIC.test(f.type)) add("error", w, `The approvals field ${f.name} must be a text field`);
+        if (Object.entries(cfg.grids).some(([n, o]) => n !== name && (o.dataField === r.secure!.dataField || o.review?.secure?.dataField === r.secure!.dataField))) add("error", w, "The approvals field is also used by another grid; every grid needs its own");
+        if (!r.approvers.length && !r.admins.teams.length && !r.admins.people.length) add("warn", w, "Secure approvals are on, but no approver is set in the extension; the field rule decides who may write, the rules here decide who sees the buttons");
+      }
       if (!r.reasonColumn) add("warn", w, "Review: no comment column is set, so approvers cannot leave a reject reason");
     }
     // ---- presets

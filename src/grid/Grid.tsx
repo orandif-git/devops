@@ -21,7 +21,11 @@ export interface GridProps {
   onExport(kind: "csv" | "xlsx"): void;
   status: string;
   /** approve / reject: who is looking (undefined until it is known: approved rows then stay locked) and the name stamped on decisions */
-  review?: { actor?: Actor; actorName: string };
+  review?: {
+    actor?: Actor; actorName: string;
+    /** secure approvals: records the decision in the protected field; resolves with what happened (error = Azure DevOps refused) */
+    onDecide?(ids: string[], to: "approved" | "rejected"): Promise<{ changed: number; skipped: number; firstReason?: string; error?: string }>;
+  };
   /** "Load preset" / "Save as preset" tools (source grids only) */
   presetTools?: {
     presets: { id: string; name: string; count: number }[];
@@ -93,7 +97,7 @@ export function Grid(p: GridProps) {
     const adjustable = cfg.columns.find(c => c.id === col)?.derive?.adjustable;       // derived grids: remember the typed value as an adjustment
     const patch = adjustable ? { [col]: value, ["_adj_" + col]: value } : { [col]: value };
     const next = recomputeAll(rows.map(r => (r._id === rowId ? { ...r, ...patch } : r)), cfg);
-    p.onChange(rv ? resetOnEdit(rows, next, cfg) : next);          // an edited approved / rejected row goes back to pending review (when configured)
+    p.onChange(rv && !rv.secure ? resetOnEdit(rows, next, cfg) : next);          // an edited approved / rejected row goes back to pending review (when configured)
   };
   const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
   const delRow = (id: string) => { const t = rows.find(r => r._id === id); if (t && rowLocked(t)) return; p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg)); };
@@ -109,11 +113,18 @@ export function Grid(p: GridProps) {
     const next = [...rows]; next.splice(i + 1, 0, rv ? freshReview(copy, rv) : copy); p.onChange(recomputeAll(next, cfg));
   };
 
-  const doDecide = (ids: string[], to: "approved" | "rejected") => {
+  const doDecide = async (ids: string[], to: "approved" | "rejected") => {
     if (!rv || !actor) return;
-    const res = decide(rows, new Set(ids), to, cfg, actor, p.review!.actorName);
     const verb = to === "approved" ? "Approved" : "Rejected";
-    setReviewMsg(res.changed || res.skipped ? `${verb} ${res.changed} row${res.changed === 1 ? "" : "s"}${res.skipped ? `; ${res.skipped} skipped: ${res.firstReason ?? "not allowed"}` : ""}.` : "Nothing to change.");
+    const say = (changed: number, skipped: number, firstReason?: string) =>
+      setReviewMsg(changed || skipped ? `${verb} ${changed} row${changed === 1 ? "" : "s"}${skipped ? `; ${skipped} skipped: ${firstReason ?? "not allowed"}` : ""}.${changed ? " Save the work item to keep the decision." : ""}` : "Nothing to change.");
+    if (p.review?.onDecide) {
+      const res = await p.review.onDecide(ids, to);
+      if (res.error) setReviewMsg(res.error); else say(res.changed, res.skipped, res.firstReason);
+      return;
+    }
+    const res = decide(rows, new Set(ids), to, cfg, actor, p.review!.actorName);
+    say(res.changed, res.skipped, res.firstReason);
     if (res.changed) p.onChange(recomputeAll(res.rows, cfg));
   };
   const decidable = (to: "approved" | "rejected") => (rv && actor ? visible.filter(r => stateOf(r, rv) !== to && canDecide(r, cfg, actor).ok).length : 0);

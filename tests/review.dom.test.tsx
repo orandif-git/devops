@@ -121,3 +121,32 @@ describe("hub validation of review settings", () => {
     expect(issues(cfg)).not.toMatch(/Review:/);
   });
 });
+
+describe("Grid: secure approvals route decisions through the protected field", () => {
+  function mountSecure(rows0: GridRow[], onDecide: NonNullable<NonNullable<Parameters<typeof Grid>[0]["review"]>["onDecide"]>) {
+    const host = document.createElement("div"); document.body.appendChild(host);
+    const sc: GridConfig = { ...cfg, review: { ...cfg.review!, secure: { dataField: "Custom.ReviewData" } } };
+    let rows = rows0;
+    const render = () => ReactDOM.render(<Grid cfg={sc} rows={rows} readOnly={false} projectId="p" busyChildren={false} status="" review={{ actor: finance, actorName: "Fin Ance", onDecide }}
+      onChange={r => { rows = r; render(); }} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />, host);
+    act(() => { render(); });
+    return { host, get rows() { return rows; } };
+  }
+  const flush = () => new Promise(r => setTimeout(r, 0));
+
+  it("Approve calls onDecide (not the local decision) and shows its result; the grid itself does not change status", async () => {
+    const calls: [string[], string][] = [];
+    const m = mountSecure([mkRow({ treat: "Capitalizable" })], async (ids, to) => { calls.push([ids, to]); return { changed: 1, skipped: 0 }; });
+    await act(async () => { Simulate.click(m.host.querySelector("tbody tr button[title='Approve this row']")!); await flush(); });
+    expect(calls).toEqual([[[m.rows[0]._id], "approved"]]);
+    expect(m.rows[0].reviewstatus).toBe("Pending review");                         // the caller applies the verified decision
+    expect(m.host.textContent).toContain("Approved 1 row");
+    expect(m.host.textContent).toContain("Save the work item");
+  });
+
+  it("shows the error when Azure DevOps refuses the change to the protected field", async () => {
+    const m = mountSecure([mkRow({ treat: "Capitalizable" })], async () => ({ changed: 0, skipped: 0, error: "Azure DevOps did not allow changing the approvals field Custom.ReviewData (the field is read-only for you)." }));
+    await act(async () => { Simulate.click(m.host.querySelector("tbody tr button[title='Approve this row']")!); await flush(); });
+    expect(m.host.textContent).toContain("did not allow changing the approvals field");
+  });
+});

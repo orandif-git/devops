@@ -71,7 +71,8 @@ Every row can carry a review status – **Pending review**, **Approved** or **Re
 - Each decision records **who** and **when**, and the approver can type a **comment / reject reason** in the comment column.
 - **Totals by status:** add the approved, pending and rejected figure of a number column to separate work item fields.
 - Rows that are duplicated, imported or loaded from a preset always start as pending review.
-- Approvals are enforced by the extension's pages, not by Azure DevOps itself: someone with edit rights on the work item could still change the stored value by other means. Lock the totals fields with a process rule if you need a hard lock.
+- **Normal mode** is enforced by the extension's pages only: someone with edit rights on the work item could still change the stored status by other means (for example Excel or the API).
+- **Secure approvals (optional):** the decisions are kept in a separate long-text field that a process rule makes read-only for everyone except the approver group, so Azure DevOps itself blocks other people from approving. Each approval also stores a fingerprint of the row: a row changed after approval, by any means, counts as pending again, and approved totals and calculations use only decisions that still match. A process rule works per group, so rules such as "one team per kind of row" are still checked by the extension only. The approved totals written to work item fields are recalculated by the extension for whoever edits the grid, so do not make those fields read-only with a rule.
 
 ### Rules and dependent dropdowns
 - **Rules:** *when* all/any conditions are true, *then / otherwise* set a field value, require a field, allow only certain values, or block saving with a message. Scope each rule to chosen work item types.
@@ -89,7 +90,7 @@ Maintain a "value → category" table once (categories, the values in each, and 
 - **Utilization overview:** capacity against allocated hours per person and month, over-capacity highlighted.
 
 ### Read-only calculated fields
-The **Read-only fields** page lists every field the extension writes (calculation results, grid totals, grouped totals) and explains how to lock them – with the **Read-only Value** control and/or an Azure DevOps process rule.
+The **Read-only fields** page lists every field the extension writes (calculation results, grid totals, grouped totals) and explains how to lock them – with the **Read-only Value** control and, after testing that the field still fills, an Azure DevOps process rule.
 
 ### Visual admin page with live validation
 Project settings → **Grid & Rules**. Form editors first, JSON editor second. Everything is checked live against your process: unknown fields, values that are not in a pick list, non-numeric targets, formulas with unknown names, circular calculations, two things writing to the same field, and more.
@@ -141,7 +142,7 @@ For scheduling by dates: with the register, set the **Calendar** (working week, 
 Then generate a derived capacity grid in the Grids page with the **Quick start** and save. For a grid scheduled by dates, use **Fill in for a scheduled source**.
 
 ### 6. Lock calculated fields (optional)
-Open **Read-only fields**, copy the field names, and add the **Read-only Value** control and/or a **Make read-only** process rule for each.
+Open **Read-only fields**, copy the field names, and add the **Read-only Value** control for each (a **Make read-only** process rule is optional; test that the field still fills).
 
 ---
 
@@ -185,6 +186,8 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 | A status or colour is missing for large values | The last status range must have an empty "up to". |
 | The end date stays empty, with a red cell | Hover the cell: usually the person has no capacity in the calendar source, or the date is outside the yearly iteration. Fix the capacity (or the iteration) and reopen the work item. |
 | Teams do not load on an on-premises server | Make sure the extension is the latest version; team and member lists are requested with an older REST version that Azure DevOps Server 2020 accepts. |
+| Approve is refused with “Azure DevOps did not allow changing the approvals field” | Secure approvals: only members of the group named in the field's process rule can write that field. Add the person to the group, or check the rule. |
+| A row is pending again although it was approved | Secure approvals: the row was changed after approval (also from outside the grid), so the approval no longer matches. Approve it again. |
 | Nobody sees Approve / Reject | The user must match an approver rule (team member or named person) or be an administrator; team membership counts direct members only – add people by name if a team cannot be read. |
 | "Load preset" is empty | A preset with a rule is only offered when the work item field matches; a preset without a rule is offered everywhere. |
 

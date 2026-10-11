@@ -136,6 +136,12 @@ export interface ReviewConfig {
   /** the person on the row cannot decide their own row */
   noSelfApproval: boolean;
   approvers: ApproverRule[];
+  /**
+   * Secure approvals: decisions are kept in this separate long-text field instead of in the rows. Make that field read-only
+   * for everyone but the approvers with a process rule, and Azure DevOps itself blocks anyone else from approving. Each approval
+   * stores a fingerprint of the row, so a row that is changed after approval counts as pending again, by whatever means it was changed.
+   */
+  secure?: { dataField: string };
   /** besides project administrators: may decide every row and edit / remove locked rows */
   admins: { teams: TeamRef[]; people: string[] };
 }

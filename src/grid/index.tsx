@@ -12,6 +12,7 @@ import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upser
 import { canSavePresets } from "../shared/presetAccess";
 import { loadActor } from "../shared/reviewAccess";
 import { Actor, freshReview } from "../core/review";
+import { applyDecisions, decideSecure, emptyReviewDoc, parseReviewDoc, serializeReviewDoc, staleCount } from "../core/reviewDoc";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
 import { loadCalendarBook } from "../shared/capacityStore";
@@ -70,6 +71,16 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [presetList, setPresetList] = React.useState<GridPreset[]>([]);
   const [canSave, setCanSave] = React.useState(false);
   const [actor, setActor] = React.useState<Actor>();
+  // secure approvals: decisions live in their own protected field; rows show (and totals use) only decisions that still match the row
+  const secField = props.cfg.review?.secure?.dataField;
+  const docRef = React.useRef(emptyReviewDoc());
+  const [reviewNote, setReviewNote] = React.useState("");
+  const overlay = React.useCallback((r: GridRow[]) => {
+    if (!secField || !props.cfg.review) return r;
+    const n = staleCount(r, props.cfg, docRef.current);
+    setReviewNote(n ? `${n} row${n === 1 ? " was" : "s were"} changed after ${n === 1 ? "it was" : "they were"} approved or rejected and ${n === 1 ? "is" : "are"} pending review again.` : "");
+    return applyDecisions(r, props.cfg, docRef.current);
+  }, [secField, props.cfg]);
   const [calVersion, setCalVersion] = React.useState(0);
   const [calError, setCalError] = React.useState("");
   const knownFields = React.useRef<Set<string>>();
@@ -100,8 +111,15 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
 
   const readField = React.useCallback(async () => {
     const svc = await getFormService();
+    if (secField) {
+      try { docRef.current = parseReviewDoc(await svc.getFieldValue(secField)); }
+      catch { setWarn(`The approvals field ${secField} is not on this work item type, so every row counts as pending review. Add it to the type (Project settings → Process).`); docRef.current = emptyReviewDoc(); }
+    }
     const raw = await svc.getFieldValue(cfg.dataField!);
-    if (raw !== null && lastWritten.current !== null && String(raw) === lastWritten.current) return;
+    if (raw !== null && lastWritten.current !== null && String(raw) === lastWritten.current) {
+      if (secField) { rowsRef.current = overlay(rowsRef.current); setRows(rowsRef.current); }        // the decisions may have changed
+      return;
+    }
     const parsed = parseStored(raw, cfg);
     const rawText = raw === null || raw === undefined ? "" : String(raw).trim();
     if (!parsed.length && rowsRef.current.length && lastWritten.current !== null) {
@@ -111,23 +129,24 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       return;
     }
     if (!parsed.length && rawText) setWarn(`The data field contains text this grid cannot read (not valid grid JSON). Starts with: ${rawText.replace(/\s+/g, " ").slice(0, 140)}${rawText.length > 140 ? "…" : ""}  – If this field is rich text, recreate it as plain text (multiple lines), or clear it and re-enter the rows.`);
-    rowsRef.current = parsed; setRows(parsed);
-  }, [cfg, writeNow]);
+    rowsRef.current = overlay(parsed); setRows(rowsRef.current);
+  }, [cfg, writeNow, secField, overlay]);
 
-  const commit = React.useCallback((next: GridRow[]) => {
+  const commit = React.useCallback((raw: GridRow[]) => {
+    const next = overlay(raw);                                       // a row changed after its approval shows as pending at once
     rowsRef.current = next; setRows(next);
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => {
       writeNow(rowsRef.current).then(() => applyCalculations())
         .catch(e => setWarn(`Could not store the rows in ${cfg.dataField}: ${(e as Error).message}. Is it a long-text field that is on this work item type?`));
     }, 250);
-  }, [writeNow, cfg.dataField]);
+  }, [writeNow, cfg.dataField, overlay]);
 
   // register with the work item form
   React.useEffect(() => {
     SDK.register(SDK.getContributionId(), () => ({
       onLoaded: () => { resetCalcRunner(); readField().then(() => { setReady(true); applyCalculations(); }); emitFormEvent({ type: "loaded" }); },
-      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && changedRef.current.some(f => f in a.changedFields)) refreshRef.current?.().catch(() => undefined); if (a.changedFields && cfg.dataField! in a.changedFields) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
+      onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && changedRef.current.some(f => f in a.changedFields)) refreshRef.current?.().catch(() => undefined); if (a.changedFields && (cfg.dataField! in a.changedFields || (secField && secField in a.changedFields))) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
       onSaved: () => { readField(); emitFormEvent({ type: "saved" }); },
       onReset: () => { lastWritten.current = null; readField(); emitFormEvent({ type: "reset" }); },
       onRefreshed: () => { readField(); emitFormEvent({ type: "refreshed" }); },
@@ -151,6 +170,22 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   React.useEffect(() => { if (props.gridName && cfg.presetSave?.enabled) canSavePresets(props.projectId, cfg.presetSave).then(setCanSave).catch(() => setCanSave(false)); }, [props.gridName, props.projectId, cfg.presetSave]);
   changedRef.current = ruleFields;
   refreshRef.current = refreshPresets;
+
+  /** secure approvals: write the decision to the protected field first; only when Azure DevOps accepts it do the rows change */
+  const onDecide = async (ids: string[], to: "approved" | "rejected") => {
+    if (!actor || !cfg.review || !secField) return { changed: 0, skipped: 0, error: "Approvals are not set up correctly." };
+    const res = decideSecure(rowsRef.current, new Set(ids), to, cfg, actor, SDK.getUser().displayName, docRef.current);
+    if (!res.changed) return { changed: 0, skipped: res.skipped, firstReason: res.firstReason };
+    try {
+      const ok = await (await getFormService()).setFieldValue(secField, serializeReviewDoc(res.doc));
+      if (!ok) throw new Error("the field is read-only for you");
+    } catch (e) {
+      return { changed: 0, skipped: 0, error: `Azure DevOps did not allow changing the approvals field ${secField} (${(e as Error).message}). Only members of the approver group set in the field's process rule can decide rows.` };
+    }
+    docRef.current = res.doc;
+    commit(res.rows);
+    return { changed: res.changed, skipped: res.skipped, firstReason: res.firstReason };
+  };
 
   const loadPreset = (id: string, mode: "add" | "replace"): string[] => {
     const preset = presetList.find(x => x.id === id);
@@ -261,9 +296,10 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   return (
     <div ref={rootRef}>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
+      {reviewNote && <div className="muted" style={{ padding: "2px 8px" }}>{reviewNote}</div>}
       {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
-        review={cfg.review ? { actor, actorName: SDK.getUser().displayName } : undefined}
+        review={cfg.review ? { actor, actorName: SDK.getUser().displayName, onDecide: secField ? onDecide : undefined } : undefined}
         onChange={commit} onImport={onImport} onExport={onExport}
         presetTools={presetList.length || canSave ? { presets: presetList.map(x => ({ id: x.id, name: x.name, count: x.rows.length })), onLoad: loadPreset, canSave, onSave: savePreset } : undefined}
         onCreateChild={id => createChildren([id])}

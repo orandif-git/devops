@@ -1,5 +1,6 @@
 import { evaluate, EvalAbort, extractRefs } from "./expr";
 import { aggregate, parseStored } from "./gridModel";
+import { gridFields, loadGridRows } from "./reviewDoc";
 import { CalcInput, Calculation, GridConfig, GridRow, RowFilter } from "./types";
 
 /** Value of an input: a number, text, or null when empty. */
@@ -114,7 +115,7 @@ export function calcRefs(calcs: Calculation[], grids: Record<string, GridConfig>
     fields.add(c.resultField);
     for (const i of c.inputs) {
       if (i.source.kind === "field") fields.add(i.source.field);
-      else { const dataField = grids[i.source.grid]?.dataField; if (dataField) fields.add(dataField); }
+      else for (const f of gridFields(grids[i.source.grid])) fields.add(f);
     }
   }
   return Array.from(fields).filter(Boolean);
@@ -155,7 +156,7 @@ export function evaluateCalculations(
   const get = (ref: string) => (ref in overlay ? overlay[ref] : getField(ref));
   const rowsCache = new Map<string, GridRow[]>();
   const getRows = (name: string) => {
-    if (!rowsCache.has(name)) { const g = grids[name]; rowsCache.set(name, g?.dataField ? parseStored(get(g.dataField), g) : []); }
+    if (!rowsCache.has(name)) { const g = grids[name]; rowsCache.set(name, g?.dataField ? loadGridRows(g, get) : []); }
     return rowsCache.get(name)!;
   };
   for (const c of ordered) {
@@ -182,7 +183,7 @@ export interface Explanation {
 export function explainCalculation(calc: Calculation, getField: (ref: string) => unknown, grids: Record<string, GridConfig>): Explanation {
   const rowsCache = new Map<string, GridRow[]>();
   const getRows = (name: string) => {
-    if (!rowsCache.has(name)) { const g = grids[name]; rowsCache.set(name, g?.dataField ? parseStored(getField(g.dataField), g) : []); }
+    if (!rowsCache.has(name)) { const g = grids[name]; rowsCache.set(name, g?.dataField ? loadGridRows(g, getField) : []); }
     return rowsCache.get(name)!;
   };
   const values = resolveInputs(calc, { getField, getRows });

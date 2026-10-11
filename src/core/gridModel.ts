@@ -15,7 +15,7 @@ const decodeEntities = (s: string) =>
   });
 
 /** Try to turn whatever the field returned into JSON text (plain, or mangled by a rich-text field). */
-function extractJson(raw: string): unknown {
+export function extractJson(raw: string): unknown {
   const attempts: string[] = [raw];
   // rich-text field: <div>…</div>, <br>, &quot; … ; remove tags first, then entities
   const stripped = decodeEntities(raw.replace(/<br\s*\/?>/gi, " ").replace(/<\/(div|p)>\s*<(div|p)[^>]*>/gi, " ").replace(/<[^>]*>/g, "")).replace(/\u00a0/g, " ");
@@ -48,7 +48,12 @@ export function parseStored(raw: unknown, cfg: GridConfig): GridRow[] {
 
 /** JSON with `<`, `>` and `&` escaped, so an HTML field cannot treat parts of it as tags or entities. */
 export function serialize(rows: GridRow[]): string {
-  return JSON.stringify({ version: 1, rows }).replace(/[<>&\u2028\u2029]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
+  return serializeJson({ version: 1, rows });
+}
+
+/** Any JSON value as text that survives HTML-ish fields (`<`, `>`, `&` escaped). */
+export function serializeJson(value: unknown): string {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, c => "\\u" + c.charCodeAt(0).toString(16).padStart(4, "0"));
 }
 
 /** An empty "up to" (null, missing or not a number) means: no upper limit. */
@@ -372,6 +377,10 @@ export function validateConfig(cfg: GridConfig): string[] {
     if (new Set(picked).size !== picked.length) errs.push("Review: each review column must be a different column");
     const labels = [r.statuses?.pending, r.statuses?.approved, r.statuses?.rejected].map(v => String(v ?? "").trim().toLowerCase());
     if (labels.some(v => !v) || new Set(labels).size !== labels.length) errs.push("Review: the three status names must be filled in and different");
+    if (r.secure) {
+      if (!r.secure.dataField?.trim()) errs.push("Review: secure approvals need an approvals field");
+      else if (r.secure.dataField === cfg.dataField) errs.push("Review: the approvals field must be a different field than the grid's data field");
+    }
     for (const a of r.approvers ?? []) if (a.when?.column && !col(a.when.column)) errs.push(`Review: approver rule '${a.name}' uses unknown column '${a.when.column}'`);
   }
   if (cfg.child?.enabled && !ids.has(cfg.child.titleColumn)) errs.push(`Child title column '${cfg.child.titleColumn}' does not exist`);
