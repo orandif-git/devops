@@ -1,5 +1,6 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { applySchedule } from "./schedule";
+import { parseNumber } from "./number";
 import { ensureStatus } from "./review";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
 
@@ -16,13 +17,15 @@ const decodeEntities = (s: string) =>
 
 /** Try to turn whatever the field returned into JSON text (plain, or mangled by a rich-text field). */
 export function extractJson(raw: string): unknown {
-  const attempts: string[] = [raw];
-  // rich-text field: <div>…</div>, <br>, &quot; … ; remove tags first, then entities
-  const stripped = decodeEntities(raw.replace(/<br\s*\/?>/gi, " ").replace(/<\/(div|p)>\s*<(div|p)[^>]*>/gi, " ").replace(/<[^>]*>/g, "")).replace(/\u00a0/g, " ");
-  attempts.push(stripped);
-  attempts.push(decodeEntities(raw).replace(/\u00a0/g, " "));           // value that was only entity-encoded
-  for (const t of attempts) {
-    const text = t.trim();
+  // plain JSON is by far the most common case: try it before any clean-up
+  try { return JSON.parse(raw.trim()); } catch { /* maybe wrapped by a rich-text field */ }
+  const variants = [
+    // rich-text field: <div>…</div>, <br>, &quot; … ; remove tags first, then entities (tag pattern cannot backtrack: linear time)
+    () => decodeEntities(raw.replace(/<br\s*\/?>/gi, " ").replace(/<\/(div|p)>\s*<(div|p)[^<>]*>/gi, " ").replace(/<[^<>]*>/g, "")).replace(/\u00a0/g, " "),
+    () => decodeEntities(raw).replace(/\u00a0/g, " "),                    // value that was only entity-encoded
+  ];
+  for (const make of [() => raw, ...variants]) {
+    const text = make().trim();
     try { return JSON.parse(text); } catch { /* try the outermost {...} / [...] */ }
     for (const [o, c] of [["{", "}"], ["[", "]"]] as const) {
       const i = text.indexOf(o), j = text.lastIndexOf(c);
@@ -91,7 +94,7 @@ export function coerce(col: ColumnDef, v: unknown): unknown {
     case "calculated": return typeof v === "number" || typeof v === "string" ? v : null;
     case "number": {
       if (v === "" || v === null || v === undefined) return null;
-      const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+      const n = typeof v === "number" ? v : parseNumber(String(v));
       return Number.isFinite(n) ? n : null;
     }
     case "boolean":
@@ -118,6 +121,7 @@ export function normalizeRow(src: Record<string, unknown>, cfg: GridConfig): Gri
     if (src._months && typeof src._months === "object") row._months = src._months as Record<string, number>;
     if (typeof src._schedErr === "string") row._schedErr = src._schedErr;
     if (typeof src._schedNote === "string") row._schedNote = src._schedNote;
+    if (typeof src._schedFor === "string") row._schedFor = src._schedFor;
   }
   for (const c of cfg.columns) row[c.id] = src[c.id] === undefined ? defaultFor(c) : coerce(c, src[c.id]);
   return recompute(row, cfg);
@@ -318,9 +322,11 @@ export function validateRows(rows: GridRow[], cfg: GridConfig): CellError[] {
 export function validateConfig(cfg: GridConfig): string[] {
   const errs: string[] = [];
   const ids = new Set<string>();
+  if (cfg.rowColorBy && !cfg.columns.some(x => x.id === cfg.rowColorBy && x.statusBands)) errs.push(`Row colour: '${cfg.rowColorBy}' is not a status column`);
   for (const c of cfg.columns) {
     if (!c.id) errs.push("A column has no id");
     else if (!/^[A-Za-z0-9_]+$/.test(c.id)) errs.push(`Column id '${c.id}' may only contain letters, digits and _`);
+    else if (/^(__proto__|constructor|prototype)$/.test(c.id) || c.id.startsWith("_")) errs.push(`Column id '${c.id}' is reserved; ids must not start with an underscore`);
     if (ids.has(c.id)) errs.push(`Duplicate column id '${c.id}'`);
     ids.add(c.id);
     if (c.type === "calculated" && !c.formula?.trim()) errs.push(`Calculated column '${c.id}' has no formula`);
@@ -332,7 +338,6 @@ export function validateConfig(cfg: GridConfig): string[] {
       sb.ranges.forEach((r, i) => { if (!r.label.trim()) errs.push(`'${c.id}': range ${i + 1} has no label`); });
       for (let i = 1; i < sb.ranges.length; i++) { const a = sb.ranges[i - 1].upTo, b = sb.ranges[i].upTo; if (isNoLimit(a) || (!isNoLimit(b) && (b as number) <= (a as number))) errs.push(`'${c.id}': ranges must go up (range ${i + 1} should be higher than range ${i}, and only the last one may have no limit)`); }
     }
-    if (cfg.rowColorBy && !cfg.columns.some(x => x.id === cfg.rowColorBy && x.statusBands)) errs.push(`Row colour: '${cfg.rowColorBy}' is not a status column`);
     if (c.colorBy && !cfg.columns.some(x => x.id === c.colorBy && x.statusBands)) errs.push(`'${c.id}' is coloured by '${c.colorBy}', which is not a status column`);
     if (c.lookup) {
       if (!cfg.columns.some(x => x.id === c.lookup!.column)) errs.push(`'${c.id}' looks up unknown column '${c.lookup.column}'`);
@@ -375,7 +380,9 @@ export function validateConfig(cfg: GridConfig): string[] {
     for (const [label, id] of [["reviewed-by", r.byColumn], ["reviewed-at", r.atColumn], ["comment", r.reasonColumn]] as const) if (id && !col(id)) errs.push(`Review: the ${label} column '${id}' does not exist`);
     const picked = [r.statusColumn, r.byColumn, r.atColumn, r.reasonColumn].filter(Boolean);
     if (new Set(picked).size !== picked.length) errs.push("Review: each review column must be a different column");
-    const labels = [r.statuses?.pending, r.statuses?.approved, r.statuses?.rejected].map(v => String(v ?? "").trim().toLowerCase());
+    const st: Record<string, string | undefined> = { ...(r.statuses ?? {}) };
+    for (const [k, d] of Object.entries({ pending: "Pending review", approved: "Approved", rejected: "Rejected" })) st[k] ||= d;
+    const labels = [st.pending, st.approved, st.rejected].map(v => String(v ?? "").trim().toLowerCase());
     if (labels.some(v => !v) || new Set(labels).size !== labels.length) errs.push("Review: the three status names must be filled in and different");
     if (r.secure) {
       if (!r.secure.dataField?.trim()) errs.push("Review: secure approvals need an approvals field");

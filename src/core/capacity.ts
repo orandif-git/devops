@@ -1,4 +1,5 @@
 import { keyNorm } from "./keys";
+import { parseNumber } from "./number";
 import { parseCsv, toCsv } from "./csv";
 
 export interface CapacityChange { at: string; by: string; what: string }
@@ -76,7 +77,7 @@ export interface ImportResult { records: CapacityRecord[]; created: number; upda
 const num = (v: unknown): number | null | undefined => {
   const s = String(v ?? "").trim();
   if (s === "") return undefined;                    // blank cell = leave as is
-  const n = parseFloat(s.replace(/,/g, ""));
+  const n = parseNumber(s);
   return Number.isFinite(n) && n >= 0 ? n : null;    // null = invalid
 };
 

@@ -40,14 +40,15 @@ export { withTimeout };
  * GET with an explicit, old REST api-version. The typed clients request the newest version (7.x), which Azure DevOps Server 2020
  * (max 6.1) rejects with HTTP 400. Version 5.0 is accepted by Server 2019+ and by Services.
  */
-export async function getCompat<T>(path: string, query: Record<string, string | number> = {}): Promise<T> {
+/** `scope` is an optional "{project}/{team}" prefix (already URL-encoded) in front of /_apis/. */
+export async function getCompat<T>(path: string, query: Record<string, string | number> = {}, scope = ""): Promise<T> {
   // Services: the organization address directly (the location service can stall inside an extension frame, see restOptions); Server: ask the host
   let base = "";
   try { const h = SDK.getHost(); if (h.isHosted && h.name) base = `https://dev.azure.com/${h.name}`; } catch { /* use the location service */ }
   if (!base) base = (await withTimeout((await SDK.getService<ILocationService>(CommonServiceIds.LocationService)).getServiceLocation(), "Finding the server address")).replace(/\/+$/, "");
   const token = await SDK.getAccessToken();
   const qs = new URLSearchParams({ ...Object.fromEntries(Object.entries(query).map(([k, v]) => [k, String(v)])), "api-version": "5.0" });
-  const res = await fetch(`${base}/_apis/${path}?${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
+  const res = await fetch(`${base}/${scope ? scope + "/" : ""}_apis/${path}?${qs}`, { headers: { Authorization: `Bearer ${token}`, Accept: "application/json" } });
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
   return (await res.json()) as T;
 }
@@ -56,10 +57,10 @@ export interface TeamLite { id: string; name: string }
 export interface MemberLite { identity?: { id?: string; displayName: string; uniqueName: string } }
 
 export async function getTeamsCompat(projectId: string, top = 200): Promise<TeamLite[]> {
-  return (await getCompat<{ value: TeamLite[] }>(`projects/${projectId}/teams`, { $top: top })).value;
+  return (await getCompat<{ value: TeamLite[] }>(`projects/${encodeURIComponent(projectId)}/teams`, { $top: top })).value;
 }
 export async function getTeamMembersCompat(projectId: string, teamId: string, top = 500): Promise<MemberLite[]> {
-  return (await getCompat<{ value: MemberLite[] }>(`projects/${projectId}/teams/${teamId}/members`, { $top: top })).value;
+  return (await getCompat<{ value: MemberLite[] }>(`projects/${encodeURIComponent(projectId)}/teams/${encodeURIComponent(teamId)}/members`, { $top: top })).value;
 }
 
 // ---------- config storage (extension data service, one document per project) ----------

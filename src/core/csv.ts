@@ -21,7 +21,9 @@ export function parseCsv(text: string): string[][] {
 
 export function toCsv(rows: unknown[][]): string {
   const esc = (v: unknown) => {
-    const s = v === null || v === undefined ? "" : String(v);
+    let s = v === null || v === undefined ? "" : String(v);
+    // a text cell that starts like a formula would run when the file is opened in a spreadsheet: mark it as text
+    if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return rows.map(r => r.map(esc).join(",")).join("\r\n");

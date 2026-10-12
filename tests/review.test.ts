@@ -80,7 +80,7 @@ describe("review: status, who may decide, lock", () => {
     expect(res.skipped).toBe(1);
     expect(res.rows.map(r => r.reviewstatus)).toEqual(["Approved", "Pending review", "Approved"]);
     expect(res.rows[0].reviewedby).toBe("Fin Ance");
-    expect(res.rows[0].reviewedat).toBe("2026-10-12 14:03");
+    expect(res.rows[0].reviewedat).toBe("2026-10-12 14:03 UTC");
     const again = decide(res.rows, all, "approved", cfg, finance, "Fin Ance", now);
     expect(again.changed).toBe(0);                                  // already approved
     const rej = decide(res.rows, new Set([rows[0]._id]), "rejected", cfg, finance, "Fin Ance", now);

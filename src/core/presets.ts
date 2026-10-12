@@ -1,5 +1,5 @@
 import { coerce, defaultFor, newRow, recomputeAll } from "./gridModel";
-import { freshReview, reviewColumns } from "./review";
+import { Actor, freshReview, isLocked, reviewColumns } from "./review";
 import { ColumnDef, GridConfig, GridPreset, GridRow } from "./types";
 
 const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
@@ -34,9 +34,13 @@ export interface MergeResult { rows: GridRow[]; added: number; skipped: number }
  * Load a preset into the grid. "replace" starts from the preset alone; "add" appends, skipping preset rows that are already
  * there (same values in all the columns the preset keeps, so a row the user has since filled in further still counts).
  */
-export function mergePreset(existing: GridRow[], p: GridPreset, cfg: GridConfig, mode: "add" | "replace"): MergeResult {
+export function mergePreset(existing: GridRow[], p: GridPreset, cfg: GridConfig, mode: "add" | "replace", actor?: Actor): MergeResult {
   const fresh = presetRows(p, cfg);
-  if (mode === "replace") return { rows: fresh, added: fresh.length, skipped: 0 };
+  if (mode === "replace") {
+    // locked (approved) rows cannot be removed by replacing; they stay for everyone but administrators
+    const keep = existing.filter(r => isLocked(r, cfg, actor));
+    return { rows: recomputeAll([...keep, ...fresh], cfg), added: fresh.length, skipped: 0 };
+  }
   const key = (r: GridRow) => p.columns.map(id => norm(r[id])).join("\u0001");
   const have = new Map<string, number>();
   for (const r of existing) have.set(key(r), (have.get(key(r)) ?? 0) + 1);
@@ -51,7 +55,8 @@ export function mergePreset(existing: GridRow[], p: GridPreset, cfg: GridConfig,
 }
 
 /** A preset made from the rows currently in a grid. */
-export function presetFromRows(rows: GridRow[], cfg: GridConfig, name: string, columns: string[] = defaultPresetColumns(cfg)): GridPreset {
+export function presetFromRows(rows: GridRow[], cfg: GridConfig, name: string, wanted: string[] = defaultPresetColumns(cfg)): GridPreset {
+  const columns = wanted.filter(id => cfg.columns.some(c => c.id === id));          // a column removed since the preset was saved is dropped
   return {
     id: "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
     name: name.trim(),

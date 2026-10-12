@@ -21,6 +21,7 @@ export function parseReviewDoc(raw: unknown): ReviewDoc {
     const d = extractJson(text) as { decisions?: Record<string, Partial<DecisionRec>> };
     const out = emptyReviewDoc();
     for (const [id, r] of Object.entries(d?.decisions ?? {})) {
+      if (id === "__proto__" || id === "constructor" || id === "prototype") continue;
       if (r && (r.s === "approved" || r.s === "rejected") && typeof r.fp === "string")
         out.decisions[id] = { s: r.s, by: String(r.by ?? ""), at: String(r.at ?? ""), ...(r.reason ? { reason: String(r.reason) } : {}), fp: r.fp };
     }
@@ -32,7 +33,9 @@ export const serializeReviewDoc = (doc: ReviewDoc): string => serializeJson(doc)
 
 /** Fingerprint of what an approval vouches for: the row id and every typed value (calculated and review columns are left out). */
 export function rowFingerprint(row: GridRow, cfg: GridConfig): string {
-  return sha256(JSON.stringify([row._id, ...typedColumns(cfg).map(c => (row[c.id] === undefined ? null : row[c.id]))]));
+  // id/value pairs, empty values left out: adding or reordering columns does not invalidate approvals, changing a value does
+  const pairs = typedColumns(cfg).map(c => [c.id, row[c.id]] as const).filter(([, v]) => v !== undefined && v !== null && v !== "" && v !== false);
+  return sha256(JSON.stringify([row._id, pairs]));
 }
 
 /** Verified state of a row: the recorded decision counts only while the row still matches its fingerprint. */
@@ -60,7 +63,7 @@ export function applyDecisions(rows: GridRow[], cfg: GridConfig, doc: ReviewDoc)
 /** How many rows were approved or rejected once, but were changed since (so they are pending again). */
 export const staleCount = (rows: GridRow[], cfg: GridConfig, doc: ReviewDoc): number => rows.filter(r => verifiedState(r, cfg, doc).stale).length;
 
-const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
+const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
 export interface SecureDecideResult extends DecideResult { doc: ReviewDoc }
 
@@ -69,7 +72,9 @@ export function decideSecure(rows: GridRow[], ids: Set<string>, to: "approved" |
   const r = cfg.review!;
   const decisions: Record<string, DecisionRec> = {};
   const live = new Set(rows.map(x => x._id));
-  for (const [id, rec] of Object.entries(doc.decisions)) if (live.has(id)) decisions[id] = rec;
+  const byId = new Map(rows.map(x => [x._id, x]));
+  // keep a decision only while its row still exists and still matches it; a changed row has to be decided again
+  for (const [id, rec] of Object.entries(doc.decisions)) { const row = byId.get(id); if (row && live.has(id) && rec.fp === rowFingerprint(row, cfg)) decisions[id] = rec; }
   let changed = 0, skipped = 0, firstReason: string | undefined;
   for (const row of rows) {
     if (!ids.has(row._id) || verifiedState(row, cfg, { version: 1, decisions }).state === to) continue;

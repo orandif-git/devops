@@ -55,7 +55,8 @@ export function buildOverview(records: CapacityRecord[], register: CapacityRegis
       const capacity = capacityFor(register, names.get(key) ?? key, month);
       const allocated = alloc[`${key}|${month}`] ?? 0;
       const utilization = capacity ? Math.round((allocated / capacity) * 1000) / 10 : null;
-      return { month, capacity, allocated, utilization, over: utilization !== null && utilization > 100 };
+      // a month with no available hours (leave) but hours booked is over capacity even though no percentage can be shown
+      return { month, capacity, allocated, utilization, over: (utilization !== null && utilization > 100) || (capacity === 0 && allocated > 0) };
     });
     return { key, name: names.get(key) ?? key, cells };
   }).filter(r => r.cells.some(c => c.allocated > 0 || c.capacity)).sort((a, b) => a.name.localeCompare(b.name));

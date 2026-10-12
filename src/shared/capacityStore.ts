@@ -2,7 +2,7 @@ import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
 import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
-import { dataManager, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
+import { dataManager, getCompat, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
 
 const COLLECTION = "wig-capacity";
 
@@ -67,15 +67,29 @@ export async function readNativeCapacity(teamRefs: TeamRef[], force = false): Pr
   const project = await getProject();
   const work = await workClient();
   const teams: NativeTeam[] = [];
+  const enc = encodeURIComponent;
+  /** The typed client first (it works on Services and newer servers); if the server refuses its api-version, ask again with an explicit 5.0. */
+  const either = async <T,>(what: string, typed: () => Promise<T>, compat: () => Promise<T>): Promise<T> => {
+    try { return await withTimeout(typed(), what); }
+    catch (first) {
+      try { return await withTimeout(compat(), what); }
+      catch (second) { throw new Error(`${(first as Error).message} / ${(second as Error).message}`); }
+    }
+  };
   for (const t of teamRefs) {
     const ctx = { projectId: project.id, project: project.name, teamId: t.id, team: t.name } as never;
-    const settings = await withTimeout(work.getTeamSettings(ctx), `Reading the settings of team ${t.name}`);
-    const iterations = await withTimeout(work.getTeamIterations(ctx), `Reading the iterations of team ${t.name}`);
+    const scope = `${enc(project.id)}/${enc(t.id)}`;
+    const settings = await either(`Reading the settings of team ${t.name}`, () => work.getTeamSettings(ctx) as Promise<{ workingDays?: unknown[] }>, () => getCompat<{ workingDays?: unknown[] }>("work/teamsettings", {}, scope));
+    const iterations = await either(`Reading the iterations of team ${t.name}`, () => work.getTeamIterations(ctx) as Promise<{ id: string; name: string; attributes?: { startDate?: unknown; finishDate?: unknown } }[]>,
+      async () => (await getCompat<{ value?: { id: string; name: string; attributes?: { startDate?: unknown; finishDate?: unknown } }[] }>("work/teamsettings/iterations", {}, scope)).value ?? []);
     const team: NativeTeam = { teamName: t.name, workingDays: normalizeWorkingDays((settings.workingDays ?? []) as unknown[]), iterations: [] };
     for (const it of iterations) {
+      type Cap = { teamMembers?: { teamMember: { displayName: string; uniqueName: string }; activities?: { capacityPerDay: number }[]; daysOff?: { start: unknown; end: unknown }[] }[] };
       const [caps, off] = await Promise.all([
-        withTimeout(work.getCapacitiesWithIdentityRefAndTotals(ctx, it.id), `Reading the capacity of ${it.name}`),
-        withTimeout(work.getTeamDaysOff(ctx, it.id), `Reading the team days off of ${it.name}`).catch(() => ({ daysOff: [] as { start: Date; end: Date }[] })),
+        either(`Reading the capacity of ${it.name}`, () => work.getCapacitiesWithIdentityRefAndTotals(ctx, it.id) as unknown as Promise<Cap>,
+          async () => { const r = await getCompat<Cap & { value?: Cap["teamMembers"] }>(`work/teamsettings/iterations/${enc(it.id)}/capacities`, {}, scope); return { teamMembers: r.teamMembers ?? r.value ?? [] }; }),
+        either(`Reading the team days off of ${it.name}`, () => work.getTeamDaysOff(ctx, it.id) as unknown as Promise<{ daysOff?: { start: unknown; end: unknown }[] }>, () => getCompat<{ daysOff?: { start: unknown; end: unknown }[] }>(`work/teamsettings/iterations/${enc(it.id)}/teamdaysoff`, {}, scope))
+          .catch(() => ({ daysOff: [] as { start: unknown; end: unknown }[] })),
       ]);
       team.iterations.push({
         name: it.name, start: toIsoDate(it.attributes?.startDate), finish: toIsoDate(it.attributes?.finishDate),

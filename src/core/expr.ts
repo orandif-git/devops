@@ -71,11 +71,20 @@ export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = 
     p++; return t;
   };
 
+  // inside the branch of an IF that is not taken, errors (division by zero, empty inputs) must not abort the formula
+  let suppress = 0;
+  const res = (name: string): Val => {
+    if (!suppress) return resolve(name);
+    try { return resolve(name); } catch (e) { if (e instanceof EvalAbort) return 0; throw e; }
+  };
+  const numeric = (v: Val) => typeof v === "number" || typeof v === "boolean" || (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v)));
+
   function parseComparison(): Val {
     let l = parseAdd();
     while (peek().t === "op" && ["<", ">", "<=", ">=", "=", "==", "<>", "!="].includes(peek().v)) {
       const op = eat().v; const r = parseAdd();
-      const bothNum = typeof l !== "string" && typeof r !== "string";
+      // numbers compare as numbers, also against numeric text (a text column holding digits); text against text compares as text
+      const bothNum = (typeof l !== "string" && typeof r !== "string") || ((typeof l === "number" || typeof r === "number") && numeric(l) && numeric(r));
       const a = bothNum ? num(l) : String(l), b = bothNum ? num(r) : String(r);
       l = op === "<" ? a < b : op === ">" ? a > b : op === "<=" ? a <= b : op === ">=" ? a >= b
         : op === "=" || op === "==" ? a === b : a !== b;
@@ -96,7 +105,7 @@ export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = 
     while (peek().t === "op" && ["*", "/", "%"].includes(peek().v)) {
       const op = eat().v; const r = num(parseUnary());
       const a = num(l);
-      if (r === 0 && (op === "/" || op === "%") && opts.strictDiv) throw new EvalAbort("division by zero");
+      if (r === 0 && (op === "/" || op === "%") && opts.strictDiv && !suppress) throw new EvalAbort("division by zero");
       l = op === "*" ? a * r : op === "/" ? (r === 0 ? 0 : a / r) : (r === 0 ? 0 : a % r);
     }
     return l;
@@ -110,20 +119,32 @@ export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = 
     const t = eat();
     if (t.t === "num") return parseFloat(t.v);
     if (t.t === "str") return t.v;
-    if (t.t === "ref") return resolve(t.v);
+    if (t.t === "ref") return res(t.v);
     if (t.t === "op" && t.v === "(") { const v = parseComparison(); eat(")"); return v; }
     if (t.t === "id") {
       if (t.v === "TRUE") return true;
       if (t.v === "FALSE") return false;
-      if (peek().v !== "(") return resolve(t.raw ?? t.v);        // bare identifier = named variable
+      if (peek().v !== "(") return res(t.raw ?? t.v);        // bare identifier = named variable
       if (COLUMN_FUNCS.includes(t.v)) {                           // TOTAL([col]) etc.: aggregate over the whole grid column
         eat("(");
         const col = eat();
         if (col.t !== "ref" && col.t !== "id") throw new Error(`${t.v} expects a column name`);
         eat(")");
-        return resolve(`@${t.v}:${col.t === "id" ? col.raw ?? col.v : col.v}`);
+        return res(`@${t.v}:${col.t === "id" ? col.raw ?? col.v : col.v}`);
       }
       eat("(");
+      if (t.v === "IF") {                                         // only the branch that is taken can fail the formula
+        const cond = truthy(parseComparison());
+        const rest: Val[] = [];
+        while (peek().v === ",") {
+          eat(",");
+          const taken = rest.length === 0 ? cond : !cond;
+          if (!taken) suppress++;
+          try { rest.push(parseComparison()); } finally { if (!taken) suppress--; }
+        }
+        eat(")");
+        return (cond ? rest[0] : rest[1]) ?? "";
+      }
       const args: Val[] = [];
       if (peek().v !== ")") { args.push(parseComparison()); while (peek().v === ",") { eat(","); args.push(parseComparison()); } }
       eat(")");

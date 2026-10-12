@@ -1,6 +1,7 @@
 import { CapacityRecord } from "./capacity";
 import { ColumnDef, ColumnType, GridConfig } from "./types";
 import { keyNorm } from "./keys";
+import { parseNumber } from "./number";
 import { DayRange, inRanges, NativeTeam } from "./nativeCapacity";
 
 /**
@@ -19,7 +20,7 @@ export type CalendarBook = (resource: unknown) => CalendarResult;
 export interface ScheduleResult { end: string; months: Record<string, number>; workingDays: number; error?: string }
 
 const DAY = 86400000;
-const MAX_DAYS = 1100;
+const MAX_DAYS = 3660;                       // ten years of calendar days
 const parse = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : NaN; };
 const toIso = (t: number) => new Date(t).toISOString().slice(0, 10);
 const round = (n: number) => Math.round(n * 1e6) / 1e6;
@@ -109,7 +110,7 @@ export function registerCalendarBook(records: CapacityRecord[], cal: CalendarSet
     const rec = byKey.get(key);
     if (!rec) return { error: `${shortName(resource)} is not in the Capacity register. Add them on the Capacity page.` };
     const hours = rec.hoursPerDay ?? cal.hoursPerDay;
-    const leave = rec.leave ?? [];
+    const leave = (rec.leave ?? []).map(l => ({ start: l.start, end: l.end || l.start }));
     return {
       days: {
         day(iso) {
@@ -131,7 +132,7 @@ export const hasCalendarBook = () => !!currentBook;
 
 const num = (v: unknown): number | null => {
   if (v === "" || v === null || v === undefined) return null;
-  const n = typeof v === "number" ? v : parseFloat(String(v).replace(/,/g, ""));
+  const n = typeof v === "number" ? v : parseNumber(String(v));
   return Number.isFinite(n) ? n : null;
 };
 
@@ -142,10 +143,19 @@ const num = (v: unknown): number | null => {
 export function applySchedule(row: Record<string, unknown>, s: ScheduleCols): void {
   const start = String(row[s.start] ?? "").trim();
   const effort = num(row[s.effort]);
-  if (!start || effort === null) { row[s.end] = ""; delete row._months; delete row._schedErr; delete row._schedNote; return; }
-  if (!currentBook) return;
+  if (!start || effort === null) { row[s.end] = ""; delete row._months; delete row._schedErr; delete row._schedNote; delete row._schedFor; return; }
   const alloc = s.allocation ? num(row[s.allocation]) ?? 100 : 100;
+  const inputs = JSON.stringify([row[s.resource] ?? "", start, effort, alloc]);
+  if (!currentBook) {
+    // no calendar yet: stored results stay, unless an input changed since they were calculated (then they would be wrong)
+    if (typeof row._schedFor === "string" && row._schedFor !== inputs) {
+      row[s.end] = ""; delete row._months; delete row._schedNote;
+      row._schedErr = "The calendar is not loaded yet, so the end date and monthly hours could not be recalculated.";
+    }
+    return;
+  }
   const cal = currentBook(row[s.resource]);
+  row._schedFor = inputs;
   row._schedNote = alloc > 100 ? "Allocation above 100%: this person is double-booked." : undefined;
   if (row._schedNote === undefined) delete row._schedNote;
   if (!cal.days) { row[s.end] = ""; row._months = {}; row._schedErr = cal.error ?? "No calendar."; return; }

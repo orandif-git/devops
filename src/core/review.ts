@@ -79,7 +79,7 @@ export const isLocked = (row: GridRow, cfg: GridConfig, actor: Actor | undefined
 
 export const reviewColumns = (r: ReviewConfig) => [r.statusColumn, r.byColumn, r.atColumn, r.reasonColumn].filter(Boolean) as string[];
 
-const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
+const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
 export interface DecideResult { rows: GridRow[]; changed: number; skipped: number; firstReason?: string }
 

@@ -46,7 +46,7 @@ describe("secure approvals: fingerprints and verified status", () => {
     expect(res.changed).toBe(1);
     expect(res.rows[0].reviewstatus).toBe("Approved");
     expect(res.rows[0].reviewedby).toBe("Pat");
-    expect(res.rows[0].reviewedat).toBe("2026-10-12 10:05");
+    expect(res.rows[0].reviewedat).toBe("2026-10-12 10:05 UTC");
     const edited = { ...res.rows[0], effort: 500 };                                // edited from outside after approval
     expect(verifiedState(edited, cfg, res.doc)).toMatchObject({ state: "pending", stale: true });
     expect(applyDecisions([edited], cfg, res.doc)[0].reviewstatus).toBe("Pending review");
