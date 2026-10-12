@@ -1,6 +1,6 @@
 {
   "name": "workitem-grid-rules",
-  "version": "1.0.1",
+  "version": "2.1.0",
   "private": true,
   "description": "Azure DevOps extension: smart grid control, conditional rules engine, dependent dropdowns and visual rule builder",
   "scripts": {
