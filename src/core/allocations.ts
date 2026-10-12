@@ -47,8 +47,8 @@ export interface OverviewRow { key: string; name: string; cells: OverviewCell[] 
 
 export function buildOverview(records: CapacityRecord[], register: CapacityRegister, docs: AllocationDoc[], months: string[]): OverviewRow[] {
   const alloc = sumAllocations(docs);
-  const names = new Map(records.map(r => [r.key, r.name]));
-  const keys = new Set<string>(records.map(r => r.key));
+  const names = new Map(records.map(r => [keyNorm(r.key), r.name]));
+  const keys = new Set<string>(records.map(r => keyNorm(r.key)));
   for (const k of Object.keys(alloc)) keys.add(k.split("|")[0]);                       // people with hours but no capacity registered
   return Array.from(keys).map(key => {
     const cells = months.map(month => {

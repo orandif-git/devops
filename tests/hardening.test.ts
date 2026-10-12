@@ -171,3 +171,23 @@ describe("derived grid and approvals", () => {
     expect(ok[0].overcapacity).toBe("No");
   });
 });
+
+import { keyNorm } from "../src/core/keys";
+import { nativeCalendarBook } from "../src/core/schedule";
+describe("the same person with and without a domain", () => {
+  it("DOMAIN\\user and user are one person", () => {
+    expect(keyNorm("Tennyson G <CBQNT2000\\utennys>")).toBe("utennys");
+    expect(keyNorm("Tennyson G <utennys>")).toBe("utennys");
+    expect(keyNorm("utennys")).toBe("utennys");
+    expect(keyNorm("CBQNT2000\\UTennys")).toBe("utennys");
+    expect(keyNorm("Ann <ann@x.com>")).toBe("ann@x.com");                 // e-mail addresses are kept whole
+  });
+  it("the calendar finds a person the people picker spells without the domain", () => {
+    const team = { teamName: "T", workingDays: [1, 2, 3, 4, 5], iterations: [{ name: "2026", start: "2026-01-01", finish: "2026-12-31", teamDaysOff: [], members: [{ name: "Tennyson G <CBQNT2000\\utennys>", capacityPerDay: 8, daysOff: [] }] }] };
+    const book = nativeCalendarBook([team]);
+    const r = scheduleEffort("2026-10-07", 50, 100, book("Tennyson G <utennys>").days!);
+    expect(r.error).toBeUndefined();
+    expect(r.end).toBe("2026-10-15");                                      // 6 full days and 2 h
+    expect(book("Someone <other>").error).toMatch(/looked up as “other”/);
+  });
+});

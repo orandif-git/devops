@@ -1,5 +1,6 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
+import { keyNorm } from "../core/keys";
 import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
 import { dataManager, getCompat, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
@@ -58,6 +59,8 @@ export async function deleteRecord(projectId: string, key: string): Promise<void
 }
 
 // ---------- capacity from Azure DevOps team capacity ----------
+/** Set once the explicit-version request succeeded after the library's own request was refused (older Azure DevOps Server). */
+let typedRefused = false;
 let nativeCache: { key: string; at: number; value: { teams: NativeTeam[]; report: NativeReport[] } } | undefined;
 
 /** Read iterations, working days, per-person capacity and days off of the chosen teams. Cached for a minute. */
@@ -70,9 +73,10 @@ export async function readNativeCapacity(teamRefs: TeamRef[], force = false): Pr
   const enc = encodeURIComponent;
   /** The typed client first (it works on Services and newer servers); if the server refuses its api-version, ask again with an explicit 5.0. */
   const either = async <T,>(what: string, typed: () => Promise<T>, compat: () => Promise<T>): Promise<T> => {
+    if (typedRefused) return withTimeout(compat(), what);              // this server already refused the library's api-version: do not ask it again
     try { return await withTimeout(typed(), what); }
     catch (first) {
-      try { return await withTimeout(compat(), what); }
+      try { const r = await withTimeout(compat(), what); typedRefused = true; return r; }
       catch (second) { throw new Error(`${(first as Error).message} / ${(second as Error).message}`); }
     }
   };
@@ -130,7 +134,7 @@ export async function loadRegister(projectId: string): Promise<CapacityRegister>
   const { records } = await loadCapacityRecords(projectId, settings);
   const reg = emptyRegister();
   reg.projectDefault = settings.defaultHours;
-  for (const r of records) reg.resources[r.key] = r;
+  for (const r of records) reg.resources[keyNorm(r.key)] = r;
   return reg;
 }
 

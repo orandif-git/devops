@@ -76,7 +76,7 @@ export function nativeCalendarBook(teams: NativeTeam[]): CalendarBook {
     const key = keyNorm(resource);
     if (!key) return { error: "Choose a resource to calculate the end date." };
     const segs = people.get(key);
-    if (!segs) return { error: `${shortName(resource)} has no capacity in the Azure DevOps team capacity. Add them under Boards → Sprints → Capacity of a team selected on the Capacity page.` };
+    if (!segs) return { error: `${shortName(resource)} has no capacity in the Azure DevOps team capacity (looked up as “${key}”). Add them under Boards → Sprints → Capacity of a team selected on the Capacity page.` };
     return {
       days: {
         day(iso) {
@@ -101,7 +101,7 @@ export interface CalendarSettings { workingDays: number[]; hoursPerDay: number; 
 export const defaultCalendar = (): CalendarSettings => ({ workingDays: [1, 2, 3, 4, 5], hoursPerDay: 8, holidays: [] });
 
 export function registerCalendarBook(records: CapacityRecord[], cal: CalendarSettings): CalendarBook {
-  const byKey = new Map(records.map(r => [r.key, r]));
+  const byKey = new Map(records.map(r => [keyNorm(r.key), r]));
   const work = new Set(cal.workingDays);
   const holidays: DayRange[] = cal.holidays.filter(h => h.start).map(h => ({ start: h.start, end: h.end || h.start }));
   return resource => {
