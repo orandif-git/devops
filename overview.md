@@ -69,6 +69,7 @@ Every row can carry a review status – **Pending review**, **Approved** or **Re
 - **Administrators** are project administrators plus an optional list of **grid administrators** (teams or people). They may decide every row and edit or remove approved rows.
 - **Lock approved rows** (optional): an approved row cannot be edited, moved or deleted except by administrators. **Reset on edit** (optional): changing an approved or rejected row sends it back to pending review.
 - Each decision records **who** and **when** (in a time zone you choose, with its offset, for example `2026-10-12 17:03 UTC+03:00`), and the approver can type a **comment / reject reason** in the comment column.
+- **Overall status of the grid (optional):** write one text value to a work item field, for example *Approved* when every row is approved, *Partially approved* when some are, *Pending review* when none has been reviewed and *Has rejected rows* when a row is rejected. The wording and whether a rejected row decides the status are configurable.
 - **Totals by status:** add the approved, pending and rejected figure of a number column to separate work item fields.
 - Rows that are duplicated, imported or loaded from a preset always start as pending review.
 - **Normal mode** is enforced by the extension's pages only: someone with edit rights on the work item could still change the stored status by other means (for example Excel or the API).

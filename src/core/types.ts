@@ -130,6 +130,14 @@ export interface ReviewConfig {
   reasonColumn?: string;
   statuses: { pending: string; approved: string; rejected: string };
   /** an edited approved / rejected row goes back to pending review (the review columns themselves do not count) */
+  /** write one overall status for the whole grid (e.g. "Approved", "Partially approved") to a text field of the work item */
+  overall?: {
+    field: string;
+    /** the words written for each outcome; an empty or missing label uses the default */
+    labels?: Partial<Record<"none" | "pending" | "partial" | "approved" | "rejected", string>>;
+    /** any rejected row makes the overall status "rejected" (default); otherwise rejected rows simply count as not yet approved */
+    rejectedWins?: boolean;
+  };
   /** time zone (IANA name, e.g. "Asia/Qatar") in which the "reviewed at" time is written; empty = UTC */
   timeZone?: string;
   resetOnEdit: boolean;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Actor, canDecide, decide, ensureStatus, isGridAdmin, isLocked, resetOnEdit, stateOf, withReview, reviewTeamIds } from "../src/core/review";
 import { mappedTotals, newRow, recomputeAll, validateConfig } from "../src/core/gridModel";
+import { writtenFields } from "../src/core/written";
 import { GridConfig, GridRow } from "../src/core/types";
 
 const base: GridConfig = {
@@ -119,5 +120,39 @@ describe("review: status, who may decide, lock", () => {
     expect(validateConfig({ ...cfg, review: { ...cfg.review!, statusColumn: "nope" } }).join("|")).toMatch(/status column/);
     expect(validateConfig({ ...cfg, review: { ...cfg.review!, statuses: { pending: "A", approved: "a", rejected: "R" } } }).join("|")).toMatch(/different/);
     expect(validateConfig({ ...cfg, review: { ...cfg.review!, approvers: [{ id: "z", name: "Z", teams: [], people: [], when: { column: "zzz", values: ["x"] } }] } }).join("|")).toMatch(/unknown column/);
+  });
+});
+
+import { overallOutcome, overallValue } from "../src/core/review";
+describe("overall review status of the whole grid", () => {
+  const rows = (...s: string[]): GridRow[] => s.map((x, i) => ({ _id: "r" + i, reviewstatus: x }));
+  const c: GridConfig = { ...cfg, review: { ...cfg.review!, overall: { field: "Custom.ReviewStatus" } } };
+  const val = (rs: GridRow[], conf = c) => overallValue(rs, conf)?.value;
+  it("is empty without rows, pending when nothing is reviewed, partial, approved, or rejected", () => {
+    expect(val(rows())).toBe("");
+    expect(val(rows("Pending review", "Pending review"))).toBe("Pending review");
+    expect(val(rows("Approved", "Pending review"))).toBe("Partially approved");
+    expect(val(rows("Approved", "Approved", "Approved"))).toBe("Approved");
+    expect(val(rows("Approved", "Rejected"))).toBe("Has rejected rows");
+    expect(val(rows("Pending review", "Rejected"))).toBe("Has rejected rows");
+  });
+  it("labels and the rejected rule are configurable", () => {
+    const custom: GridConfig = { ...cfg, review: { ...cfg.review!, overall: { field: "Custom.S", rejectedWins: false, labels: { approved: "Fully approved", partial: "In progress", pending: "To review", rejected: "Rework" } } } };
+    expect(val(rows("Approved", "Approved"), custom)).toBe("Fully approved");
+    expect(val(rows("Approved", "Pending review"), custom)).toBe("In progress");
+    expect(val(rows("Pending review", "Pending review"), custom)).toBe("To review");
+    expect(val(rows("Approved", "Rejected"), custom)).toBe("In progress");           // rejected rows count as not yet approved
+    expect(val(rows("Rejected", "Rejected"), custom)).toBe("To review");
+    const rej: GridConfig = { ...custom, review: { ...custom.review!, overall: { ...custom.review!.overall!, rejectedWins: true } } };
+    expect(val(rows("Approved", "Rejected"), rej)).toBe("Rework");
+    expect(overallOutcome(rows("Approved"), rej.review!)).toBe("approved");
+  });
+  it("does nothing without a field, is validated, and is listed as a written field", () => {
+    expect(overallValue(rows("Approved"), cfg)).toBeUndefined();
+    expect(overallValue(rows("Approved"), { ...cfg, review: { ...cfg.review!, overall: { field: "" } } })).toBeUndefined();
+    expect(validateConfig({ ...cfg, review: { ...cfg.review!, overall: { field: "" } } }).join("|")).toMatch(/overall status needs a work item field/);
+    const clash: GridConfig = { ...c, totals: [{ column: "effort", aggregate: "sum", field: "Custom.ReviewStatus" }] };
+    expect(validateConfig(clash).join("|")).toMatch(/written by both/);
+    expect(writtenFields({ calculations: [], grids: { G: c } }).map(f => f.field)).toContain("Custom.ReviewStatus");
   });
 });

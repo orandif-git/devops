@@ -111,6 +111,28 @@ export function resetRow(row: GridRow, r: ReviewConfig): GridRow {
 
 const auto = (c: ColumnDef, cfg: GridConfig) => !!c.formula || !!c.lookup || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated" || c.id === cfg.schedule?.end;
 
+export type OverallOutcome = "none" | "pending" | "partial" | "approved" | "rejected";
+export const DEFAULT_OVERALL: Record<OverallOutcome, string> = { none: "", pending: "Pending review", partial: "Partially approved", approved: "Approved", rejected: "Has rejected rows" };
+
+/** The state of the whole grid: nothing to review, nothing reviewed yet, partly approved, all approved, or rejected rows present. */
+export function overallOutcome(rows: GridRow[], r: ReviewConfig): OverallOutcome {
+  if (!rows.length) return "none";
+  let approved = 0, rejected = 0;
+  for (const row of rows) { const s = stateOf(row, r); if (s === "approved") approved++; else if (s === "rejected") rejected++; }
+  if (approved === rows.length) return "approved";
+  if (rejected > 0 && (r.overall?.rejectedWins ?? true)) return "rejected";
+  return approved === 0 ? "pending" : "partial";
+}
+
+/** The field and the text to write for the grid's overall review status, when that is switched on. */
+export function overallValue(rows: GridRow[], cfg: GridConfig): { field: string; value: string } | undefined {
+  const o = cfg.review?.overall;
+  if (!cfg.review || !o?.field) return undefined;
+  const outcome = overallOutcome(rows, cfg.review);
+  const custom = o.labels?.[outcome];
+  return { field: o.field, value: custom && custom.trim() ? custom.trim() : DEFAULT_OVERALL[outcome] };
+}
+
 /** The columns a person types in (not calculated, not the review columns): what an approval vouches for. */
 export function typedColumns(cfg: GridConfig): ColumnDef[] {
   const skip = new Set(cfg.review ? reviewColumns(cfg.review) : []);

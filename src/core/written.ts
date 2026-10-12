@@ -13,6 +13,7 @@ export function writtenFields(config: Pick<ProjectConfig, "calculations" | "grid
   for (const c of config.calculations ?? []) add(c.resultField, `Calculation “${c.name}”`);
   for (const [name, g] of Object.entries(config.grids ?? {})) {
     for (const t of g.totals ?? []) add(t.field, `Grid “${name}” total (${t.aggregate} of ${t.column}${t.where ? ` where ${t.where.column} is ${t.where.values.join("/")}` : ""})`);
+    if (g.review?.overall?.field) add(g.review.overall.field, `Grid “${name}” overall review status`);
     for (const b of g.breakdowns ?? []) for (const [group, field] of Object.entries(b.fields ?? {})) add(field, `Grid “${name}” group “${group}”`);
   }
   return Array.from(map, ([field, by]) => ({ field, by })).sort((a, b) => a.field.localeCompare(b.field));

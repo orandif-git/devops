@@ -124,6 +124,11 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (!r.approvers.length && !r.admins.teams.length && !r.admins.people.length) add("warn", w, "Review: no approver rule or grid administrator is set, so only project administrators can approve or reject rows");
       r.approvers.forEach(a => { if (!a.teams.length && !a.people.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has no team or person, so nobody can use it`); if (a.when && !a.when.values.length) add("warn", w, `Review: approver rule “${a.name || "(unnamed)"}” has a condition without values, so it never applies`); });
       if (r.noSelfApproval && !g.schedule && !g.columns.some(c => c.type === "identity")) add("warn", w, "Review: “nobody approves their own row” needs a people-picker column to know who the row is about");
+      if (r.overall?.field) {
+        const f = checkField(`${w} › totals`, r.overall.field, []);
+        if (f && NUMERIC.test(f.type)) add("error", `${w} › totals`, `The overall review status is text, but ${f.name} is a numeric field`);
+        if (f && /^(html|history|guid|boolean|dateTime)$/i.test(f.type)) add("warn", `${w} › totals`, `The overall review status is text, but ${f.name} is a ${f.type} field`);
+      }
       if (r.secure?.dataField) {
         const f = checkField(w, r.secure.dataField, []);
         if (f && NUMERIC.test(f.type)) add("error", w, `The approvals field ${f.name} must be a text field`);
@@ -251,6 +256,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
   for (const g of Object.values(cfg.grids)) {
     (g.totals ?? []).forEach(t => t.field && written.set(t.field, "a grid total"));
     (g.breakdowns ?? []).forEach(b => Object.values(b.fields ?? {}).forEach(f => f && written.set(f, "a grid breakdown")));
+    if (g.review?.overall?.field) written.set(g.review.overall.field, "a grid's overall review status");
   }
   const { cyclic } = orderCalculations(calcs.filter(c => c.enabled));
   calcs.forEach((c, i) => {

@@ -11,7 +11,7 @@ import { GridConfig, GridPreset, GridRow, LookupTable } from "../core/types";
 import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upsertPreset } from "../core/presets";
 import { canSavePresets } from "../shared/presetAccess";
 import { loadActor } from "../shared/reviewAccess";
-import { Actor, freshReview } from "../core/review";
+import { Actor, freshReview, overallValue } from "../core/review";
 import { normalizeGrid } from "../core/normalize";
 import { applyDecisions, decideSecure, emptyReviewDoc, parseReviewDoc, serializeReviewDoc, staleCount } from "../core/reviewDoc";
 import { applySharedLookups } from "../core/sharedLookups";
@@ -61,6 +61,20 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");
+  // the overall review status field follows the decisions even when nothing was typed (for example an approval that went stale on opening)
+  React.useEffect(() => {
+    if (!ready) return;
+    const o = overallValue(rows, cfg);
+    if (!o || o.value === lastOverall.current) return;
+    lastOverall.current = o.value;
+    getFormService().then(async svc => {
+      if (!knownFields.current) knownFields.current = new Set((await svc.getFields()).map(f => f.referenceName));
+      if (!knownFields.current.has(o.field)) return;
+      const cur = await svc.getFieldValue(o.field);
+      if (String(cur ?? "") !== o.value) await svc.setFieldValue(o.field, o.value);
+    }).catch(() => undefined);
+  }, [ready, rows, cfg]);
+
   // approvals: who is looking at the grid (until known, approved rows stay locked and nobody sees the Approve / Reject buttons)
   React.useEffect(() => {
     if (!props.cfg.review) return;
@@ -86,6 +100,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [calError, setCalError] = React.useState("");
   const knownFields = React.useRef<Set<string>>();
   const rowsRef = React.useRef<GridRow[]>([]);
+  const lastOverall = React.useRef<string | undefined>(undefined);
   const lastWritten = React.useRef<string | null>(null);
   const timer = React.useRef<number>();
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -99,7 +114,9 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     // 1) the rows themselves – always written on their own so a bad total mapping can never lose them
     await svc.setFieldValue(cfg.dataField!, text);
     // 2) mapped totals, one by one; skip fields this work item type does not have and report them
-    const wanted = mappedTotals(next, cfg);
+    const wanted: Record<string, number | string> = { ...mappedTotals(next, cfg) };
+    const overall = overallValue(next, cfg);                  // e.g. "Partially approved", written to the field chosen in the Approval settings
+    if (overall) { wanted[overall.field] = overall.value; lastOverall.current = overall.value; }
     if (!Object.keys(wanted).length) { setWarn(""); return; }
     if (!knownFields.current) knownFields.current = new Set((await svc.getFields()).map(f => f.referenceName));
     const problems: string[] = [];

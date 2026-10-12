@@ -7,7 +7,7 @@ import { dropDanglingColorRefs, renameColumn, renameInDerivedGrids } from "../co
 import { needsScheduledRemap, remapToScheduled, SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
 import { defaultPresetColumns } from "../core/presets";
-import { DEFAULT_STATUSES, withReview } from "../core/review";
+import { DEFAULT_OVERALL, DEFAULT_STATUSES, OverallOutcome, withReview } from "../core/review";
 import { formatStamp, isTimeZone, knownTimeZones, localTimeZone } from "../core/time";
 import { IdentityInput } from "../grid/IdentityInput";
 import { getProject } from "../shared/ado";
@@ -419,6 +419,24 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
           <TeamChips all={teams} value={rv.admins.teams} onChange={v => set({ admins: { ...rv.admins, teams: v } })} />
           <PeopleList value={rv.admins.people} projectId={projectId} onChange={v => set({ admins: { ...rv.admins, people: v } })} />
 
+          <div className="card">
+            <label><input type="checkbox" checked={!!rv.overall} onChange={e => set({ overall: e.target.checked ? { field: "", rejectedWins: true } : undefined })} /> <b>Write one overall status for the whole grid</b> to a work item field (for example “Approved” when every row is approved)</label>
+            {rv.overall && (
+              <>
+                <label className="field"><span>Work item field (a text field on the work item type)</span>
+                  <FieldInput value={rv.overall.field} onChange={field => set({ overall: { ...rv.overall!, field } })} placeholder="Custom.ReviewStatus" /></label>
+                <div className="help">What the field shows for each situation (leave a box empty to use the suggested wording):</div>
+                <div className="row">
+                  {([["none", "No rows"], ["pending", "None reviewed yet"], ["partial", "Some approved"], ["approved", "All approved"], ["rejected", "A row is rejected"]] as [OverallOutcome, string][]).map(([k, label]) => (
+                    <label className="field" key={k} style={{ flex: 1, minWidth: 140 }}><span>{label}</span>
+                      <input value={rv.overall!.labels?.[k] ?? ""} placeholder={DEFAULT_OVERALL[k] || "(empty)"} onChange={e => set({ overall: { ...rv.overall!, labels: { ...(rv.overall!.labels ?? {}), [k]: e.target.value } } })} /></label>
+                  ))}
+                </div>
+                <label><input type="checkbox" checked={rv.overall.rejectedWins ?? true} onChange={e => set({ overall: { ...rv.overall!, rejectedWins: e.target.checked } })} /> A rejected row decides the overall status (otherwise rejected rows count as “not approved yet”)</label>
+                <div className="help">It is updated whenever rows or decisions change, together with the totals. Examples with 10 rows: all 10 approved → <b>{rv.overall.labels?.approved?.trim() || DEFAULT_OVERALL.approved}</b>; 7 approved, none rejected → <b>{rv.overall.labels?.partial?.trim() || DEFAULT_OVERALL.partial}</b>; none reviewed → <b>{rv.overall.labels?.pending?.trim() || DEFAULT_OVERALL.pending}</b>.</div>
+              </>
+            )}
+          </div>
           <div className="help"><b>Totals by status</b> – write the approved / pending / rejected figure of a number column to work item fields:</div>
           <div className="row">
             <select className="fixed" value={effort} onChange={e => setEffort(e.target.value)}><option value="">Column to add up…</option>{numCols.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>

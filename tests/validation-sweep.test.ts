@@ -7,7 +7,7 @@ import { emptyConfig, GridConfig, ProjectConfig } from "../src/core/types";
 
 /** A complete, valid setup of every feature. The live checks must say nothing about it: a warning here is a false alarm. */
 const F = (referenceName: string, type = "plainText") => ({ referenceName, name: referenceName.split(".")[1], type, readOnly: false });
-const FIELDS = [F("Custom.Rows"), F("Custom.CapRows"), F("Custom.ReviewData"), F("Custom.Total", "double"), F("Custom.Approved", "double"), F("Custom.Pending", "double"), F("Custom.ProjectType", "string")];
+const FIELDS = [F("Custom.Rows"), F("Custom.CapRows"), F("Custom.ReviewData"), F("Custom.Total", "double"), F("Custom.Approved", "double"), F("Custom.Pending", "double"), F("Custom.ProjectType", "string"), F("Custom.Overall", "string")];
 
 function fullConfig(): ProjectConfig {
   let ts: GridConfig = { dataField: "Custom.Rows", columns: [
@@ -18,7 +18,7 @@ function fullConfig(): ProjectConfig {
   ] };
   ts = withSchedule(ts);
   ts = withReview(ts);
-  ts.review = { ...ts.review!, secure: { dataField: "Custom.ReviewData" }, approvers: [{ id: "a", name: "PMO", teams: [{ id: "t", name: "PMO" }], people: [] }], admins: { teams: [], people: ["A <a@x.com>"] }, noSelfApproval: true };
+  ts.review = { ...ts.review!, secure: { dataField: "Custom.ReviewData" }, approvers: [{ id: "a", name: "PMO", teams: [{ id: "t", name: "PMO" }], people: [] }], admins: { teams: [], people: ["A <a@x.com>"] }, noSelfApproval: true, overall: { field: "Custom.Overall", rejectedWins: true } };
   ts.totals = [
     { column: "effort", aggregate: "sum", field: "Custom.Total" },
     { column: "effort", aggregate: "sum", field: "Custom.Approved", where: { column: "reviewstatus", values: ["Approved"] } },

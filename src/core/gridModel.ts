@@ -363,6 +363,7 @@ export function validateConfig(cfg: GridConfig): string[] {
   const claim = (field: string, who: string) => { if (!field) return; const prev = used.get(field); if (prev) errs.push(`Field '${field}' is written by both ${prev} and ${who}`); else used.set(field, who); };
   for (const t of cfg.totals ?? []) claim(t.field, `total of '${t.column}'`);
   for (const b of cfg.breakdowns ?? []) for (const [g, f] of Object.entries(b.fields ?? {})) claim(f, `breakdown '${g}'`);
+  if (cfg.review?.overall?.field) claim(cfg.review.overall.field, "the overall review status");
   if (cfg.schedule) {
     const sc = cfg.schedule;
     const col = (id: string) => cfg.columns.find(c => c.id === id);
@@ -386,6 +387,7 @@ export function validateConfig(cfg: GridConfig): string[] {
     const labels = [st.pending, st.approved, st.rejected].map(v => String(v ?? "").trim().toLowerCase());
     if (labels.some(v => !v) || new Set(labels).size !== labels.length) errs.push("Review: the three status names must be filled in and different");
     if (r.timeZone && !isTimeZone(r.timeZone)) errs.push(`Review: '${r.timeZone}' is not a known time zone name (for example Asia/Qatar or UTC)`);
+    if (r.overall && !r.overall.field?.trim()) errs.push("Review: the overall status needs a work item field");
     if (r.secure) {
       if (!r.secure.dataField?.trim()) errs.push("Review: secure approvals need an approvals field");
       else if (r.secure.dataField === cfg.dataField) errs.push("Review: the approvals field must be a different field than the grid's data field");
