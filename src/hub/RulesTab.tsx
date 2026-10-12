@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Action, Condition, Operator, Rule } from "../core/types";
-import { delAt, FieldInput, setAt, TypeChips, uid, ValueInput, csv } from "./ui";
+import { delAt, FieldInput, setAt, TypeChips, uid, ValueInput, csv, activate } from "./ui";
 import { Issue } from "./validate";
 
 const OPS: [Operator, string][] = [
@@ -26,7 +26,7 @@ function ActionRows(p: { actions: Action[]; onChange(a: Action[]): void }) {
           </select>
           {"field" in a && <FieldInput value={a.field} onChange={field => p.onChange(setAt(p.actions, i, { ...a, field } as Action))} />}
           {a.type === "setValue" && <ValueInput field={a.field} value={a.value} onChange={value => p.onChange(setAt(p.actions, i, { ...a, value }))} />}
-          {a.type === "restrictValues" && <input placeholder="Allowed values, comma separated" defaultValue={a.values.join(", ")} key={a.field}
+          {a.type === "restrictValues" && <input placeholder="Allowed values, comma separated" defaultValue={a.values.join(", ")} key={a.field + a.values.join("\u0001")}
             onBlur={e => p.onChange(setAt(p.actions, i, { ...a, values: csv(e.target.value) }))} />}
           {a.type === "requireField" && <input placeholder="Message (optional)" value={a.message ?? ""} onChange={e => p.onChange(setAt(p.actions, i, { ...a, message: e.target.value }))} />}
           {a.type === "restrictValues" && <input placeholder="Message (optional)" value={a.message ?? ""} onChange={e => p.onChange(setAt(p.actions, i, { ...a, message: e.target.value }))} />}
@@ -86,7 +86,7 @@ export function RulesTab(p: { rules: Rule[]; onChange(r: Rule[]): void; issues: 
         <div className="list">
           {p.rules.map((r, idx) => {
             const iss = forRule(r, idx), e = iss.filter(x => x.level === "error").length;
-            return <div key={r.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
+            return <div role="button" tabIndex={0} onKeyDown={activate} key={r.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
               <span className="name" style={{ opacity: r.enabled ? 1 : .5 }}>{r.name || "(unnamed)"}</span>
               {e > 0 ? <span className="badge err">{e}</span> : iss.length > 0 ? <span className="badge">⚠</span> : null}
             </div>;

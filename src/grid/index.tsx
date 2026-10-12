@@ -12,6 +12,7 @@ import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upser
 import { canSavePresets } from "../shared/presetAccess";
 import { loadActor } from "../shared/reviewAccess";
 import { Actor, freshReview } from "../core/review";
+import { normalizeGrid } from "../core/normalize";
 import { applyDecisions, decideSecure, emptyReviewDoc, parseReviewDoc, serializeReviewDoc, staleCount } from "../core/reviewDoc";
 import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
@@ -29,7 +30,7 @@ async function resolveConfig(inputs: Inputs, projectId: string): Promise<Resolve
   let derived: Resolved["derived"] = [];
   let lookups: Record<string, LookupTable> = {};
   if (inputs.ConfigJson && inputs.ConfigJson.trim()) {
-    try { cfg = JSON.parse(inputs.ConfigJson); } catch { throw new Error("The 'Grid configuration (JSON)' input is not valid JSON."); }
+    try { cfg = normalizeGrid(JSON.parse(inputs.ConfigJson)); } catch { throw new Error("The 'Grid configuration (JSON)' input is not valid JSON."); }
   } else if (inputs.GridName) {
     const project = await loadConfig(projectId);
     lookups = project.lookups ?? {};
@@ -191,7 +192,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     const preset = presetList.find(x => x.id === id);
     if (!preset) return [];
     const before = new Set(rowsRef.current.map(r => r._id));
-    const res = mergePreset(rowsRef.current, preset, cfg, mode);
+    const res = mergePreset(rowsRef.current, preset, cfg, mode, actor);
     commit(res.rows);
     flash(`Loaded ${res.added} row${res.added === 1 ? "" : "s"} from “${preset.name}”${res.skipped ? `; ${res.skipped} already there` : ""}. Now fill in the rest.`);
     return res.rows.filter(r => !before.has(r._id)).map(r => r._id);
@@ -250,28 +251,31 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       const parentUrl = await svc.getWorkItemResourceUrl(await svc.getId());
       const inherit = await svc.getFieldValues(["System.AreaPath", "System.IterationPath"]);
       const client = await witClient();
-      let next = [...rowsRef.current], made = 0;
-      for (const id of ids) {
-        const row = next.find(r => r._id === id);
-        if (!row || row._childId) continue;
-        const title = String(row[child.titleColumn] ?? "").trim();
-        if (!title) { flash("A row has no title – skipped."); continue; }
-        const doc: { op: string; path: string; value: unknown }[] = [
-          { op: "add", path: "/fields/System.Title", value: title },
-          { op: "add", path: "/fields/System.AreaPath", value: inherit["System.AreaPath"] },
-          { op: "add", path: "/fields/System.IterationPath", value: inherit["System.IterationPath"] },
-        ];
-        for (const [col, ref] of Object.entries(child.fieldMap ?? {})) {
-          const v = row[col];
-          if (ref && ref !== "System.Title" && v !== "" && v !== null && v !== undefined) doc.push({ op: "add", path: `/fields/${ref}`, value: v });
+      let made = 0;
+      try {
+        for (const id of ids) {
+          const row = rowsRef.current.find(r => r._id === id);
+          if (!row || row._childId) continue;
+          const title = String(row[child.titleColumn] ?? "").trim();
+          if (!title) { flash("A row has no title – skipped."); continue; }
+          const doc: { op: string; path: string; value: unknown }[] = [
+            { op: "add", path: "/fields/System.Title", value: title },
+            { op: "add", path: "/fields/System.AreaPath", value: inherit["System.AreaPath"] },
+            { op: "add", path: "/fields/System.IterationPath", value: inherit["System.IterationPath"] },
+          ];
+          for (const [col, ref] of Object.entries(child.fieldMap ?? {})) {
+            const v = row[col];
+            if (ref && ref !== "System.Title" && v !== "" && v !== null && v !== undefined) doc.push({ op: "add", path: `/fields/${ref}`, value: v });
+          }
+          doc.push({ op: "add", path: "/relations/-", value: { rel: "System.LinkTypes.Hierarchy-Reverse", url: parentUrl } });
+          const wi = await client.createWorkItem(doc as never, props.projectName, child.workItemType);
+          made++;
+          // remember each created item at once, on top of whatever the user has typed meanwhile, so a later failure cannot make us create it twice
+          commit(rowsRef.current.map(r => (r._id === id ? { ...r, _childId: wi.id } : r)));
         }
-        doc.push({ op: "add", path: "/relations/-", value: { rel: "System.LinkTypes.Hierarchy-Reverse", url: parentUrl } });
-        const wi = await client.createWorkItem(doc as never, props.projectName, child.workItemType);
-        next = next.map(r => (r._id === id ? { ...r, _childId: wi.id } : r));
-        made++;
+      } finally {
+        if (made) flash(`Created ${made} ${child.workItemType}${made > 1 ? "s" : ""}. Save the work item to keep the links in the grid.`);
       }
-      commit(next);
-      if (made) flash(`Created ${made} ${child.workItemType}${made > 1 ? "s" : ""}. Save the work item to keep the links in the grid.`);
     } catch (e) {
       flash("Create failed: " + (e as Error).message);
     } finally { setBusy(false); }

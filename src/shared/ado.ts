@@ -5,6 +5,7 @@ import { WorkRestClient } from "azure-devops-extension-api/Work";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
 import { IWorkItemFormService, WorkItemTrackingServiceIds } from "azure-devops-extension-api/WorkItemTracking/WorkItemTrackingServices";
 import { emptyConfig, ProjectConfig } from "../core/types";
+import { normalizeProject } from "../core/normalize";
 import { withTimeout } from "./timeout";
 
 export async function init(loadSucceeded = true): Promise<void> {
@@ -76,7 +77,7 @@ export async function loadConfig(projectId: string): Promise<ProjectConfig> {
     const m = await dataManager();
     const doc = await m.getDocument(COLLECTION, `project-${projectId}`);
     const c = doc?.config as ProjectConfig | undefined;
-    return c ? { ...emptyConfig(), ...c } : emptyConfig();
+    return c ? normalizeProject({ ...emptyConfig(), ...c }) : emptyConfig();
   } catch (e) {
     // 404 = not configured yet
     if ((e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e))) return emptyConfig();

@@ -7,10 +7,12 @@ export type SectionId = "storage" | "derived" | "columns" | "dates" | "review" |
 /** Which part of the grid editor a validation message is about (so it can be shown next to it and jumped to). */
 export function issueSection(message: string, where = ""): SectionId {
   const m = message;
-  if (/› preset/.test(where)) return "presets";
+  const tag = /› (storage|totals|child|preset)/.exec(where)?.[1];
+  if (tag) return tag === "preset" ? "presets" : (tag as SectionId);
   if (/Review|approver|approval|Approvals/i.test(m)) return "review";
   if (/preset/i.test(m)) return "presets";
-  if (/Schedule|scheduled|Scheduled/i.test(m)) return "dates";
+  if (/Scheduled month|Scheduled hours|not scheduled|scheduled by dates, so/i.test(m)) return "derived";
+  if (/Schedule|scheduled/i.test(m)) return "dates";
   if (/derived|Source grid|KEY column|Publishing|publish|Capacity register|other Epics|source column/i.test(m)) return "derived";
   if (/Total mapping|total of|Breakdown|written by both|group filter/i.test(m)) return "totals";
   if (/Child/i.test(m)) return "child";

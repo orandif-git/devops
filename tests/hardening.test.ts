@@ -142,3 +142,32 @@ describe("overview", () => {
     expect(rows[0].cells[0]).toMatchObject({ capacity: 0, allocated: 40, over: true });
   });
 });
+
+import { syncDerived, capacityTemplate } from "../src/core/derived";
+describe("derived grid and approvals", () => {
+  const src: GridConfig = withReview({ columns: [
+    { id: "res", name: "Resource", type: "string" }, { id: "period", name: "Period", type: "date" }, { id: "hours", name: "Hours", type: "number" },
+  ] });
+  const tpl = (rows?: "all" | "notRejected" | "approved"): GridConfig => ({ derived: { source: "T", rows }, columns: [
+    { id: "resource", name: "Resource", type: "string", derive: { role: "key", source: "res" } },
+    { id: "period", name: "Period", type: "string", derive: { role: "key", source: "period", bucket: "month" } },
+    { id: "hours", name: "Hours", type: "number", derive: { role: "agg", source: "hours", aggregate: "sum" } },
+  ] });
+  const mk = (status: string, hours: number): GridRow => ({ ...recomputeAll([{ ...newRow(src), res: "A <a@x.com>", period: "2026-03-02", hours }], src)[0], reviewstatus: status });
+  const rows = [mk("Approved", 10), mk("Pending review", 20), mk("Rejected", 40)];
+  it("counts all rows, all but rejected, or approved only", () => {
+    expect(syncDerived(rows, tpl(), [], undefined, undefined, src)[0].hours).toBe(70);
+    expect(syncDerived(rows, tpl("notRejected"), [], undefined, undefined, src)[0].hours).toBe(30);
+    expect(syncDerived(rows, tpl("approved"), [], undefined, undefined, src)[0].hours).toBe(10);
+  });
+  it("the over-capacity flag also works when no hours are available", () => {
+    const cols = capacityTemplate({ resource: "res", period: "period", hours: "hours" }, { fromRegister: true });
+    const cfg: GridConfig = { columns: cols, derived: { source: "T" } };
+    const reg = { projectDefault: null, resources: { "a@x.com": { key: "a@x.com", name: "A <a@x.com>", defaultHours: 160, overrides: { "2026-03": 0 } } } };
+    const plain: GridConfig = { columns: src.columns };
+    const out = syncDerived([{ ...newRow(plain), res: "A <a@x.com>", period: "2026-03-02", hours: 40 }], cfg, [], reg, {}, plain);
+    expect(out[0].overcapacity).toBe("Yes");
+    const ok = syncDerived([{ ...newRow(plain), res: "A <a@x.com>", period: "2026-04-02", hours: 40 }], cfg, [], reg, {}, plain);
+    expect(ok[0].overcapacity).toBe("No");
+  });
+});

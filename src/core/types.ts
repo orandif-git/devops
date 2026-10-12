@@ -174,7 +174,11 @@ export interface GridConfig {
    */
   schedule?: { resource: string; start: string; effort: string; allocation?: string; end: string };
   /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
-  derived?: { source: string };
+  derived?: {
+    source: string;
+    /** which source rows count when the source grid has approvals: all (default), all but rejected, or only approved */
+    rows?: "all" | "notRejected" | "approved";
+  };
   /** publish this grid's hours (per person and month) to the central store so other Epics can see them */
   allocation?: { resource: string; period: string; hours: string };
   /** field that stores the JSON; falls back to the control's DataField input */

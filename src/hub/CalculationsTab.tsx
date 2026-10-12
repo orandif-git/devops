@@ -3,7 +3,7 @@ import { compute, explainCalculation, findGridDataFields, toInputValue, undefine
 import { resolvedGrids } from "../core/sharedLookups";
 import { listFields, witClient, withTimeout } from "../shared/ado";
 import { Aggregate, CalcInput, Calculation, EmptyHandling, GridConfig, RowFilter } from "../core/types";
-import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid } from "./ui";
+import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid, activate } from "./ui";
 import { Issue } from "./validate";
 
 const AGG: Aggregate[] = ["sum", "avg", "min", "max", "count"];
@@ -85,7 +85,7 @@ function InputCard(p: { input: CalcInput; grids: Record<string, GridConfig>; onC
               <span className="fixed">{k === 0 ? "only rows where" : "and where"}</span>
               {cols(w.column, column => setWhere(setAt(where, k, { ...w, column })))}
               <span className="fixed">is</span>
-              <input defaultValue={w.values.join(", ")} placeholder="value, or several separated by commas (any of)" onBlur={e => setWhere(setAt(where, k, { ...w, values: csv(e.target.value) }))} />
+              <input defaultValue={w.values.join(", ")} key={w.column + w.values.join("\u0001")} placeholder="value, or several separated by commas (any of)" onBlur={e => setWhere(setAt(where, k, { ...w, values: csv(e.target.value) }))} />
               <button className="btn icon danger fixed" onClick={() => setWhere(delAt(where, k))}>✕</button>
             </div>
           ))}
@@ -194,8 +194,8 @@ function Editor(p: { c: Calculation; grids: Record<string, GridConfig>; onChange
       <h3>2. Formula</h3>
       <textarea ref={formulaRef} rows={2} style={{ width: "100%" }} spellCheck={false} value={c.formula} placeholder="CapexHours / TotalHours * 100" onChange={e => set({ formula: e.target.value })} />
       <div className="chips" style={{ margin: "4px 0" }}>
-        {c.inputs.filter(i => i.name).map(i => <span key={i.name} className="chip" title="Insert into formula" onClick={() => insert(i.name)}>{i.name}</span>)}
-        {["+", "-", "*", "/", "(", ")"].map(o => <span key={o} className="chip" onClick={() => insert(` ${o} `)}>{o}</span>)}
+        {c.inputs.filter(i => i.name).map(i => <span role="button" tabIndex={0} onKeyDown={activate} key={i.name} className="chip" title="Insert into formula" onClick={() => insert(i.name)}>{i.name}</span>)}
+        {["+", "-", "*", "/", "(", ")"].map(o => <span role="button" tabIndex={0} onKeyDown={activate} key={o} className="chip" onClick={() => insert(` ${o} `)}>{o}</span>)}
       </div>
       <div className="help">Functions: {FUNCS}. Comparisons: &lt; &gt; &lt;= &gt;= = &lt;&gt;. Example: <code>IF(TotalHours &gt; 0, CapexHours / TotalHours * 100, 0)</code></div>
       {missing.length > 0 && <div className="err">Unknown variable(s) in the formula: {missing.join(", ")} – add them as inputs.</div>}
@@ -237,7 +237,7 @@ export function CalculationsTab(p: { calcs: Calculation[]; grids: Record<string,
         <div className="list">
           {p.calcs.map((c, idx) => {
             const iss = p.issues.filter(x => x.where === label(c, idx)), e = iss.filter(x => x.level === "error").length;
-            return <div key={c.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
+            return <div role="button" tabIndex={0} onKeyDown={activate} key={c.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
               <span className="name" style={{ opacity: c.enabled ? 1 : .5 }}>{c.name || "(unnamed)"}</span>
               {e > 0 ? <span className="badge err">{e}</span> : iss.length ? <span className="badge">⚠</span> : null}
             </div>;

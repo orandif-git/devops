@@ -192,7 +192,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
         if (!c.derive) return;
         if (!c.derive.source) add("error", w, `Column '${c.id}': pick the source column`);
         else if (src && !src.columns.some(x => x.id === c.derive!.source) && !(src.schedule && (c.derive.source === "_month" || c.derive.source === "_hours"))) add("error", w, `Column '${c.id}': '${c.derive.source}' is not a column of '${g.derived!.source}'${src.schedule ? " – it is scheduled by dates, so use the “Scheduled month” / “Scheduled hours” source (button “Use the scheduled month and hours” in this grid)" : ""}`);
-        else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && c.derive.source !== "_hours" && src.columns.find(x => x.id === c.derive!.source)?.type !== "number") add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
+        else if (src && c.derive.role === "agg" && c.derive.aggregate !== "count" && c.derive.source !== "_hours" && !["number", "calculated"].includes(src.columns.find(x => x.id === c.derive!.source)?.type ?? "")) add("warn", w, `Column '${c.id}' aggregates a column that is not a number`);
       });
       if (src?.schedule && !g.columns.some(c => c.derive?.source === "_month") && g.columns.some(c => c.derive)) add("warn", w, `The source grid '${g.derived.source}' is scheduled by dates, so month columns should use the source “Scheduled month” (_month) and hours the “Scheduled hours” (_hours)`);
       if (src?.schedule) g.columns.forEach(c => { if (c.derive?.role === "agg" && c.derive.source === src.schedule!.effort) add("warn", w, `Column '${c.id}' adds up the effort of '${g.derived!.source}', which would count the whole effort in every month the task touches – use “Scheduled hours” (_hours) instead`); });
@@ -204,7 +204,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
     g.columns.forEach(c => { if (c.type === "dropdown" && c.dependsOn) for (const [k, v] of Object.entries(c.dependsOn.map)) if (!v.length) add("warn", w, `'${c.id}': no options for parent value '${k}'`); });
     if (!g.dataField) add("warn", w, "No data field set – it must then be set on the form control");
     else {
-      const f = checkField(w, g.dataField, []);
+      const f = checkField(`${w} › storage`, g.dataField, []);
       if (f && NUMERIC.test(f.type)) add("error", w, `Data field ${f.name} must be a text field`);
     }
     g.columns.forEach(c => {
@@ -219,7 +219,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       }
     });
     (g.totals ?? []).forEach(t => {
-      const f = checkField(w, t.field, []);
+      const f = checkField(`${w} › totals`, t.field, []);
       if (f && !NUMERIC.test(f.type)) add("error", w, `${f.name} is not numeric; a total can only be written to an Integer/Decimal field`);
       if (f?.readOnly) add("warn", w, `${f.name} is read-only`);
       const wc = t.where && g.columns.find(x => x.id === t.where!.column);
@@ -227,14 +227,14 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       if (t.where && opts?.length) for (const v of t.where.values) if (!opts.some(o => o.toLowerCase() === v.toLowerCase())) add("warn", w, `Filter value '${v}' is not an option of '${wc!.id}', so this total will be 0`);
     });
     (g.breakdowns ?? []).forEach(b => Object.entries(b.fields ?? {}).forEach(([grp, ref]) => {
-      const f = checkField(w, ref, []);
+      const f = checkField(`${w} › totals`, ref, []);
       if (f && !NUMERIC.test(f.type)) add("error", w, `${f.name} (for '${grp}') is not numeric; a grouped total can only be written to an Integer/Decimal field`);
       if (f?.readOnly) add("warn", w, `${f.name} is read-only`);
     }));
     if (g.child?.enabled) {
       const types = g.child.workItemType ? [g.child.workItemType] : [];
       if (!g.child.workItemType) add("error", w, "Child work item type is required");
-      for (const ref of Object.values(g.child.fieldMap ?? {})) if (ref) checkField(w, ref, types);
+      for (const ref of Object.values(g.child.fieldMap ?? {})) if (ref) checkField(`${w} › child`, ref, types);
     }
   }
 
@@ -266,7 +266,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       else if (FUNCTION_NAMES.includes(inp.name.toUpperCase())) add("error", w, `Input name '${inp.name}' is a reserved function name`);
       if (seen.has(n)) add("error", w, `Input name '${inp.name}' is used twice`);
       seen.add(n);
-      if (c.formula.trim() && !new RegExp(`\\b${inp.name}\\b`, "i").test(c.formula)) add("warn", w, `Input '${inp.name}' is not used in the formula`);
+      if (c.formula.trim() && !new RegExp(`\\b${inp.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(c.formula)) add("warn", w, `Input '${inp.name}' is not used in the formula`);
       if (inp.source.kind === "field") {
         const f = checkField(w, inp.source.field, c.workItemTypes);
         if (f && /^(html|history|guid)$/i.test(f.type)) add("warn", w, `${f.name} is a ${f.type} field and may not hold a number`);
@@ -280,7 +280,7 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
             const gb = g.columns.find(col => col.id === (inp.source as { groupBy: string }).groupBy);
             if (!gb) add("error", w, `Input '${inp.name}': pick the column to group by`);
             const vc = g.columns.find(col => col.id === (inp.source as { column: string }).column);
-            if (vc && vc.type !== "number" && inp.source.aggregate !== "count") add("warn", w, `Input '${inp.name}': '${vc.name}' is not a number column, so its ${inp.source.aggregate} will be 0`);
+            if (vc && vc.type !== "number" && vc.type !== "calculated" && inp.source.aggregate !== "count") add("warn", w, `Input '${inp.name}': '${vc.name}' is not a number column, so its ${inp.source.aggregate} will be 0`);
             if (inp.source.bucket && inp.source.bucket !== "day" && gb && gb.type !== "date") add("warn", w, `Input '${inp.name}': grouping by month/quarter/year only applies to date columns ('${gb.name}' is ${gb.type})`);
             const rtype = c.resultField ? cat.all.get(c.resultField)?.type ?? "" : "";
             if (inp.source.return !== "value" && NUMERIC.test(rtype) && c.formula.trim().toLowerCase() === inp.name.toLowerCase())

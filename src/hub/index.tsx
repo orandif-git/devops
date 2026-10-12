@@ -4,6 +4,7 @@ import * as SDK from "azure-devops-extension-sdk";
 import "../shared/styles.css";
 import "./hub.css";
 import { emptyConfig, ProjectConfig } from "../core/types";
+import { normalizeProject } from "../core/normalize";
 import { FieldInfo, getProject, init, listFields, listWorkItemTypes, loadConfig, saveConfig } from "../shared/ado";
 import { CalculationsTab } from "./CalculationsTab";
 import { CapacityTab } from "./CapacityTab";
@@ -33,7 +34,7 @@ function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) 
       if (c.grids && (typeof c.grids !== "object" || Array.isArray(c.grids))) throw new Error("'grids' must be an object");
       for (const r of c.rules ?? []) if (!r.when || !Array.isArray(r.when.conditions) || !Array.isArray(r.then)) throw new Error(`Rule '${r.name ?? "?"}' needs 'when.conditions' and 'then'`);
       for (const [n, g] of Object.entries<{ columns?: unknown }>(c.grids ?? {})) if (!Array.isArray(g.columns)) throw new Error(`Grid '${n}' needs a 'columns' array`);
-      p.onApply({ ...emptyConfig(), ...c, version: 1 }); setErr("");
+      p.onApply(normalizeProject({ ...emptyConfig(), ...c, version: 1 })); setErr("");
     } catch (e) { setErr((e as Error).message); }
   };
   return (
@@ -51,6 +52,7 @@ function Hub(props: { projectId: string; projectName: string }) {
   const [saved, setSaved] = React.useState("");
   const [tab, setTab] = React.useState<Tab>("grids");
   const [focus, setFocus] = React.useState<{ n: number; grid?: string; section?: string; create?: boolean }>({ n: 0 });
+  const [focusDone, setFocusDone] = React.useState(0);
   const [types, setTypes] = React.useState<string[]>([]);
   const [fields, setFields] = React.useState<FieldInfo[]>([]);
   const [byType, setByType] = React.useState<Record<string, FieldInfo[]>>({});
@@ -103,7 +105,20 @@ function Hub(props: { projectId: string; projectName: string }) {
 
   const save = async () => {
     setSaving(true);
-    try { await saveConfig(props.projectId, config); setSaved(JSON.stringify(config)); setMsg("Saved. Open work items pick up changes on next load."); }
+    try {
+      // presets may have been saved from work items since this page was opened: keep those unless this page changed the grid's presets
+      const base = JSON.parse(saved) as ProjectConfig;
+      let out = config;
+      try {
+        const latest = await loadConfig(props.projectId);
+        out = { ...config, grids: Object.fromEntries(Object.entries(config.grids).map(([n, g]) => {
+          const untouched = JSON.stringify(g.presets ?? null) === JSON.stringify(base.grids[n]?.presets ?? null);
+          const theirs = latest.grids[n]?.presets;
+          return [n, untouched && theirs ? { ...g, presets: theirs } : g];
+        })) };
+      } catch { /* could not re-read: save what is on screen */ }
+      await saveConfig(props.projectId, out); setConfig(out); setSaved(JSON.stringify(out)); setMsg("Saved. Open work items pick up changes on next load.");
+    }
     catch (e) { setMsg("Save failed: " + (e as Error).message); } finally { setSaving(false); }
   };
 
@@ -145,7 +160,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         <div className="tabintro">{TAB_INTRO[tab]}</div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}
         {tab === "cascades" && <CascadesTab cascades={config.cascades} issues={issues} onChange={cascades => setConfig({ ...config, cascades })} />}
-        {tab === "grids" && <GridsTab focus={focus} grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
+        {tab === "grids" && <GridsTab focus={focus.n !== focusDone ? focus : undefined} onFocusHandled={setFocusDone} grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
         {tab === "mappings" && <MappingsTab config={config} issues={issues} onChange={(lookups, grids) => setConfig({ ...config, lookups, ...(grids ? { grids } : {}) })} />}
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "readonly" && <ReadOnlyTab config={config} />}

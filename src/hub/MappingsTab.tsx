@@ -1,4 +1,5 @@
 import * as React from "react";
+import { activate } from "./ui";
 import { LookupTable, ProjectConfig } from "../core/types";
 import { LookupEditor } from "./LookupEditor";
 import { Issue } from "./validate";
@@ -22,7 +23,7 @@ export function MappingsTab(p: { config: ProjectConfig; onChange(l: Record<strin
     <div className="split">
       <div>
         <div className="list">
-          {names.map(n => <div key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
+          {names.map(n => <div role="button" tabIndex={0} onKeyDown={activate} key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
             <span className="name">{n}</span>{p.issues.some(x => x.where === `Mapping “${n}”` && x.level === "error") && <span className="badge err">!</span>}</div>)}
           {!names.length && <div className="item muted">No mappings yet</div>}
         </div>

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Cascade } from "../core/types";
 import { importLegacyCascades } from "../core/rules";
-import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid } from "./ui";
+import { csv, Ctx, delAt, FieldInput, setAt, TypeChips, uid, activate } from "./ui";
 import { Issue } from "./validate";
 
 function Editor(p: { c: Cascade; onChange(c: Cascade): void; issues: Issue[] }) {
@@ -31,10 +31,10 @@ function Editor(p: { c: Cascade; onChange(c: Cascade): void; issues: Issue[] }) 
           <div className="row">
             <input className="fixed" style={{ fontWeight: 600 }} value={k} onChange={e => rename(k, e.target.value)} list={parentF?.allowedValues ? `pv-${c.id}` : undefined} />
             <span className="muted">→</span>
-            {childVals.length === 0 && <input defaultValue={c.map[k].join(", ")} placeholder="values, comma separated" onBlur={e => setMap({ ...c.map, [k]: csv(e.target.value) })} />}
+            {childVals.length === 0 && <input defaultValue={c.map[k].join(", ")} key={k + c.map[k].join("\u0001")} placeholder="values, comma separated" onBlur={e => setMap({ ...c.map, [k]: csv(e.target.value) })} />}
             <button className="btn icon danger fixed" onClick={() => { const m = { ...c.map }; delete m[k]; setMap(m); }}>✕</button>
           </div>
-          {childVals.length > 0 && <div className="chips">{childVals.map(v => <span key={v} className={"chip" + (c.map[k].some(x => x.toLowerCase() === v.toLowerCase()) ? " on" : "")} onClick={() => toggle(k, v)}>{v}</span>)}</div>}
+          {childVals.length > 0 && <div className="chips">{childVals.map(v => <span role="button" tabIndex={0} onKeyDown={activate} key={v} className={"chip" + (c.map[k].some(x => x.toLowerCase() === v.toLowerCase()) ? " on" : "")} onClick={() => toggle(k, v)}>{v}</span>)}</div>}
         </div>
       ))}
       {parentF?.allowedValues && <datalist id={`pv-${c.id}`}>{parentF.allowedValues.map(v => <option key={v} value={v} />)}</datalist>}
@@ -72,7 +72,7 @@ export function CascadesTab(p: { cascades: Cascade[]; onChange(c: Cascade[]): vo
     <div className="split">
       <div>
         <div className="list">
-          {p.cascades.map((c, idx) => <div key={c.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
+          {p.cascades.map((c, idx) => <div role="button" tabIndex={0} onKeyDown={activate} key={c.id} className={"item" + (idx === i ? " on" : "")} onClick={() => setSel(idx)}>
             <span className="name">{c.parent || "?"} → {c.child || "?"}</span>
             {p.issues.some(x => x.where === label(c, idx) && x.level === "error") && <span className="badge err">!</span>}
           </div>)}

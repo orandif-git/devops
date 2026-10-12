@@ -78,7 +78,7 @@ describe("Step B: derived Resource Capacity grid", () => {
     expect(again[0].epicshare).toBe(125); expect(again[0].overcapacity).toBe("Yes");
     again[0].capacity = 0;
     const zero = syncDerived(sourceRows, derivedCfg, again);
-    expect(zero[0].epicshare).toBeNull(); expect(zero[0].overcapacity).toBeNull();      // division by zero -> blank
+    expect(zero[0].epicshare).toBeNull(); expect(zero[0].overcapacity).toBe("Yes");      // no hours available but hours booked: the percentage is blank, over capacity is not
   });
   it("keeps manual capacity when source rows change, and is idempotent", () => {
     let d = syncDerived(sourceRows, derivedCfg, []);

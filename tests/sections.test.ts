@@ -6,7 +6,7 @@ describe("hub guidance", () => {
   it("assigns validation messages to the part of the grid editor they are about", () => {
     expect(issueSection("Review: approver rule “PMO” has no team or person")).toBe("review");
     expect(issueSection("Schedule: the start column 'x' must be a date column")).toBe("dates");
-    expect(issueSection("The source grid 'T' is scheduled by dates, so month columns should use the source")).toBe("dates");
+    expect(issueSection("The source grid 'T' is scheduled by dates, so month columns should use the source")).toBe("derived");
     expect(issueSection("Column 'x': 'period' is not a column of 'T'")).toBe("columns");
     expect(issueSection("Total mapping for 'hours' has no work item field")).toBe("totals");
     expect(issueSection("Child title column 'x' does not exist")).toBe("child");

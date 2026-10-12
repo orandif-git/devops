@@ -1,4 +1,5 @@
 import * as React from "react";
+import { activate } from "./ui";
 import * as SDK from "azure-devops-extension-sdk";
 import { CapacityEditor } from "../capacity/CapacityEditor";
 import { Overview } from "../capacity/Overview";
@@ -60,7 +61,7 @@ export function CapacityTab(p: { projectId: string }) {
   };
   const chips = (key: "editorTeams" | "capacityTeams") => (
     <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "6px 0" }}>
-      {teams.map(t => <span key={t.id} className={"chip" + (settings[key].some(x => x.id === t.id) ? " on" : "")} onClick={() => toggle(key, t)}>{t.name}</span>)}
+      {teams.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t.id} className={"chip" + (settings[key].some(x => x.id === t.id) ? " on" : "")} onClick={() => toggle(key, t)}>{t.name}</span>)}
       {!teams.length && <span className="muted">Loading teams…</span>}
     </div>
   );

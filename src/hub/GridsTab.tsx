@@ -3,6 +3,7 @@ import { Aggregate, ApproverRule, Breakdown, ColumnDef, ColumnType, GridConfig, 
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
+import { dropDanglingColorRefs, renameColumn, renameInDerivedGrids } from "../core/columnOps";
 import { needsScheduledRemap, remapToScheduled, SCHEDULE_VIRTUAL, withSchedule } from "../core/schedule";
 import { Grid } from "../grid/Grid";
 import { defaultPresetColumns } from "../core/presets";
@@ -12,7 +13,7 @@ import { getProject } from "../shared/ado";
 import { listTeams, TeamRef } from "../shared/capacityStore";
 import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
-import { csv, Ctx, delAt, FieldInput, jumpToSection, Section, SectionStatus, setAt } from "./ui";
+import { csv, Ctx, delAt, FieldInput, jumpToSection, Section, SectionStatus, setAt, activate } from "./ui";
 import { issueSection, SectionId } from "./sections";
 import { Issue } from "./validate";
 
@@ -88,14 +89,14 @@ function StatusEditor(p: { col: ColumnDef; numeric: ColumnDef[]; onChange(sb: Co
   );
 }
 
-function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; open: boolean; onToggle(): void; canUp: boolean; canDown: boolean; onMove(d: -1 | 1): void; onChange(c: ColumnDef): void; onDelete(): void }) {
+function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; open: boolean; onToggle(): void; canUp: boolean; canDown: boolean; onMove(d: -1 | 1): void; onRename(id: string): void; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
   const open = p.open;
   const set = (patch: Partial<ColumnDef>) => p.onChange({ ...c, ...patch });
   return (
     <>
       <tr>
-        <td><input value={c.id} onChange={e => set({ id: e.target.value.replace(/[^A-Za-z0-9_]/g, "") })} /></td>
+        <td><input defaultValue={c.id} key={"id" + c.id} title="The id is how saved rows and settings refer to this column. Renaming it updates the settings of this grid, but rows already saved on work items keep the old id." onBlur={e => { const v = e.target.value.replace(/[^A-Za-z0-9_]/g, ""); if (v && v !== c.id) p.onRename(v); else e.target.value = c.id; }} /></td>
         <td><input value={c.name} onChange={e => set({ name: e.target.value })} /></td>
         <td><select value={c.type} onChange={e => set({ type: e.target.value as ColumnType })}>{TYPES.map(t => <option key={t}>{t}</option>)}</select></td>
         <td style={{ textAlign: "center" }}><input type="checkbox" checked={!!c.required} onChange={e => set({ required: e.target.checked })} /></td>
@@ -187,7 +188,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
                           <span>When</span>
                           <select value={o.when} onChange={e => upd(i, { when: e.target.value })}><option value="" />{boxes.map(b => <option key={b.id} value={b.id}>{b.name} ({b.id})</option>)}</select>
                           <span>is ticked →</span>
-                          <input defaultValue={o.value} placeholder="value, e.g. Capitalizable" onBlur={e => upd(i, { value: e.target.value })} />
+                          <input defaultValue={o.value} key={"ov" + i + o.value} placeholder="value, e.g. Capitalizable" onBlur={e => upd(i, { value: e.target.value })} />
                           <button type="button" onClick={() => set({ overrides: ov.filter((_, j) => j !== i).length ? ov.filter((_, j) => j !== i) : undefined })}>✕</button>
                         </div>
                       ))}
@@ -203,13 +204,13 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
             {c.type === "dropdown" && (
               <>
                 <label className="field"><span>Options (comma separated){c.dependsOn ? " – ignored while “depends on” is set" : ""}</span>
-                  <input defaultValue={(c.options ?? []).join(", ")} onBlur={e => set({ options: csv(e.target.value) })} /></label>
+                  <input defaultValue={(c.options ?? []).join(", ")} key={"opt" + (c.options ?? []).join("\u0001")} onBlur={e => set({ options: csv(e.target.value) })} /></label>
                 <label className="field"><span>Depends on column</span>
                   <select value={c.dependsOn?.column ?? ""} onChange={e => set({ dependsOn: e.target.value ? { column: e.target.value, map: c.dependsOn?.map ?? {} } : undefined })}>
                     <option value="">— none (independent) —</option>{p.others.filter(o => o.id !== c.id).map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}
                   </select></label>
                 {c.dependsOn && <label className="field"><span>One line per parent value – <code>ParentValue: option1, option2</code></span>
-                  <textarea rows={Math.max(3, Object.keys(c.dependsOn.map).length + 1)} defaultValue={mapToText(c.dependsOn.map)}
+                  <textarea rows={Math.max(3, Object.keys(c.dependsOn.map).length + 1)} defaultValue={mapToText(c.dependsOn.map)} key={"dep" + mapToText(c.dependsOn.map)}
                     onBlur={e => set({ dependsOn: { column: c.dependsOn!.column, map: textToMap(e.target.value) } })} /></label>}
               </>
             )}
@@ -264,7 +265,7 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
             <div className="row" key={i}>
               <FieldInput value={w.field} onChange={field => setCur({ when: setAt(when, i, { ...w, field }) })} placeholder="Custom.ProjectType" />
               <span className="fixed">is</span>
-              <input placeholder="value, or several separated by commas" defaultValue={w.values.join(", ")} key={w.field + i} onBlur={e => setCur({ when: setAt(when, i, { ...w, values: csv(e.target.value) }) })} />
+              <input placeholder="value, or several separated by commas" defaultValue={w.values.join(", ")} key={w.field + i + w.values.join("\u0001")} onBlur={e => setCur({ when: setAt(when, i, { ...w, values: csv(e.target.value) }) })} />
               <button className="btn icon danger fixed" onClick={() => setCur({ when: when.filter((_, j) => j !== i).length ? when.filter((_, j) => j !== i) : undefined })}>✕</button>
             </div>
           ))}
@@ -290,7 +291,7 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
             <div className="help">Who may save: project administrators and/or members of the chosen teams. This is checked in the extension; it hides the button from others but is not a security boundary of Azure DevOps. Project administrator detection is best effort – if it cannot be read, only the team rule grants access.</div>
             <label><input type="checkbox" checked={save.admins} onChange={e => setSave({ admins: e.target.checked })} /> Project administrators</label>
             <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "6px 0" }}>
-              {teams.map(t => <span key={t.id} className={"chip" + (save.teams.some(x => x.id === t.id) ? " on" : "")} onClick={() => setSave({ teams: save.teams.some(x => x.id === t.id) ? save.teams.filter(x => x.id !== t.id) : [...save.teams, t] })}>{t.name}</span>)}
+              {teams.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t.id} className={"chip" + (save.teams.some(x => x.id === t.id) ? " on" : "")} onClick={() => setSave({ teams: save.teams.some(x => x.id === t.id) ? save.teams.filter(x => x.id !== t.id) : [...save.teams, t] })}>{t.name}</span>)}
               {!teams.length && <span className="muted">Loading teams…</span>}
             </div>
           </>
@@ -304,9 +305,9 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
 function TeamChips(p: { all: TeamRef[]; value: { id: string; name: string }[]; onChange(v: { id: string; name: string }[]): void }) {
   return (
     <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
-      {p.all.map(t => <span key={t.id} className={"chip" + (p.value.some(x => x.id === t.id) ? " on" : "")} onClick={() => p.onChange(p.value.some(x => x.id === t.id) ? p.value.filter(x => x.id !== t.id) : [...p.value, t])}>{t.name}</span>)}
+      {p.all.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t.id} className={"chip" + (p.value.some(x => x.id === t.id) ? " on" : "")} onClick={() => p.onChange(p.value.some(x => x.id === t.id) ? p.value.filter(x => x.id !== t.id) : [...p.value, t])}>{t.name}</span>)}
       {!p.all.length && <span className="muted">Loading teams…</span>}
-      {p.value.filter(v => !p.all.some(t => t.id === v.id)).map(v => <span key={v.id} className="chip on" title="Not in the current team list" onClick={() => p.onChange(p.value.filter(x => x.id !== v.id))}>{v.name}</span>)}
+      {p.value.filter(v => !p.all.some(t => t.id === v.id)).map(v => <span role="button" tabIndex={0} onKeyDown={activate} key={v.id} className="chip on" title="Not in the current team list" onClick={() => p.onChange(p.value.filter(x => x.id !== v.id))}>{v.name}</span>)}
     </div>
   );
 }
@@ -377,7 +378,7 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
                     <li>In the process, add a rule on that field: <b>make it read-only</b> unless the current user is a <b>member of the approver group</b> (a team or security group).</li>
                     <li>Test it: as someone outside the group, try to change the field (for example in a query results grid or Excel); Azure DevOps must refuse.</li>
                   </ol>
-                  Each approval stores a fingerprint of the row. A row that is changed after approval, by any means, counts as <b>pending</b> again, and totals and calculations use only decisions that still match. Because a process rule works per group, the approver rules below (for example one team per kind of row) are still checked by the extension only; the field rule enforces who may approve at all.
+                  Each approval stores a fingerprint of the row's typed values. A row counts as approved only while its values match what was approved, so a change from anywhere makes it <b>pending</b>, and totals and calculations use only decisions that still match. Restoring the exact approved values brings the approval back until an approver next decides a row. Because a process rule works per group, the approver rules below (for example one team per kind of row) and “nobody approves their own row” are still checked by the extension only; the field rule enforces who may approve at all. The name and time of a decision are recorded by the approver's own session.
                   The “Approved” totals pushed to work item fields are recalculated by the extension from the verified decisions; do not make those fields read-only with a rule, because the extension writes them for whoever edits the grid.
                 </div>
               </>
@@ -392,7 +393,7 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
                   <select value={r.when?.column ?? ""} onChange={e => setRule(i, { when: e.target.value ? { column: e.target.value, values: r.when?.values ?? [] } : undefined })}>
                     <option value="">(all rows)</option>{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
                 {r.when && <label className="field" style={{ flex: 1 }}><span>…is (values, comma separated)</span>
-                  <input defaultValue={r.when.values.join(", ")} key={r.when.column} onBlur={e => setRule(i, { when: { column: r.when!.column, values: csv(e.target.value) } })} /></label>}
+                  <input defaultValue={r.when.values.join(", ")} key={r.when.column + r.when.values.join("\u0001")} onBlur={e => setRule(i, { when: { column: r.when!.column, values: csv(e.target.value) } })} /></label>}
                 <button className="btn icon danger fixed" onClick={() => set({ approvers: rules.filter((_, j) => j !== i) })}>✕</button>
               </div>
               <div className="help">Members of these Azure DevOps teams may decide these rows:</div>
@@ -423,7 +424,7 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
   );
 }
 
-function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; onChange(g: GridConfig): void; issues: Issue[] }) {
+function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; onChange(g: GridConfig, followUp?: { renamed: { from: string; to: string } }): void; issues: Issue[] }) {
   const g = p.g;
   const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
   const source = g.derived ? p.grids[g.derived.source] : undefined;
@@ -434,6 +435,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
+  const renameFollowUp = (from: string, to: string) => ({ renamed: { from, to } });
   const mine = (id: SectionId) => p.issues.filter(x => issueSection(x.message, x.where) === id);
   const flag = (id: SectionId, on: boolean, extra = false): SectionStatus => (!on ? "off" : mine(id).length || extra ? "todo" : "ok");
   const defs: { id: SectionId; title: string; help: string; status: SectionStatus; summary?: string; open?: boolean; body: React.ReactNode; show: boolean }[] = [
@@ -455,7 +457,10 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
         <div className="card">
           <div className="row">
             <label className="field" style={{ flex: 1 }}><span>Source grid</span>
-              <select value={g.derived.source} onChange={e => p.onChange({ ...g, derived: { source: e.target.value } })}><option value="" />{sourceNames.map(n => <option key={n}>{n}</option>)}</select></label>
+              <select value={g.derived.source} onChange={e => p.onChange({ ...g, derived: { ...g.derived!, source: e.target.value } })}><option value="" />{sourceNames.map(n => <option key={n}>{n}</option>)}</select></label>
+            {source?.review && <label className="field" style={{ flex: 1 }}><span>Which rows of the source count</span>
+              <select value={g.derived.rows ?? "all"} onChange={e => p.onChange({ ...g, derived: { ...g.derived!, rows: e.target.value === "all" ? undefined : (e.target.value as "notRejected" | "approved") } })}>
+                <option value="all">All rows (pending, approved and rejected)</option><option value="notRejected">All except rejected rows</option><option value="approved">Approved rows only</option></select></label>}
           </div>
           {source && needsScheduledRemap(g, source) && (
             <div className="card">
@@ -497,7 +502,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
     ) },
     { id: "columns", title: "Columns", help: "What people fill in, and in which order.", status: g.columns.length ? (mine("columns").length ? "todo" : "ok") : "todo", summary: g.columns.length ? `${g.columns.length} column${g.columns.length === 1 ? "" : "s"}` : undefined, open: true, show: true, body: (
       <>
-      {g.columns.some(c => c.statusBands) && (
+      {(g.columns.some(c => c.statusBands) || !!g.rowColorBy) && (
         <label className="field"><span>Colour the whole row of each entry by this status column</span>
           <select value={g.rowColorBy ?? ""} onChange={e => p.onChange({ ...g, rowColorBy: e.target.value || undefined })}>
             <option value="">No row colour</option>{g.columns.filter(c => c.statusBands).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
@@ -509,7 +514,8 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           canUp={i > 0} canDown={i < g.columns.length - 1}
           onMove={d => { const j = i + d; if (j < 0 || j >= g.columns.length) return; const cols = [...g.columns]; [cols[i], cols[j]] = [cols[j], cols[i]];
             setOpenCols(o => { const n = new Set<number>(); o.forEach(k => n.add(k === i ? j : k === j ? i : k)); return n; }); p.onChange({ ...g, columns: cols }); }}
-          onChange={nc => p.onChange({ ...g, columns: setAt(g.columns, i, nc) })} onDelete={() => p.onChange({ ...g, columns: delAt(g.columns, i) })} />)}</tbody>
+          onRename={to => { if (g.columns.some(x => x.id === to)) return; p.onChange(renameColumn(g, c.id, to), renameFollowUp(c.id, to)); }}
+          onChange={nc => p.onChange(dropDanglingColorRefs({ ...g, columns: setAt(g.columns, i, nc) }))} onDelete={() => p.onChange(dropDanglingColorRefs({ ...g, columns: delAt(g.columns, i) }))} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       </>
@@ -556,7 +562,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
                 <option value="">(all rows)</option>{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
               {t.where && <>
                 <span className="fixed">is</span>
-                <input placeholder="value, or several separated by commas" defaultValue={t.where.values.join(", ")} key={t.where.column}
+                <input placeholder="value, or several separated by commas" defaultValue={t.where.values.join(", ")} key={t.where.column + t.where.values.join("\u0001")}
                   onBlur={e => setT({ where: { column: t.where!.column, values: csv(e.target.value) } })} />
               </>}
               <input placeholder="Label shown under the grid (optional)" value={t.label ?? ""} onChange={e => setT({ label: e.target.value || undefined })} />
@@ -653,7 +659,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   );
 }
 
-export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[]; focus?: { n: number; grid?: string; section?: string; create?: boolean } }) {
+export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[]; focus?: { n: number; grid?: string; section?: string; create?: boolean }; onFocusHandled?(n: number): void }) {
   const names = Object.keys(p.grids);
   const [sel, setSel] = React.useState(names[0] ?? "");
   const cur = names.includes(sel) ? sel : names[0];
@@ -668,6 +674,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
     const f = p.focus;
     if (!f || f.n === lastFocus.current) return;
     lastFocus.current = f.n;
+    p.onFocusHandled?.(f.n);                                  // so coming back to this tab later does not repeat it
     if (f.create) { add(); return; }
     if (f.grid && p.grids[f.grid]) setSel(f.grid);
     if (f.section) window.setTimeout(() => jumpToSection(f.section!), 150);
@@ -681,7 +688,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
     <div className="split">
       <div>
         <div className="list">
-          {names.map(n => <div key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
+          {names.map(n => <div role="button" tabIndex={0} onKeyDown={activate} key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
             <span className="name">{n}</span>{p.issues.some(x => x.where.startsWith(`Grid “${n}”`) && x.level === "error") ? <span className="badge err" title="Has errors">!</span> : p.issues.some(x => x.where.startsWith(`Grid “${n}”`)) ? <span className="badge" title="Has warnings">{p.issues.filter(x => x.where.startsWith(`Grid “${n}”`)).length}</span> : null}</div>)}
           {!names.length && <div className="item muted">No grids yet</div>}
         </div>
@@ -692,7 +699,7 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
         {cur ? <>
           <label className="field"><span>Grid name (referenced by the form control)</span>
             <input defaultValue={cur} key={cur} onBlur={e => rename(cur, e.target.value.trim())} /></label>
-          <Editor key={cur} name={cur} grids={p.grids} g={p.grids[cur]} onChange={g => p.onChange({ ...p.grids, [cur]: g })} issues={p.issues.filter(x => x.where === `Grid “${cur}”` || x.where.startsWith(`Grid “${cur}” ›`))} />
+          <Editor key={cur} name={cur} grids={p.grids} g={p.grids[cur]} onChange={(g, f) => { const next = { ...p.grids, [cur]: g }; p.onChange(f?.renamed ? renameInDerivedGrids(next, cur, f.renamed.from, f.renamed.to) : next); }} issues={p.issues.filter(x => x.where === `Grid “${cur}”` || x.where.startsWith(`Grid “${cur}” ›`))} />
         </> : <div className="muted">Create a grid to define columns, formulas, totals and child item creation.</div>}
       </div>
     </div>

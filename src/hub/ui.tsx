@@ -53,7 +53,7 @@ export function TypeChips(p: { value: string[]; onChange(v: string[]): void }) {
   return (
     <div>
       <div className="chips">
-        {types.map(t => <span key={t} className={"chip" + (p.value.includes(t) ? " on" : "")} onClick={() => toggle(t)}>{t}</span>)}
+        {types.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t} className={"chip" + (p.value.includes(t) ? " on" : "")} onClick={() => toggle(t)}>{t}</span>)}
         {!types.length && (loadError ? <span className="err">Could not load the work item types (see the red message at the top of the page).</span> : <span className="muted">Loading work item types…</span>)}
       </div>
       <div className="help">{p.value.length ? "Applies only to the selected types." : "Applies to all work item types."}</div>
@@ -95,3 +95,6 @@ export function Section(p: { id: string; no: number; title: string; help: string
     </section>
   );
 }
+
+/** Keyboard activation (Enter / Space) for clickable elements that are not buttons. */
+export const activate = (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (e.currentTarget as HTMLElement).click(); } };

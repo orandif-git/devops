@@ -2,6 +2,7 @@ import { bucketValue } from "./calc";
 import { capacityFor, CapacityRegister, monthKey } from "./capacity";
 import { allocKey } from "./allocations";
 import { keyNorm } from "./keys";
+import { stateOf } from "./review";
 import { expandMonths } from "./schedule";
 import { aggregate, defaultFor, newId, recomputeAll } from "./gridModel";
 import { ColumnDef, GridConfig, GridRow, StatusBand } from "./types";
@@ -29,7 +30,10 @@ const keyOfDerived = (row: GridRow, keys: ColumnDef[]) => keys.map(k => keyNorm(
  */
 export function syncDerived(sourceRowsIn: GridRow[], derivedCfg: GridConfig, existing: GridRow[], register?: CapacityRegister, others?: Record<string, number>, sourceCfg?: GridConfig): GridRow[] {
   // a scheduled source grid has one row per task: expand it to one row per person and month (_month, _hours)
-  const sourceRows = sourceCfg?.schedule ? expandMonths(sourceRowsIn) : sourceRowsIn;
+  // rejected (or not yet approved) work can be left out of the hours and utilization
+  const mode = derivedCfg.derived?.rows ?? "all";
+  const counted = mode !== "all" && sourceCfg?.review ? sourceRowsIn.filter(r => { const st = stateOf(r, sourceCfg.review!); return mode === "approved" ? st === "approved" : st !== "rejected"; }) : sourceRowsIn;
+  const sourceRows = sourceCfg?.schedule ? expandMonths(counted) : counted;
   const keys = keyColumns(derivedCfg);
   if (!keys.length) return existing;
   const derivedCols = derivedCfg.columns.filter(c => c.derive);
@@ -133,7 +137,7 @@ export function capacityTemplate(picks: CapacityPicks, opts: { fromRegister?: bo
     { id: "utilization", name: "Utilization % (all Epics)", type: "calculated", formula: "totalhours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank", colorBy: "capacitystatus" },
     { id: "capacitystatus", name: "Capacity Status", type: "string", statusBands: { source: "utilization", ranges: CAPACITY_BANDS } },
     { id: "epicshare", name: "This Epic % of capacity", type: "calculated", formula: "hours / capacity * 100", decimals: 1, onEmpty: "blank", onDivZero: "blank" },
-    { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(utilization > 100, "Yes", "No")', onEmpty: "blank" },
+    { id: "overcapacity", name: "Over capacity", type: "calculated", formula: 'IF(capacity = 0, IF(totalhours > 0, "Yes", "No"), IF(utilization > 100, "Yes", "No"))', onEmpty: "blank" },
   );
   return cols;
 }
