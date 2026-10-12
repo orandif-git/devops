@@ -130,6 +130,8 @@ export interface ReviewConfig {
   reasonColumn?: string;
   statuses: { pending: string; approved: string; rejected: string };
   /** an edited approved / rejected row goes back to pending review (the review columns themselves do not count) */
+  /** time zone (IANA name, e.g. "Asia/Qatar") in which the "reviewed at" time is written; empty = UTC */
+  timeZone?: string;
   resetOnEdit: boolean;
   /** an approved row cannot be edited, moved or deleted except by administrators */
   lockApproved: boolean;

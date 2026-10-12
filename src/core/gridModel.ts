@@ -1,6 +1,7 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { applySchedule } from "./schedule";
 import { parseNumber } from "./number";
+import { isTimeZone } from "./time";
 import { ensureStatus } from "./review";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
 
@@ -384,6 +385,7 @@ export function validateConfig(cfg: GridConfig): string[] {
     for (const [k, d] of Object.entries({ pending: "Pending review", approved: "Approved", rejected: "Rejected" })) st[k] ||= d;
     const labels = [st.pending, st.approved, st.rejected].map(v => String(v ?? "").trim().toLowerCase());
     if (labels.some(v => !v) || new Set(labels).size !== labels.length) errs.push("Review: the three status names must be filled in and different");
+    if (r.timeZone && !isTimeZone(r.timeZone)) errs.push(`Review: '${r.timeZone}' is not a known time zone name (for example Asia/Qatar or UTC)`);
     if (r.secure) {
       if (!r.secure.dataField?.trim()) errs.push("Review: secure approvals need an approvals field");
       else if (r.secure.dataField === cfg.dataField) errs.push("Review: the approvals field must be a different field than the grid's data field");

@@ -8,6 +8,7 @@ import { needsScheduledRemap, remapToScheduled, SCHEDULE_VIRTUAL, withSchedule }
 import { Grid } from "../grid/Grid";
 import { defaultPresetColumns } from "../core/presets";
 import { DEFAULT_STATUSES, withReview } from "../core/review";
+import { formatStamp, isTimeZone, knownTimeZones, localTimeZone } from "../core/time";
 import { IdentityInput } from "../grid/IdentityInput";
 import { getProject } from "../shared/ado";
 import { listTeams, TeamRef } from "../shared/capacityStore";
@@ -360,6 +361,16 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
                 <input value={rv.statuses[k]} onChange={e => set({ statuses: { ...rv.statuses, [k]: e.target.value } })} placeholder={DEFAULT_STATUSES[k]} /></label>
             ))}
           </div>
+          <div className="row">
+            <label className="field" style={{ flex: 1, maxWidth: 360 }}><span>Time zone for “Reviewed at”</span>
+              <input list="wig-zones" value={rv.timeZone ?? ""} placeholder="UTC" onChange={e => set({ timeZone: e.target.value.trim() || undefined })}
+                style={rv.timeZone && !isTimeZone(rv.timeZone) ? { borderColor: "var(--err)" } : undefined} />
+              <datalist id="wig-zones">{knownTimeZones().map(z => <option key={z} value={z} />)}</datalist></label>
+            <button type="button" className="btn fixed" onClick={() => set({ timeZone: "Asia/Qatar" })}>Asia/Qatar</button>
+            <button type="button" className="btn fixed" onClick={() => set({ timeZone: localTimeZone() })} title="The time zone of this computer">This computer ({localTimeZone()})</button>
+            <button type="button" className="btn fixed" onClick={() => set({ timeZone: undefined })}>UTC</button>
+          </div>
+          <div className="help">Decisions are stamped in this zone for everyone, with its offset, for example <b>{formatStamp(new Date(), rv.timeZone)}</b>. Stamps already written keep the zone they were written in.</div>
           <div className="help">Renaming a status later leaves rows saved under the old name as “pending review”. The Approve / Reject buttons set the status; people cannot type it.</div>
           <label style={{ display: "block" }}><input type="checkbox" checked={rv.resetOnEdit} onChange={e => set({ resetOnEdit: e.target.checked })} /> An edited approved or rejected row goes back to <b>pending review</b> (the review columns and calculated columns do not count)</label>
           <label style={{ display: "block" }}><input type="checkbox" checked={rv.lockApproved} onChange={e => set({ lockApproved: e.target.checked })} /> <b>Lock approved rows</b>: they cannot be edited, moved or deleted, except by administrators</label>

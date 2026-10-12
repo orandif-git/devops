@@ -1,4 +1,5 @@
 import { keyNorm } from "./keys";
+import { formatStamp, localTimeZone } from "./time";
 import { ColumnDef, GridConfig, GridRow, ReviewConfig } from "./types";
 
 export type ReviewState = "pending" | "approved" | "rejected";
@@ -79,7 +80,6 @@ export const isLocked = (row: GridRow, cfg: GridConfig, actor: Actor | undefined
 
 export const reviewColumns = (r: ReviewConfig) => [r.statusColumn, r.byColumn, r.atColumn, r.reasonColumn].filter(Boolean) as string[];
 
-const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
 export interface DecideResult { rows: GridRow[]; changed: number; skipped: number; firstReason?: string }
 
@@ -95,7 +95,7 @@ export function decide(rows: GridRow[], ids: Set<string>, to: "approved" | "reje
     changed++;
     const next = { ...row, [r.statusColumn]: l[to] };
     if (r.byColumn) next[r.byColumn] = actorName;
-    if (r.atColumn) next[r.atColumn] = stamp(now);
+    if (r.atColumn) next[r.atColumn] = formatStamp(now, r.timeZone);
     return next;
   });
   return { rows: out, changed, skipped, firstReason };
@@ -155,6 +155,6 @@ export function withReview(g: GridConfig): GridConfig {
   const reasonColumn = ensure("reviewreason", () => ({ name: "Review comment", type: "string" }), cur?.reasonColumn);
   return {
     ...g, columns: cols,
-    review: { resetOnEdit: true, lockApproved: true, noSelfApproval: false, approvers: [], admins: { teams: [], people: [] }, ...cur, statusColumn, byColumn, atColumn, reasonColumn, statuses: { ...DEFAULT_STATUSES, ...(cur?.statuses ?? {}) } },
+    review: { timeZone: localTimeZone(), resetOnEdit: true, lockApproved: true, noSelfApproval: false, approvers: [], admins: { teams: [], people: [] }, ...cur, statusColumn, byColumn, atColumn, reasonColumn, statuses: { ...DEFAULT_STATUSES, ...(cur?.statuses ?? {}) } },
   };
 }

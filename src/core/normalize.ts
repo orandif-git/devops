@@ -8,6 +8,7 @@ export function normalizeReview(r: Partial<ReviewConfig> | undefined): ReviewCon
     statusColumn: String(r.statusColumn ?? ""),
     byColumn: r.byColumn || undefined, atColumn: r.atColumn || undefined, reasonColumn: r.reasonColumn || undefined,
     statuses: { ...DEFAULT_STATUSES, ...Object.fromEntries(Object.entries(r.statuses ?? {}).filter(([, v]) => typeof v === "string" && v.trim())) },
+    timeZone: typeof r.timeZone === "string" && r.timeZone.trim() ? r.timeZone.trim() : undefined,
     resetOnEdit: r.resetOnEdit ?? true,
     lockApproved: r.lockApproved ?? true,
     noSelfApproval: r.noSelfApproval ?? false,

@@ -1,6 +1,7 @@
 import { extractJson, parseStored, serializeJson } from "./gridModel";
 import { Actor, canDecide, DecideResult, ReviewState, statusLabels, typedColumns } from "./review";
 import { sha256 } from "./sha256";
+import { formatStamp } from "./time";
 import { GridConfig, GridRow } from "./types";
 
 /**
@@ -63,7 +64,6 @@ export function applyDecisions(rows: GridRow[], cfg: GridConfig, doc: ReviewDoc)
 /** How many rows were approved or rejected once, but were changed since (so they are pending again). */
 export const staleCount = (rows: GridRow[], cfg: GridConfig, doc: ReviewDoc): number => rows.filter(r => verifiedState(r, cfg, doc).stale).length;
 
-const stamp = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 
 export interface SecureDecideResult extends DecideResult { doc: ReviewDoc }
 
@@ -82,7 +82,7 @@ export function decideSecure(rows: GridRow[], ids: Set<string>, to: "approved" |
     if (!d.ok) { skipped++; firstReason ??= d.reason; continue; }
     changed++;
     const reason = r.reasonColumn ? String(row[r.reasonColumn] ?? "").trim() : "";
-    decisions[row._id] = { s: to, by: actorName, at: stamp(now), ...(reason ? { reason } : {}), fp: rowFingerprint(row, cfg) };
+    decisions[row._id] = { s: to, by: actorName, at: formatStamp(now, r.timeZone), ...(reason ? { reason } : {}), fp: rowFingerprint(row, cfg) };
   }
   const next: ReviewDoc = { version: 1, decisions };
   return { doc: next, rows: applyDecisions(rows, cfg, next), changed, skipped, firstReason };

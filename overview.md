@@ -68,7 +68,7 @@ Every row can carry a review status – **Pending review**, **Approved** or **Re
 - **Who may decide** is set by approver rules: members of Azure DevOps **teams** and/or **named people** (when a team cannot be read). A rule can be limited to rows where a column has certain values (for example one team approves one kind of row and another team the rest). A row that matches no rule can only be decided by administrators. Optionally nobody can decide **their own** row.
 - **Administrators** are project administrators plus an optional list of **grid administrators** (teams or people). They may decide every row and edit or remove approved rows.
 - **Lock approved rows** (optional): an approved row cannot be edited, moved or deleted except by administrators. **Reset on edit** (optional): changing an approved or rejected row sends it back to pending review.
-- Each decision records **who** and **when**, and the approver can type a **comment / reject reason** in the comment column.
+- Each decision records **who** and **when** (in a time zone you choose, with its offset, for example `2026-10-12 17:03 UTC+03:00`), and the approver can type a **comment / reject reason** in the comment column.
 - **Totals by status:** add the approved, pending and rejected figure of a number column to separate work item fields.
 - Rows that are duplicated, imported or loaded from a preset always start as pending review.
 - **Normal mode** is enforced by the extension's pages only: someone with edit rights on the work item could still change the stored status by other means (for example Excel or the API).
