@@ -4,8 +4,9 @@
   --fg2: var(--text-secondary-color, rgba(0,0,0,.6));
   --accent: var(--communication-background, #0078d4);
   --accent-fg: #fff;
-  --line: var(--palette-neutral-10, rgba(0,0,0,.12));
-  --hover: var(--palette-neutral-4, rgba(0,0,0,.05));
+  /* derived from the text colour: always valid in every theme (Azure DevOps palette variables are bare RGB triplets, not colours) */
+  --line: color-mix(in srgb, var(--fg) 20%, transparent);
+  --hover: color-mix(in srgb, var(--fg) 8%, transparent);
   --err: #d13438;
   --ok: #107c10;
 }
@@ -18,6 +19,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); ou
 .btn:hover:not(:disabled) { background: var(--hover); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+/* must be as specific as the generic hover rule above, or the primary button gets the light hover fill with white text and disappears */
+.btn.primary:hover:not(:disabled) { background: var(--accent); color: var(--accent-fg); filter: brightness(.9); }
 .btn.danger { color: var(--err); }
 .btn.icon { padding: 2px 6px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 0 8px; }
