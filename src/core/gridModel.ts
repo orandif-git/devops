@@ -1,6 +1,7 @@
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { applySchedule } from "./schedule";
 import { parseNumber } from "./number";
+import { applyTeamFrom } from "./teamBook";
 import { isTimeZone } from "./time";
 import { ensureStatus } from "./review";
 import { Aggregate, ColumnDef, GridConfig, GridRow, RowFilter, StatusBand } from "./types";
@@ -152,6 +153,7 @@ const isTicked = (v: unknown) => v === true || v === 1 || (typeof v === "string"
 export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): GridRow {
   const changed = new Set<string>(); // columns reset or auto-filled during this pass; their dependants must be re-derived
   for (const c of cfg.columns) {
+    if (c.teamFrom) { applyTeamFrom(row, c.id, c.teamFrom); continue; }
     if (c.lookup) {
       const src = String(row[c.lookup.column] ?? "");
       const key = Object.keys(c.lookup.map).find(k => k.toLowerCase() === src.toLowerCase());
@@ -216,7 +218,7 @@ function columnAggregate(fn: string, values: unknown[]): number {
 
 /** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
 export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
-  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands) && !cfg.schedule && !cfg.review) return rows;
+  if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands || c.teamFrom) && !cfg.schedule && !cfg.review) return rows;
   let out = rows.map(r => ({ ...r }));
   const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
   for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
@@ -293,7 +295,7 @@ export function validateRows(rows: GridRow[], cfg: GridConfig): CellError[] {
   for (const r of rows) for (const c of cfg.columns) {
     const v = r[c.id];
     const empty = v === "" || v === null || v === undefined;
-    if (c.required && !c.formula && !c.lookup && !c.statusBands && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
+    if (c.required && !c.formula && !c.lookup && !c.teamFrom && !c.statusBands && (empty || (c.type === "boolean" && false))) errs.push({ rowId: r._id, column: c.id, message: `${c.name} is required` });
     if (c.type === "number" && typeof v === "number") {
       if (c.min !== undefined && v < c.min) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≥ ${c.min}` });
       if (c.max !== undefined && v > c.max) errs.push({ rowId: r._id, column: c.id, message: `${c.name} must be ≤ ${c.max}` });
@@ -350,6 +352,12 @@ export function validateConfig(cfg: GridConfig): string[] {
         else if (w.type !== "boolean") errs.push(`'${c.id}' override column '${o.when}' must be a checkbox column`);
         if (!String(o.value ?? "").trim()) errs.push(`'${c.id}' override for '${o.when}' has no value`);
       }
+    }
+    if (c.teamFrom) {
+      const tf = c.teamFrom;
+      if (!cfg.columns.some(x => x.id === tf.resource)) errs.push(`'${c.id}' takes the team of unknown column '${tf.resource}'`);
+      if (!tf.teams?.length) errs.push(`'${c.id}': choose at least one team or group to take the name from`);
+      if (c.lookup || c.formula) errs.push(`'${c.id}' cannot be both the team of a person and an auto-fill or formula column`);
     }
     if (c.dependsOn && !cfg.columns.some(x => x.id === c.dependsOn!.column)) errs.push(`'${c.id}' depends on unknown column '${c.dependsOn.column}'`);
   }

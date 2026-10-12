@@ -50,6 +50,11 @@ export interface ColumnDef {
   others?: { resource: string; period: string };
   /** Derived grids: value is the person's available hours for that month, looked up in the central Capacity register (read-only). */
   capacity?: { resource: string; period: string };
+  /**
+   * Fills itself with the names of the Azure DevOps teams / groups (of those listed) the person in column `resource` belongs to,
+   * e.g. "Transformation Unit, NFR". Read-only. Direct team members only.
+   */
+  teamFrom?: { resource: string; teams: { id: string; name: string }[] };
   /** Derived grids: the person's team(s) from the capacity source (Azure DevOps team capacity or the register). Read-only. */
   teamOf?: { resource: string };
   /** calculated columns: decimals of numeric results (default 2) */

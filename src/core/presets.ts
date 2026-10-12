@@ -8,7 +8,7 @@ const norm = (v: unknown) => String(v ?? "").trim().toLowerCase();
 export function defaultPresetColumns(cfg: GridConfig): string[] {
   const sc = cfg.schedule;
   const skip = new Set([sc?.resource, sc?.start, sc?.end, sc?.allocation, ...(cfg.review ? reviewColumns(cfg.review) : [])].filter(Boolean) as string[]);
-  const auto = (c: ColumnDef) => !!c.lookup || !!c.formula || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated";
+  const auto = (c: ColumnDef) => !!c.lookup || !!c.teamFrom || !!c.formula || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated";
   return cfg.columns.filter(c => !auto(c) && c.type !== "identity" && c.type !== "date" && !skip.has(c.id)).map(c => c.id);
 }
 

@@ -90,6 +90,28 @@ function StatusEditor(p: { col: ColumnDef; numeric: ColumnDef[]; onChange(sb: Co
   );
 }
 
+
+/** A text column that fills itself with the names of the Azure DevOps teams / groups the person in another column belongs to. */
+function TeamFromEditor(p: { col: ColumnDef; others: ColumnDef[]; onChange(tf: ColumnDef["teamFrom"]): void }) {
+  const tf = p.col.teamFrom;
+  const [teams, setTeams] = React.useState<TeamRef[]>([]);
+  React.useEffect(() => { if (tf) getProject().then(pr => listTeams(pr.id)).then(setTeams).catch(() => undefined); }, [!!tf]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const people = p.others.filter(o => o.id !== p.col.id && (o.type === "identity" || o.type === "string"));
+  return (
+    <div className="card">
+      <label><input type="checkbox" checked={!!tf} onChange={e => p.onChange(e.target.checked ? { resource: people.find(o => o.type === "identity")?.id ?? people[0]?.id ?? "", teams: [] } : undefined)} /> <b>Fill with the person's team or group</b> – from membership of the Azure DevOps teams you choose (read-only)</label>
+      {tf && (
+        <>
+          <label className="field"><span>Person column</span>
+            <select value={tf.resource} onChange={e => p.onChange({ ...tf, resource: e.target.value })}><option value="" />{people.map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
+          <div className="help">Pick the teams or groups whose name should appear. If the person is a member of several of them, all names are shown, separated by commas. Only direct members are recognised: add the person (not only a nested group) to the team.</div>
+          <TeamChips all={teams} value={tf.teams} onChange={v => p.onChange({ ...tf, teams: v })} />
+        </>
+      )}
+    </div>
+  );
+}
+
 function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; open: boolean; onToggle(): void; canUp: boolean; canDown: boolean; onMove(d: -1 | 1): void; onRename(id: string): void; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
   const open = p.open;
@@ -170,7 +192,8 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
                 </div>
               </div>
             )}
-            {c.type !== "identity" && c.type !== "boolean" && c.type !== "calculated" && (
+            {c.type === "string" && !c.lookup && !c.formula && !c.derive && <TeamFromEditor col={c} others={p.others} onChange={teamFrom => set({ teamFrom })} />}
+            {c.type !== "identity" && c.type !== "boolean" && c.type !== "calculated" && !c.teamFrom && (
               <>
                 <label className="field"><span>Auto-fill from another column (read-only; the user does not pick a value)</span>
                   <select value={c.lookup?.column ?? ""} onChange={e => set({ lookup: e.target.value ? { ...(c.lookup ?? { map: {} }), column: e.target.value } : undefined })}>

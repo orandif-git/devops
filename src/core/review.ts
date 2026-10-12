@@ -109,7 +109,7 @@ export function resetRow(row: GridRow, r: ReviewConfig): GridRow {
   return next;
 }
 
-const auto = (c: ColumnDef, cfg: GridConfig) => !!c.formula || !!c.lookup || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated" || c.id === cfg.schedule?.end;
+const auto = (c: ColumnDef, cfg: GridConfig) => !!c.formula || !!c.lookup || !!c.teamFrom || !!c.statusBands || !!c.derive || !!c.capacity || !!c.others || !!c.teamOf || c.type === "calculated" || c.id === cfg.schedule?.end;
 
 export type OverallOutcome = "none" | "pending" | "partial" | "approved" | "rejected";
 export const DEFAULT_OVERALL: Record<OverallOutcome, string> = { none: "", pending: "Pending review", partial: "Partially approved", approved: "Approved", rejected: "Has rejected rows" };

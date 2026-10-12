@@ -194,3 +194,8 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 
 ## Support
 Questions and feedback are welcome through the Marketplace Q&A page of this extension.
+
+
+## Team from Azure DevOps team / group membership
+
+In **Grid & Rules → Grids**, open a text column and tick **Fill with the person's team or group**. Choose the person column and the Azure DevOps teams/groups to report (e.g. *Transformation Unit*, *NFR*). When a resource is picked, the column fills with the chosen teams the person belongs to (several are joined with ", "). The column is read-only. Only direct members are recognised, and members are cached for five minutes.

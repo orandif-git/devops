@@ -18,6 +18,8 @@ import { applySharedLookups } from "../core/sharedLookups";
 import { mappedTotals, parseStored, recomputeAll, serialize, validateConfig, validateRows } from "../core/gridModel";
 import { loadCalendarBook } from "../shared/capacityStore";
 import { setCalendarBook } from "../core/schedule";
+import { setTeamBooks, TeamBook } from "../core/teamBook";
+import { loadTeamBook } from "../shared/teamMembership";
 import { downloadFile, getFormService, getProject, init, loadConfig, saveConfig, witClient } from "../shared/ado";
 import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
@@ -228,6 +230,32 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       flash(`Saved preset “${name}” (${preset.rows.length} rows). Add a rule for it under Project settings → Grid & Rules if it should only show on some work items.`);
     } catch (e) { flash("Could not save the preset: " + (e as Error).message); }
   };
+
+  // columns that take the person's team from Azure DevOps team / group membership: load the members, then recalculate the rows
+  const teamCols = React.useMemo(() => cfg.columns.filter(c => c.teamFrom), [cfg]);
+  const [teamVersion, setTeamVersion] = React.useState(0);
+  React.useEffect(() => {
+    if (!teamCols.length) return;
+    let live = true;
+    (async () => {
+      const books = new Map<string, TeamBook>();
+      const failed: string[] = [];
+      for (const c of teamCols) {
+        const r = await loadTeamBook(props.projectId, c.teamFrom!.teams);
+        books.set(r.key, r.book); failed.push(...r.failed);
+      }
+      if (!live) return;
+      setTeamBooks(books);
+      if (failed.length) setWarn(w => w || `Could not read the members of: ${Array.from(new Set(failed)).join(", ")}. The team column keeps what was saved.`);
+      setTeamVersion(v => v + 1);
+    })().catch(e => { if (live) setWarn(`Could not read team members: ${(e as Error).message}`); });
+    return () => { live = false; };
+  }, [teamCols, props.projectId]);
+  React.useEffect(() => {
+    if (!ready || !teamVersion) return;
+    const next = recomputeAll(rowsRef.current, cfg);
+    if (serialize(next) !== serialize(rowsRef.current)) commit(next);
+  }, [ready, teamVersion, cfg, commit]);
 
   // scheduled grids: load the people's calendars, then recalculate the end dates and monthly hours (saved only when something changed)
   React.useEffect(() => {

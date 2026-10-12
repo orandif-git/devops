@@ -146,7 +146,7 @@ export function Grid(p: GridProps) {
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
     const isEnd = cfg.schedule?.end === c.id;
-    const dis = readOnly || isEnd || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
+    const dis = readOnly || isEnd || !!c.teamFrom || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
     switch (c.type) {
@@ -247,7 +247,7 @@ export function Grid(p: GridProps) {
               <th className="narrow">#</th>
               {cfg.columns.map(c => (
                 <th key={c.id} tabIndex={0} aria-sort={sort?.col === c.id ? (sort.dir === 1 ? "ascending" : "descending") : "none"} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (e.currentTarget as HTMLElement).click(); } }} className={numCols.has(c.id) ? "num" : undefined} style={{ minWidth: c.width }} onClick={() => setSort(s => (s?.col === c.id ? (s.dir === 1 ? { col: c.id, dir: -1 } : null) : { col: c.id, dir: 1 }))}>
-                  {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}{cfg.schedule?.end === c.id && <span className="muted" title="Calculated from the start date, effort, allocation and the person's calendar"> ƒ</span>}{c.lookup && <span className="muted" title={`Filled automatically from ${cfg.columns.find(x => x.id === c.lookup!.column)?.name ?? c.lookup.column}`}> ⇢</span>}
+                  {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}{cfg.schedule?.end === c.id && <span className="muted" title="Calculated from the start date, effort, allocation and the person's calendar"> ƒ</span>}{c.teamFrom && <span className="muted" title="Filled automatically with the person's team or group"> ⇢</span>}{c.lookup && <span className="muted" title={`Filled automatically from ${cfg.columns.find(x => x.id === c.lookup!.column)?.name ?? c.lookup.column}`}> ⇢</span>}
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}

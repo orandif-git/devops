@@ -9,7 +9,7 @@ import { ColumnDef, GridConfig, GridRow, StatusBand } from "./types";
 
 export { keyNorm };
 
-const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.formula || !!c.capacity || !!c.teamOf || !!c.others || !!c.statusBands || c.type === "calculated";
+const isAuto = (c: ColumnDef) => !!c.derive || !!c.lookup || !!c.teamFrom || !!c.formula || !!c.capacity || !!c.teamOf || !!c.others || !!c.statusBands || c.type === "calculated";
 const hasManualData = (row: GridRow, cfg: GridConfig) =>
   cfg.columns.some(c => !isAuto(c) && String(row[c.id] ?? "") !== String(defaultFor(c) ?? "") && row[c.id] !== null && row[c.id] !== "");
 
