@@ -41,3 +41,26 @@ describe("team from Azure DevOps team / group membership", () => {
     expect(validateConfig({ columns: [{ id: "r", name: "R", type: "identity" }, { id: "t", name: "T", type: "string", teamFrom: { resource: "r", teams: [] } }] }).join("|")).toMatch(/at least one team/);
   });
 });
+
+describe("manual override and default allocation", () => {
+  const oc: GridConfig = { columns: [cfg.columns[0], { ...cfg.columns[1], teamFrom: { ...cfg.columns[1].teamFrom!, allowOverride: true } }] };
+  it("keeps a typed team until the resource changes or the cell is cleared", () => {
+    setTeamBooks(new Map([[teamBookKey(oc.columns[1].teamFrom!.teams), book]]));
+    let [r] = recomputeAll([{ ...newRow(oc), res: "Tennyson G <utennys>" }], oc);
+    expect(r.team).toBe("Transformation Unit, NFR");
+    r = recomputeAll([{ ...r, team: "Contractors" }], oc)[0];
+    expect(r.team).toBe("Contractors");
+    expect(recomputeAll([{ ...r, res: "Laith I <uiskan>" }], oc)[0].team).toBe("Transformation Unit");
+    expect(recomputeAll([{ ...r, team: "" }], oc)[0].team).toBe("Transformation Unit, NFR");
+    setTeamBooks(undefined);
+  });
+});
+
+import { withSchedule } from "../src/core/schedule";
+describe("default allocation", () => {
+  it("pre-fills the allocation column with the configured default (0 allowed)", () => {
+    const g = withSchedule({ columns: [], schedule: { resource: "r", start: "s", effort: "e", end: "d", defaultAllocation: 0 } } as unknown as GridConfig);
+    expect(g.columns.find(c => c.id === g.schedule!.allocation)!.defaultValue).toBe(0);
+    expect(g.schedule!.defaultAllocation).toBe(0);
+  });
+});

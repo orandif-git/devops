@@ -25,10 +25,19 @@ export const setTeamBooks = (b: Map<string, TeamBook> | undefined) => { current 
 export const teamBookKey = (teams: { id: string }[]) => teams.map(t => t.id).sort().join(",");
 
 /** Fill a team-from-membership column of a row. Without a loaded lookup the stored value is left alone. */
-export function applyTeamFrom(row: Record<string, unknown>, colId: string, cfg: { resource: string; teams: { id: string; name: string }[] }): void {
+export function applyTeamFrom(row: Record<string, unknown>, colId: string, cfg: { resource: string; teams: { id: string; name: string }[]; allowOverride?: boolean }): void {
   const book = current?.get(teamBookKey(cfg.teams));
   if (!book) return;
   const who = row[cfg.resource];
   const keep = new Set(cfg.teams.map(t => t.name));
-  row[colId] = book(who).filter(n => keep.has(n)).join(", ");
+  const auto = book(who).filter(n => keep.has(n)).join(", ");
+  if (!cfg.allowOverride) { row[colId] = auto; return; }
+  // with manual override: a typed value stays while the resource is unchanged; clearing the cell or picking another resource refills it
+  const key = `_tf_${colId}`;
+  const was = typeof row[key] === "string" ? (JSON.parse(row[key] as string) as [string, string]) : undefined;
+  const mine = JSON.stringify([String(who ?? ""), auto]);
+  const typed = String(row[colId] ?? "").trim();
+  const manual = !!was && was[0] === String(who ?? "") && typed !== "" && typed !== was[1];
+  if (!manual) { row[colId] = auto; row[key] = mine; }
+
 }

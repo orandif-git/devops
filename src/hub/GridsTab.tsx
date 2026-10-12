@@ -99,13 +99,14 @@ function TeamFromEditor(p: { col: ColumnDef; others: ColumnDef[]; onChange(tf: C
   const people = p.others.filter(o => o.id !== p.col.id && (o.type === "identity" || o.type === "string"));
   return (
     <div className="card">
-      <label><input type="checkbox" checked={!!tf} onChange={e => p.onChange(e.target.checked ? { resource: people.find(o => o.type === "identity")?.id ?? people[0]?.id ?? "", teams: [] } : undefined)} /> <b>Fill with the person's team or group</b> – from membership of the Azure DevOps teams you choose (read-only)</label>
+      <label><input type="checkbox" checked={!!tf} onChange={e => p.onChange(e.target.checked ? { resource: people.find(o => o.type === "identity")?.id ?? people[0]?.id ?? "", teams: [] } : undefined)} /> <b>Fill with the person's team or group</b> – from membership of the Azure DevOps teams you choose (read-only unless you allow overriding)</label>
       {tf && (
         <>
           <label className="field"><span>Person column</span>
             <select value={tf.resource} onChange={e => p.onChange({ ...tf, resource: e.target.value })}><option value="" />{people.map(o => <option key={o.id} value={o.id}>{o.name} ({o.id})</option>)}</select></label>
           <div className="help">Pick the teams or groups whose name should appear. If the person is a member of several of them, all names are shown, separated by commas. Only direct members are recognised: add the person (not only a nested group) to the team.</div>
           <TeamChips all={teams} value={tf.teams} onChange={v => p.onChange({ ...tf, teams: v })} />
+          <label><input type="checkbox" checked={!!tf.allowOverride} onChange={e => p.onChange({ ...tf, allowOverride: e.target.checked || undefined })} /> Allow users to type a different team (kept until the resource changes or the cell is cleared, which fills it again)</label>
         </>
       )}
     </div>
@@ -585,6 +586,10 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
                 ))}
               </div>
               <div className="help">Where the calendar comes from is set on <b>Capacity</b>: Azure DevOps team capacity (working days, days off and hours per day) or this extension's own table. The effort fills the working days in turn (hours per day × allocation %), so 80 h at 100 % over an 8-hour day is 10 working days. A derived grid built from this one uses the “Scheduled month” and “Scheduled hours” source columns.</div>
+              <label className="field"><span>Default allocation % (new rows, and when the cell is empty)</span>
+                <input type="number" min={0} style={{ maxWidth: 120 }} value={g.schedule.defaultAllocation ?? 100}
+                  onChange={e => { const v = e.target.value === "" ? 100 : Math.max(0, Number(e.target.value)); p.onChange({ ...g, schedule: { ...g.schedule!, defaultAllocation: v }, columns: g.columns.map(c => c.id === g.schedule!.allocation ? { ...c, defaultValue: v } : c) }); }} /></label>
+              <div className="help">100 pre-fills every new row with full-time. Set 0 to make users enter the allocation themselves: a row with 0 % shows “Allocation % must be above 0” and gets no end date until it is filled.</div>
               <button className="btn" onClick={() => p.onChange(withSchedule(g))}>Add any missing standard columns</button>
             </div>
           )}

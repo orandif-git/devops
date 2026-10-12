@@ -54,7 +54,7 @@ export interface ColumnDef {
    * Fills itself with the names of the Azure DevOps teams / groups (of those listed) the person in column `resource` belongs to,
    * e.g. "Transformation Unit, NFR". Read-only. Direct team members only.
    */
-  teamFrom?: { resource: string; teams: { id: string; name: string }[] };
+  teamFrom?: { resource: string; teams: { id: string; name: string }[]; /** users may type a different value; it is kept until the resource changes or the cell is cleared */ allowOverride?: boolean };
   /** Derived grids: the person's team(s) from the capacity source (Azure DevOps team capacity or the register). Read-only. */
   teamOf?: { resource: string };
   /** calculated columns: decimals of numeric results (default 2) */
@@ -187,7 +187,7 @@ export interface GridConfig {
    * Enter Start date + Effort (+ Allocation %) instead of a month: the End date and the hours per month are calculated
    * from the person's calendar. Derived grids of this grid use the virtual source columns `_month` and `_hours`.
    */
-  schedule?: { resource: string; start: string; effort: string; allocation?: string; end: string };
+  schedule?: { resource: string; start: string; effort: string; allocation?: string; end: string; /** allocation % used when the cell is empty and for new rows (default 100) */ defaultAllocation?: number };
   /** this grid is built automatically from another grid's rows (see ColumnDef.derive) */
   derived?: {
     source: string;

@@ -9,7 +9,7 @@ import { DayRange, inRanges, NativeTeam } from "./nativeCapacity";
  * The effort fills the person's working days one after the other, up to (hours per day × allocation %) a day;
  * days off, holidays and leave are skipped. The monthly figures always add up to the effort.
  */
-export interface ScheduleCols { resource: string; start: string; effort: string; allocation?: string; end: string }
+export interface ScheduleCols { resource: string; start: string; effort: string; allocation?: string; end: string; defaultAllocation?: number }
 
 /** Hours a person can work on one day ("YYYY-MM-DD"); 0 on a day off; null when the calendar has no data for that date. */
 export interface PersonDays { day(iso: string): number | null }
@@ -30,7 +30,7 @@ export function scheduleEffort(start: string, effort: number, allocationPct: num
   const t0 = parse(start);
   if (Number.isNaN(t0)) return fail("The start date is not a valid date.");
   if (!(effort > 0)) return fail("Effort must be above 0.");
-  if (!(allocationPct > 0)) return fail("Allocation % must be above 0.");
+  if (!(allocationPct > 0)) return fail("Allocation % must be above 0: enter the share of the person's time.");
   const months: Record<string, number> = {};
   let remaining = effort, end = "", worked = 0, last = "";
   for (let i = 0, t = t0; i < MAX_DAYS && remaining > 1e-9; i++, t += DAY) {
@@ -144,7 +144,7 @@ export function applySchedule(row: Record<string, unknown>, s: ScheduleCols): vo
   const start = String(row[s.start] ?? "").trim();
   const effort = num(row[s.effort]);
   if (!start || effort === null) { row[s.end] = ""; delete row._months; delete row._schedErr; delete row._schedNote; delete row._schedFor; return; }
-  const alloc = s.allocation ? num(row[s.allocation]) ?? 100 : 100;
+  const alloc = s.allocation ? num(row[s.allocation]) ?? s.defaultAllocation ?? 100 : s.defaultAllocation ?? 100;
   const inputs = JSON.stringify([row[s.resource] ?? "", start, effort, alloc]);
   if (!currentBook) {
     // no calendar yet: stored results stay, unless an input changed since they were calculated (then they would be wrong)
@@ -196,10 +196,10 @@ export function withSchedule(g: GridConfig): GridConfig {
   };
   const resource = ensure("resource", () => ({ name: "Resource", type: "identity", required: true }), ["identity", "string"], sc?.resource ?? cols.find(c => c.type === "identity")?.id);
   const start = ensure("startdate", () => ({ name: "Start date", type: "date", required: true }), ["date"], sc?.start);
-  const allocation = ensure("allocation", () => ({ name: "Allocation %", type: "number", defaultValue: 100, min: 0 }), ["number"], sc?.allocation);
+  const allocation = ensure("allocation", () => ({ name: "Allocation %", type: "number", defaultValue: sc?.defaultAllocation ?? 100, min: 0 }), ["number"], sc?.allocation);
   const effort = ensure("effort", () => ({ name: "Effort (h)", type: "number", required: true, min: 0, total: "sum" }), ["number"], sc?.effort ?? cols.find(c => c.type === "number" && c.id !== allocation)?.id);
   const end = ensure("enddate", () => ({ name: "End date", type: "date" }), ["date"], sc?.end ?? cols.find(c => c.type === "date" && c.id !== start && /end/i.test(c.id + c.name))?.id);
-  return { ...g, columns: cols, schedule: { resource, start, effort, allocation, end } };
+  return { ...g, columns: cols, schedule: { resource, start, effort, allocation, end, ...(sc?.defaultAllocation !== undefined ? { defaultAllocation: sc.defaultAllocation } : {}) } };
 }
 
 /**

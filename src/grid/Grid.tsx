@@ -146,7 +146,7 @@ export function Grid(p: GridProps) {
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
     const isEnd = cfg.schedule?.end === c.id;
-    const dis = readOnly || isEnd || !!c.teamFrom || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
+    const dis = readOnly || isEnd || (!!c.teamFrom && !c.teamFrom.allowOverride) || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
     switch (c.type) {
