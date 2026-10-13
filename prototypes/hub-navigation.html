@@ -1,0 +1,64 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Hub navigation prototype</title>
+<style>
+:root{--bg:#fff;--fg:#1f2328;--fg2:#59636e;--line:#e3e6ea;--soft:#f6f8fa;--accent:#0f6cbd;--ok:#1a7f37;--okbg:#e6f4ea;--warn:#b26a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#e8e8ea;--fg2:#a0a4ab;--line:#33363c;--soft:#25272c;--accent:#4aa3f0;--ok:#4cc26a;--okbg:#17321f;--warn:#f0c36a;--warnbg:#3a2f14}}
+*{box-sizing:border-box}body{margin:0;background:var(--soft);color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif;padding:18px 24px}
+.cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg2);margin:16px 0 6px}
+.screen{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:16px 20px;margin-bottom:10px}
+h2{margin:0 0 2px;font-size:20px}.muted{color:var(--fg2)}
+.areas{display:flex;gap:6px;margin:12px 0 0;border-bottom:1px solid var(--line)}
+.area{padding:9px 16px;border-radius:6px 6px 0 0;color:var(--fg2);border:1px solid transparent;border-bottom:0;font-weight:600}
+.area.on{color:var(--fg);background:var(--bg);border-color:var(--line);position:relative;top:1px;border-bottom:1px solid var(--bg)}
+.area small{display:inline-block;margin-left:6px;font-weight:400;font-size:11px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:0 6px}
+.tabs{display:flex;gap:2px;margin:10px 0 6px;border-bottom:1px solid var(--line)}
+.tab{padding:7px 12px;color:var(--fg2);border-bottom:2px solid transparent}.tab.on{color:var(--fg);font-weight:600;border-bottom-color:var(--accent)}
+.tab small{margin-left:6px;font-size:11px;background:var(--soft);border:1px solid var(--line);border-radius:8px;padding:0 6px}
+.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.step{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--line);border-radius:6px;padding:12px 14px}
+.dot{flex:0 0 26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid var(--line);color:var(--fg2)}
+.dot.done{background:var(--okbg);border-color:var(--ok);color:var(--ok)}.dot.next{border-color:var(--accent);color:var(--accent)}
+.step b{display:block}.btn{display:inline-block;margin-top:8px;padding:4px 12px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}
+.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.tpl{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}.card{border:1px solid var(--line);border-radius:6px;padding:10px 12px;background:var(--soft)}
+.more{color:var(--accent);margin-top:8px}.row{display:flex;gap:10px;align-items:center;margin-top:10px}
+.note{margin-top:10px;padding:8px 12px;border-left:3px solid var(--accent);background:var(--soft)}
+.tag{font-size:11px;padding:0 8px;border-radius:8px;background:var(--warnbg);color:var(--warn)}
+</style></head><body>
+
+<div class="cap">Screen 1 · First thing an administrator sees</div>
+<div class="screen">
+  <h2>Grid &amp; Rules</h2><div class="muted">Project “Project E2E SDLC Automation”</div>
+  <div class="areas"><span class="area on">Start here</span><span class="area">Build <small>5</small></span><span class="area">People &amp; access <small>2</small></span><span class="area">Safety <small>5</small></span><span class="area">Advanced</span></div>
+  <h3 style="margin:14px 0 2px">Set up in four steps</h3><div class="muted">Each step takes you to the right screen. Done steps stay ticked.</div>
+  <div class="steps">
+    <div class="step"><span class="dot done">✓</span><div><b>1 · Create a grid</b><span class="muted">2 grids defined: SDLC Timesheet, Resource Allocation.</span><br><span class="btn">Open Grids</span></div></div>
+    <div class="step"><span class="dot next">2</span><div><b>2 · Add it to the work item layout</b><span class="muted">In the process Layout editor, add the Smart Grid control on the grid's data field.</span><br><span class="btn p">Show me how</span></div></div>
+    <div class="step"><span class="dot">3</span><div><b>3 · Set up capacity</b><span class="muted">Choose where available hours come from, and the working calendar.</span><br><span class="btn">Open Capacity</span></div></div>
+    <div class="step"><span class="dot">4</span><div><b>4 · Check everything</b><span class="muted">Runs the diagnostics once; every line should show a tick.</span><br><span class="btn">Run checks</span></div></div>
+  </div>
+  <h3 style="margin:16px 0 2px">Or start from an example</h3>
+  <div class="tpl">
+    <div class="card"><b>Timesheet by month</b><div class="muted">People, activity, month and hours with totals.</div><span class="btn">Use this</span></div>
+    <div class="card"><b>Timesheet scheduled by dates</b><div class="muted">Start date, effort and allocation %; end date and capacity calculated.</div><span class="btn">Use this</span></div>
+    <div class="card"><b>Empty grid</b><div class="muted">Start with your own columns.</div><span class="btn">Create</span></div>
+  </div>
+  <div class="note"><b>Security:</b> the extension adds guards inside its pages; it is not access control. <span style="color:var(--accent)">See what is enforced →</span></div>
+</div>
+
+<div class="cap">Screen 2 · Inside an area (Build)</div>
+<div class="screen">
+  <div class="areas"><span class="area">Start here</span><span class="area on">Build <small>5</small></span><span class="area">People &amp; access <small>2</small></span><span class="area">Safety <small>5</small></span><span class="area">Advanced</span></div>
+  <div class="tabs"><span class="tab on">Grids<small>2</small></span><span class="tab">Calculations<small>1</small></span><span class="tab">Rules<small>0</small></span><span class="tab">Dependent dropdowns<small>0</small></span><span class="tab">Mappings<small>1</small></span></div>
+  <div class="muted">Define the tables people fill in inside a work item: columns, dates and effort, approval and totals.</div>
+  <div class="row"><span class="btn p">+ New grid</span><span class="muted">Rules, Dependent dropdowns and Mappings are only needed for special cases. Empty ones are shown in grey.</span></div>
+  <div class="more">▸ Advanced options (per grid) stay folded until you open them</div>
+</div>
+
+<div class="cap">The four areas</div>
+<div class="screen" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+  <div><b>Build</b><div class="muted">Grids · Calculations · Rules · Dependent dropdowns · Mappings</div></div>
+  <div><b>People &amp; access</b><div class="muted">Capacity · Controls (comment-only)</div></div>
+  <div><b>Safety</b><div class="muted">Backup &amp; restore · Audit log · Read-only fields · Security · Diagnostics</div></div>
+  <div><b>Advanced</b><div class="muted">JSON editor</div></div>
+</div>
+</body></html>

@@ -104,3 +104,7 @@
 .hub table.raw { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 12px; }
 .hub table.raw th, .hub table.raw td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); word-break: break-word; }
 .hub .warnc { color: #b26a00; }
+.hub .tag.lvl-enforced { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); border: 0; }
+.hub .tag.lvl-pages, .hub .tag.lvl-guard { background: color-mix(in srgb, #b26a00 18%, transparent); color: #b26a00; border: 0; }
+.hub .tag.lvl-record { background: var(--hover); color: var(--fg2); }
+.hub table.audit td .tag[class*="lvl-"] { white-space: normal; }

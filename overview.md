@@ -6,6 +6,21 @@ Everything is configured once per project and works on any work item type you ch
 
 ---
 
+## Security at a glance
+The extension adds **guards inside its own pages and the work item form**. It is **not an access-control system**: anyone who can call the Azure DevOps REST API, edit in Excel or use a board card is not stopped by a guard. For real enforcement use Azure DevOps process rules and permissions – each feature below says how.
+
+| Feature | What protects it |
+|---|---|
+| Settings and capacity pages (project administrators only) | Checked by the extension's pages |
+| Comment-only access | Guard on the work item form only; add process rules per field to enforce |
+| Approvals, normal mode | Checked by the extension; anyone who can edit the work item could change the stored status |
+| **Approvals, secure mode** | **Enforced by Azure DevOps** through a process-rule-protected field |
+| Audit log and backup files | A record, not tamper-proof evidence; backups are not encrypted |
+
+The in-product **Security** page and the hardening guide explain each row in detail.
+
+---
+
 ## What's included
 
 | Component | What it does |
