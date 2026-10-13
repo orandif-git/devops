@@ -18,8 +18,8 @@ const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms));
  * version that was read (so two people saving at the same time cannot overwrite each other: the loser reads again and retries).
  * Entries written by earlier versions (one document each) are still read.
  */
-export async function appendAudit(projectId: string, p: Omit<Parameters<typeof newAuditEntry>[0], "userId" | "userName">): Promise<AuditEntry> {
-  const entry = newAuditEntry({ ...currentActor(), ...p });
+/** Store one finished entry in its month's document (read, add, save with the version read, retry on a clash, read back). */
+async function writeEntry(projectId: string, entry: AuditEntry): Promise<void> {
   const m = await dataManager();
   const ym = entry.at.slice(0, 7);
   let lastError: unknown;
@@ -39,10 +39,24 @@ export async function appendAudit(projectId: string, p: Omit<Parameters<typeof n
       }
       const back = (await m.getDocument(COLLECTION, id)) as Doc;          // read it back: an entry that was not stored must be reported
       if (!back?.entries?.some(e => e.id === entry.id)) throw new Error("the entry was not found after it was written");
-      return entry;
+      return;
     } catch (e) { lastError = e; await sleep(150 * (attempt + 1)); }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
+}
+
+export async function appendAudit(projectId: string, p: Omit<Parameters<typeof newAuditEntry>[0], "userId" | "userName">): Promise<AuditEntry> {
+  const entry = newAuditEntry({ ...currentActor(), ...p });
+  await writeEntry(projectId, entry);
+  return entry;
+}
+
+/** Entries from a backup file: only the ones the log does not have are added; existing entries are never changed. */
+export async function importAudit(projectId: string, entries: AuditEntry[]): Promise<number> {
+  const have = new Set((await listAudit(projectId)).map(e => e.id));
+  let n = 0;
+  for (const e of entries) if (!have.has(e.id)) { await writeEntry(projectId, e); n++; }
+  return n;
 }
 
 async function allDocs(): Promise<Doc[]> {

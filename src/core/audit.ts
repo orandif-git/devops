@@ -6,7 +6,7 @@ export interface AuditEntry {
   userId: string;
   userName: string;
   /** which settings were saved */
-  area: "configuration" | "capacity-settings" | "audit-settings";
+  area: "configuration" | "capacity-settings" | "audit-settings" | "backup-restore";
   reason: string;
   comment: string;
   changes: AuditChange[];
@@ -73,7 +73,7 @@ export function newAuditEntry(p: { at?: Date; userId: string; userName: string; 
   return { id: `${at.replace(/[^0-9]/g, "")}-${randomId()}`, at, userId: p.userId, userName: p.userName, area: p.area, reason: p.reason.trim(), comment: p.comment.trim(), changes, ...(omitted ? { omitted } : {}) };
 }
 
-export const AREA_LABEL: Record<AuditEntry["area"], string> = { configuration: "Grid & Rules configuration", "capacity-settings": "Capacity settings", "audit-settings": "Audit log settings" };
+export const AREA_LABEL: Record<AuditEntry["area"], string> = { configuration: "Grid & Rules configuration", "capacity-settings": "Capacity settings", "audit-settings": "Audit log settings", "backup-restore": "Restore from backup" };
 
 const csvCell = (s: string) => /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 /** One CSV row per changed value (an entry without value changes still gets one row). */

@@ -214,3 +214,9 @@ In **Grid & Rules → Grids**, open a text column and tick **Fill with the perso
 ## Controls → Comment-only access
 
 In **Grid & Rules → Controls → Comment-only access**, choose teams and/or people (and optionally work item types) who may only add comments on the work item form. For them, any change to another field is undone at once with a message, the Smart Grid becomes read-only, and rules and calculations do not write to the work item. Fields you list stay editable. This is a guard on the work item form only: board cards, backlogs, queries, Excel and the REST API are not covered, so it is not access control. Team membership counts direct members only; if a team cannot be read, the user is treated as not restricted.
+
+## Backup and restore
+
+**Grid & Rules → Backup & restore** downloads one JSON file with everything the extension stores for the project: grids (with dropdown values and presets), rules, dependent dropdowns, calculations, mappings, controls, capacity settings and, if you tick them, the capacity register and the audit log. Process settings (fields, picklists, layouts) and work item rows are not included.
+
+To restore, choose the file and pick, part by part, **Replace** (exactly like the file), **Add missing only**, or skip. A preview shows what would change, with warnings for a file from another project or teams that do not exist here. Restoring asks for a reason, downloads a backup of the current settings first, and is recorded in the audit log. The audit log itself is never overwritten: only entries it does not have are added. Backup files contain names, emails and business rules and are not encrypted: keep them safe.

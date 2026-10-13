@@ -62,6 +62,12 @@ export function AuditTab(p: { projectId: string; version?: string }) {
         <button className="btn" onClick={reload}>Refresh</button>
         <span className="muted">{shown.length} of {entries.length} entries · times in {tz}</span>
       </div>
+      {entries[0] && (
+        <div className="card" role="status">
+          <b>Last change:</b> {entries[0].userName} · {when(entries[0].at)} · {AREA_LABEL[entries[0].area] ?? entries[0].area}
+          <span className="muted"> · “{entries[0].reason}”</span>
+        </div>
+      )}
       {old.length > 0 && (
         <div className="card">
           <b>{old.length} entr{old.length === 1 ? "y is" : "ies are"} older than {months} months.</b> Export them before clearing.
