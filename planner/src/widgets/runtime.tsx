@@ -9,6 +9,7 @@ import "./widgets.css";
 import { getProject } from "../../../src/shared/ado";
 import { parseWidgetConfig } from "../core/widgets";
 import { fetchWidget } from "./data";
+import { registerContribution } from "./register";
 import { Kind, OverList, Tile, TeamMap } from "./views";
 
 async function draw(kind: Kind, s: WidgetSettings) {
@@ -35,6 +36,6 @@ export async function startWidget(kind: Kind) {
     load: s => draw(kind, s),
     reload: s => draw(kind, s),
   };
-  SDK.register(SDK.getContributionId(), () => widget);
+  registerContribution(() => widget);
   await SDK.notifyLoadSucceeded();
 }

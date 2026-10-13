@@ -10,6 +10,7 @@ import "./widgets.css";
 import { getProject } from "../../../src/shared/ado";
 import { defaultWidgetConfig, parseWidgetConfig, WidgetConfig } from "../core/widgets";
 import { loadSettings } from "../data/settingsStore";
+import { registerContribution } from "./register";
 import { listSavedQueries, SavedQuery } from "../data/queries";
 
 function Form(p: { initial: WidgetConfig; teams: string[]; queries: SavedQuery[]; onChange: (c: WidgetConfig) => void }) {
@@ -49,6 +50,6 @@ export async function startConfiguration() {
     },
     onSave: () => WidgetConfigurationSave.Valid({ data: JSON.stringify(current) }),
   };
-  SDK.register(SDK.getContributionId(), () => config);
+  registerContribution(() => config);
   await SDK.notifyLoadSucceeded();
 }

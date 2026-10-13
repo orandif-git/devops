@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "resource-planner",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "name": "Resource Planner & Heatmap",
   "publisher": "amanullah-ado",
   "public": true,
