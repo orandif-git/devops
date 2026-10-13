@@ -1,6 +1,6 @@
 # Work Item Grid & Rules
 
-Turn Azure DevOps work items into small, smart applications: **editable grids with calculations**, **rules and dependent dropdowns**, **capacity and utilization tracking**, and a **visual admin page** to configure all of it – without writing code.
+Turn Azure DevOps work items into small, smart applications: **editable grids with calculations**, **approvals**, **rules and dependent dropdowns**, **capacity and utilization tracking**, and a **visual admin page** with an **audit log**, **backup and restore** and a **diagnostics page** – configured without writing code.
 
 Everything is configured once per project and works on any work item type you choose. Your data stays inside your Azure DevOps organization.
 
@@ -21,7 +21,11 @@ Everything is configured once per project and works on any work item type you ch
 | **Mappings** | Shared lookup tables ("value → category") reused by any grid column |
 | **Capacity** | A central place for people's available hours, plus a utilization overview across work items |
 | **Read-only Value** (form control) | Shows a calculated field with a lock so users cannot edit it |
-| **Grid & Rules admin page** | Visual builder with live validation against your real process fields |
+| **Controls** | People or teams who may only add comments on the work item form |
+| **Audit log** | Who changed the settings, when, what changed (before and after, in plain language) and why |
+| **Backup & restore** | Download everything the extension stores, restore all of it or only chosen parts |
+| **Diagnostics** | One page that checks storage, permissions and Azure DevOps access |
+| **Grid & Rules admin page** | Visual builder with live validation against your real process fields (project administrators only) |
 
 ---
 
@@ -84,7 +88,7 @@ Maintain a "value → category" table once (categories, the values in each, and 
 
 ### Capacity and utilization
 - **Where capacity lives – your choice:**
-  - the extension's own **register**: default hours per person and month plus exceptions (leave, part time), with import/export and a change history; edit access can be limited to chosen Azure DevOps **teams**. A **calendar table** holds the working week, default hours per day and holidays; each person can have their own hours per day, team and leave dates; or
+  - the extension's own **register**: default hours per person and month plus exceptions (leave, part time), with import/export and a change history; only **project administrators** can edit it. A **calendar table** holds the working week, default hours per day and holidays; each person can have their own hours per day, team and leave dates; or
   - **Azure DevOps team capacity** (Boards → Sprints → Capacity): hours per day and days off are read from one yearly iteration and converted to available hours per month (working days − holidays − days off).
 - **Per work item:** a derived grid shows each person's hours for the item, hours on other work items, total hours, available capacity, **utilization %** and a **status**.
 - **Across work items:** each work item publishes its hours when saved, so utilization counts a person's total load.
@@ -93,17 +97,44 @@ Maintain a "value → category" table once (categories, the values in each, and 
 ### Read-only calculated fields
 The **Read-only fields** page lists every field the extension writes (calculation results, grid totals, grouped totals) and explains how to lock them – with the **Read-only Value** control and, after testing that the field still fills, an Azure DevOps process rule.
 
+### Team from group membership
+A text column can **fill itself with the person's team or group**: choose the person column and the Azure DevOps teams/groups to report (for example *Transformation Unit*, *NFR*). When a resource is picked, the column shows the chosen teams the person belongs to (several are joined with commas). It is read-only unless you tick **Allow users to type a different team**: a typed value is kept until the resource changes or the cell is cleared. Only direct members of a team are recognised, and members are cached for five minutes.
+
+### Months and dates display
+Each month or date column has a **Show months / dates as** setting (for example `MM-YYYY`, `MMM-YY`, `DD/MM/YYYY` or a custom pattern) for read-only cells (such as the derived Period or the End date), the filter box and CSV/Excel exports. Stored values do not change, so sorting and calculations are unaffected. Editable date cells keep the browser's date picker.
+
+### Calculated fields stay calculated
+Fields the extension fills (totals, calculation results, overall review status) should stay **writable in the process rules** and be shown with the **Read-only Value** control, which shows the value with a lock and no input box (numbers, text, dates and yes/no fields). A process rule "Make read-only" blocks the extension's own write too, so do not use it on these fields. When a work item with grid rows is opened, any such field that was changed by hand or by another tool is corrected. The **Read-only fields** tab lists every field the extension writes, with its type.
+
+### Controls: comment-only access
+In **Grid & Rules → Controls** choose teams and/or people (and optionally work item types) who may only add comments on the work item form. For them a change to any other field is undone at once with a message, the Smart Grid becomes read-only, and rules and calculations do not write to the work item. Fields you list stay editable. This is a guard on the **work item form only**: board cards, backlogs, queries, Excel and the REST API are not covered, so it is not access control. Team membership counts direct members only; if a team cannot be read, the user is treated as not restricted.
+
+### Audit log
+Every saved change to the settings (grids, rules, dependent dropdowns, calculations, mappings, controls, capacity settings, restores) asks for a **reason and comments** (free text, at least 10 characters each) and is recorded with the user, the time, and each setting's previous and new value, shown as a clean table in plain language (for example *Added column “test” (checkbox) to Grid “SDLC Timesheet”*, *dropdown values: added “Test”*). The newest change is shown at the top; the stored raw values are one click away. Search, export to CSV and a retention setting (24 months by default) are included; entries older than the retention can be exported and cleared. Changes to row data on work items are not logged (Azure DevOps keeps its own history). The log is stored with the other extension data, so it is an accountability record, not tamper-proof evidence.
+
+### Backup and restore
+**Grid & Rules → Backup & restore** downloads one JSON file with everything the extension stores for the project: grids (with dropdown values and presets), rules, dependent dropdowns, calculations, mappings, controls, capacity settings and, if you tick them, the capacity register and the audit log. Process settings (fields, picklists, layouts) and work item rows are not included.
+
+To restore, choose the file and pick, part by part, **Replace** (exactly like the file), **Add missing only**, or skip. A preview shows what would change, with warnings for a file from another project or teams that do not exist in this one. Restoring asks for a reason, downloads a backup of the current settings first, and is recorded in the audit log. The audit log itself is never overwritten: only entries it does not have are added.
+
+### Diagnostics
+**Grid & Rules → Diagnostics** runs the checks that matter when something does not work: that the server stores several records correctly, that two administrators cannot silently overwrite each other's settings, that teams, members, fields and capacity can be read, and that your settings are consistent. Copy the result to share it with support. Only short-lived test records are written, and they are removed again.
+
 ### Visual admin page with live validation
-Project settings → **Grid & Rules**. Form editors first, JSON editor second. Everything is checked live against your process: unknown fields, values that are not in a pick list, non-numeric targets, formulas with unknown names, circular calculations, two things writing to the same field, and more.
+Project settings → **Grid & Rules** (project administrators only). Form editors first, JSON editor second. If two administrators work at the same time, the second save is refused with a clear choice (load the other version or overwrite) instead of silently replacing the first. Everything is checked live against your process: unknown fields, values that are not in a pick list, non-numeric targets, formulas with unknown names, circular calculations, two things writing to the same field, and more.
 
 ---
 
 ## Requirements and permissions
-- Azure DevOps Services (designed also for Azure DevOps Server 2019 and later).
+- Azure DevOps Services, and Azure DevOps Server 2019 or later (tested on Server 2020; the extension uses REST api-version 5.0 where Server needs it). The new work item form is required for the form controls.
 - Permissions requested: **work items (read and write)** and **project and team (read)**.
-- Project administrators configure the extension. Configuration, the capacity register and published hours are stored in your organization's extension data storage. Nothing is sent outside Azure DevOps.
+- Project administrators configure the extension. Configuration, the capacity register, published hours and the audit log are stored in your organization's **extension data storage**. Nothing is sent outside Azure DevOps.
 
----
+## Security and privacy – what is and is not enforced
+- **The admin pages** (Grid & Rules, capacity editing) open for project administrators only. This is checked inside the extension's pages. If Azure DevOps cannot report a user's permissions the page stays usable with a notice, so a real administrator is never locked out.
+- **Comment-only access, approvals in normal mode and the capacity register** are enforced by the extension's pages and the work item form. Someone who can call the Azure DevOps REST API, edit in Excel or use a board card can bypass them. Use **process rules and Azure DevOps permissions** for enforcement; *secure approvals* adds a process-rule-protected field for approvals.
+- **Extension data is not a vault.** Anyone with access to the extension's data through the API could read or change settings and the audit log. The audit log is an accountability record, not tamper-proof evidence.
+- **Personal data stored:** names and sign-in names of people in capacity, approvals, audit entries and settings (teams, people lists). Backup files contain the same and are not encrypted: store them safely.
 
 ## Setup
 
@@ -135,7 +166,7 @@ In the process **Layout** editor of the work item type:
 
 ### 5. Set up capacity (optional)
 Open **Grid & Rules → Capacity** and choose where capacity is maintained:
-- **Register:** add people on the **Boards → Capacity** page (default hours plus month exceptions), and choose which teams may edit.
+- **Register:** add people on the **Boards → Capacity** page (default hours plus month exceptions). Only project administrators can edit it; everyone else sees it read-only.
 - **Azure DevOps team capacity:** create one iteration for the year, add it to the team, enter hours per day and days off per person under Boards → Sprints → Capacity, select the team(s), and press **Check what is read**.
 
 For scheduling by dates: with the register, set the **Calendar** (working week, hours per day, holidays) on the same page and, if needed, a person's hours per day and leave (select the person with ⓘ). With Azure DevOps team capacity the team's working days, days off and hours per day are used.
@@ -143,7 +174,12 @@ For scheduling by dates: with the register, set the **Calendar** (working week, 
 Then generate a derived capacity grid in the Grids page with the **Quick start** and save. For a grid scheduled by dates, use **Fill in for a scheduled source**.
 
 ### 6. Lock calculated fields (optional)
-Open **Read-only fields**, copy the field names, and add the **Read-only Value** control for each (a **Make read-only** process rule is optional; test that the field still fills).
+Open **Read-only fields**, copy the field names, and add the **Read-only Value** control for each in the process layout. Keep those fields writable in the process rules.
+
+### 7. Check, back up, and keep a record
+- Open **Diagnostics** and press **Run checks** once after installing or upgrading; everything should show a tick.
+- Download a **backup** before large changes.
+- The **Audit log** fills itself: each save of the settings asks for a reason and comments.
 
 ---
 
@@ -172,7 +208,7 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 
 ## Good to know
 - **When things run:** calculations and rules run in the browser when a work item is open and whenever an input changes. A closed work item is not recalculated until it is opened again.
-- **Access control:** limits on who may edit capacity apply to the extension's pages. For enforcement inside Azure DevOps itself, use process rules and permissions.
+- **Access control:** limits on who may edit settings, capacity or fields apply to the extension's pages and the work item form. For enforcement inside Azure DevOps itself, use process rules and permissions.
 - **Storage format:** use plain "Text (multiple lines)" fields for grid data. Rich-text fields can alter stored text.
 - **Hidden data fields:** hiding a data field from the layout is fine; it still stores the data.
 - **Hours across work items** are published when a work item is saved, so very recent edits may not be counted yet.
@@ -190,33 +226,10 @@ Open **Read-only fields**, copy the field names, and add the **Read-only Value**
 | Approve is refused with “Azure DevOps did not allow changing the approvals field” | Secure approvals: only members of the group named in the field's process rule can write that field. Add the person to the group, or check the rule. |
 | A row is pending again although it was approved | Secure approvals: the row was changed after approval (also from outside the grid), so the approval no longer matches. Approve it again. |
 | Nobody sees Approve / Reject | The user must match an approver rule (team member or named person) or be an administrator; team membership counts direct members only – add people by name if a team cannot be read. |
+| Saving the settings says someone else saved them | Another administrator saved after you opened the page. Choose **Load their version** or **Overwrite with my version**. |
+| The audit log, capacity or anything stored seems to lose entries | Open **Diagnostics** and press **Run checks**; copy the result to support. Old records are moved to short ids with **Move to short ids** if offered. |
+| Comment-only users can still change a field somewhere | The guard covers the work item form only (not board cards, queries, Excel or the API). |
 | "Load preset" is empty | A preset with a rule is only offered when the work item field matches; a preset without a rule is offered everywhere. |
 
 ## Support
 Questions and feedback are welcome through the Marketplace Q&A page of this extension.
-
-
-## Team from Azure DevOps team / group membership
-
-In **Grid & Rules → Grids**, open a text column and tick **Fill with the person's team or group**. Choose the person column and the Azure DevOps teams/groups to report (e.g. *Transformation Unit*, *NFR*). When a resource is picked, the column fills with the chosen teams the person belongs to (several are joined with ", "). The column is read-only. Only direct members are recognised, and members are cached for five minutes.
-
-**Manual override:** tick *Allow users to type a different team*. A typed value is kept until the resource changes or the cell is cleared (then it is filled again).
-
-**Default allocation %:** in the grid's *Dates and effort* section, *Default allocation %* sets the value of new rows and of empty cells (default 100). Use 0 to make users enter it; 0 % gives no end date until filled.
-
-## Audit log, administrator-only settings and read-only outputs
-
-- **Audit log** (Grid & Rules → *Audit log*): every saved change to the settings (grids, rules, calculations, mappings, capacity settings) is recorded with the user, the time, each setting's previous and new value, and a reason and comment. Saving always asks for both (free text, at least 10 characters each). Entries are kept 24 months (changeable); entries older than that can be exported to CSV and cleared. Row data on work items is not logged. The log is stored with the other extension data, so it is an accountability record, not tamper-proof evidence.
-- **Project administrators only:** the Grid & Rules settings and the capacity register can be changed by project administrators only. Others see a message (settings) or a read-only page (capacity). If Azure DevOps cannot report the user's permissions, the page stays usable with a notice, so a real administrator is never locked out. This is a check inside the extension's pages, not an Azure DevOps security boundary.
-- **Calculated fields:** keep fields the extension fills (totals, calculation results, overall status) writable in the process rules and show them with the **Read-only Value** control. When a work item with rows is opened, any such field that was changed by hand or by another tool is corrected.
-- **Month format:** a column's *Show months / dates as* setting changes how a month or date appears in read-only cells and in CSV/Excel (for example `MM-YYYY`, `MMM-YY`). Stored values do not change.
-
-## Controls → Comment-only access
-
-In **Grid & Rules → Controls → Comment-only access**, choose teams and/or people (and optionally work item types) who may only add comments on the work item form. For them, any change to another field is undone at once with a message, the Smart Grid becomes read-only, and rules and calculations do not write to the work item. Fields you list stay editable. This is a guard on the work item form only: board cards, backlogs, queries, Excel and the REST API are not covered, so it is not access control. Team membership counts direct members only; if a team cannot be read, the user is treated as not restricted.
-
-## Backup and restore
-
-**Grid & Rules → Backup & restore** downloads one JSON file with everything the extension stores for the project: grids (with dropdown values and presets), rules, dependent dropdowns, calculations, mappings, controls, capacity settings and, if you tick them, the capacity register and the audit log. Process settings (fields, picklists, layouts) and work item rows are not included.
-
-To restore, choose the file and pick, part by part, **Replace** (exactly like the file), **Add missing only**, or skip. A preview shows what would change, with warnings for a file from another project or teams that do not exist here. Restoring asks for a reason, downloads a backup of the current settings first, and is recorded in the audit log. The audit log itself is never overwritten: only entries it does not have are added. Backup files contain names, emails and business rules and are not encrypted: keep them safe.

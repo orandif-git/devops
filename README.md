@@ -10,7 +10,7 @@ Publisher `amanullah-ado` · id `workitem-grid-rules`. See [overview.md](overvie
 - `src/hub` – project settings hub: visual rule builder, dependent dropdown, grid, mapping, calculation and capacity editors, read-only fields page, JSON editor, live validation (`validate.ts`).
 - `src/capacity` – the Boards **Capacity** page (register editor + utilization overview).
 - `src/readonly` – **Read-only Value** form control for calculated fields.
-- `src/shared` – SDK/REST helpers (team and permission calls use an explicit older api-version so Azure DevOps Server 2020 accepts them), config storage (extension data service, one document per project), Excel/CSV.
+- `src/shared` – id helpers (`ids.ts`), settings storage with version check (`configStore.ts`), audit/backup/diagnostics stores,  SDK/REST helpers (team and permission calls use an explicit older api-version so Azure DevOps Server 2020 accepts them), config storage (extension data service, one document per project), Excel/CSV.
 
 ## Commands
 ```
@@ -25,3 +25,9 @@ Publish: upload the `.vsix` at https://marketplace.visualstudio.com/manage/publi
 ## Examples
 - `examples/sdlc-timesheet.json` – timesheet with a month per row.
 - `examples/sdlc-timesheet-scheduled.json` – the same project scheduled by start date + effort + allocation %, with a preset and a contractor override.
+
+## Release
+1. `npm test` and `npm run typecheck`.
+2. `npm run package` (bumps the patch version), upload the `.vsix`.
+3. Run `docs/pilot-test-checklist.md` on a test project (Server 2020 and Services).
+4. Update `CHANGELOG.md` and the Marketplace page (`overview.md`).

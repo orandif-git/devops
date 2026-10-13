@@ -5,7 +5,7 @@
   "name": "Work Item Grid & Rules",
   "publisher": "amanullah-ado",
   "public": true,
-  "description": "Smart editable grids, conditional rules, dependent dropdowns and a visual rule builder for Azure DevOps work items.",
+  "description": "Smart editable grids with calculations, approvals, capacity and scheduling, conditional rules and dependent dropdowns for Azure DevOps work items \u2013 with an audit log, backup and restore, and administrator-only settings.",
   "categories": [
     "Azure Boards"
   ],
@@ -16,7 +16,11 @@
     "rules",
     "dependent picklist",
     "cascading",
-    "validation"
+    "validation",
+    "approval",
+    "capacity",
+    "audit",
+    "backup"
   ],
   "targets": [
     {
