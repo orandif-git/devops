@@ -10,6 +10,7 @@ vi.mock("../planner/src/data/related", () => ({ loadRelated: async () => [{ id: 
 vi.mock("../planner/src/data/open", () => ({ openWorkItem: async (_p: string, id: number) => { opened.push(id); } }));
 
 import { HeatmapTab } from "../planner/src/hub/HeatmapTab";
+import { CommandCenter } from "../planner/src/hub/CommandCenter";
 import { GanttTab } from "../planner/src/hub/GanttTab";
 import { TimelineTab } from "../planner/src/hub/TimelineTab";
 import { noFilters } from "../planner/src/core/model";
@@ -114,5 +115,47 @@ describe("Resource timeline tab", () => {
     expect(host.querySelectorAll(".tl-lane .gb").length).toBe(2);
     expect(host.textContent).toContain("1 · 100%");
     expect(host.querySelectorAll(".tl-name .sw.over")).toHaveLength(1);                   // Ann has 110 h of 100 h in October
+  });
+});
+
+describe("Command center", () => {
+  function CC() {
+    const [f, setF] = React.useState(noFilters());
+    const [period, setPeriod] = React.useState<{ kind: "year" | "quarter" | "last12" | "next12" | "custom"; from?: string; to?: string }>({ kind: "year" });
+    return <CommandCenter project={{ id: "P", name: "Proj" }} settings={settings} loaded={loaded} months={["2026-10", "2026-11"]} busy={false} error="" queries={[]} queryId="" onQuery={() => undefined} onReload={() => undefined} filters={f} onFilters={setF} period={period} onPeriod={setPeriod} />;
+  }
+  const host = () => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<CC />, h); }); return h; };
+  it("shows the KPI strip and band buttons, highlights a band, and filters as removable chips", () => {
+    const h = host();
+    expect(h.querySelector(".cc-strip")!.textContent).toContain("Utilization");
+    const over = Array.from(h.querySelectorAll(".cc-bands .band")).find(b => b.textContent!.includes("Over capacity"))!;
+    click(over);
+    expect(over.getAttribute("aria-pressed")).toBe("true");
+    expect(h.querySelector(".cc-chips")!.textContent).toContain("Band: Over capacity");
+    click(h.querySelector(".cchip button")!);
+    expect(h.querySelector(".cc-chips")).toBeNull();
+  });
+  it("collapses a team, opens the detail panel from a cell and closes it with Escape", () => {
+    const h = host();
+    const team = h.querySelector(".cc-team")!;
+    const before = h.querySelectorAll(".cell").length;
+    click(team); expect(h.querySelectorAll(".cell").length).toBeLessThan(before); click(team);
+    expect(h.querySelectorAll(".cell")).toHaveLength(before);
+    click(h.querySelector('.cell[role="button"]')!);
+    expect(h.querySelector(".cc-panel")!.textContent).toContain("Epic");
+    act(() => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    expect(h.querySelector(".cc-panel")).toBeNull();
+  });
+  it("switches to the timeline and the Gantt without losing the filter bar", () => {
+    const h = host();
+    click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "Timeline")!);
+    expect(h.querySelector(".tl-grp")).not.toBeNull(); expect(h.querySelector(".cc-bar")).not.toBeNull();
+    click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "Epic Gantt")!);
+    expect(h.querySelectorAll(".tl-lane .gb").length).toBeGreaterThan(0);
+  });
+  it("opens the filters drawer with the Epic states", () => {
+    const h = host();
+    click(Array.from(h.querySelectorAll(".pill")).find(b => b.textContent!.includes("Filters"))!);
+    expect(h.querySelector(".cc-drawer")!.textContent).toContain("Active");
   });
 });

@@ -14,7 +14,7 @@ const LANE = 18, PAD = 8;
 type Row = { kind: "group"; team: string } | { kind: "person"; p: PersonRow; placed: ReturnType<typeof layoutTasks>["placed"]; lanes: number; over: string[] };
 
 /** One row per person; each bar is a task (a grid row) on an Epic from its start to its end date, darker for a higher allocation. */
-export function TimelineTab(p: { project: { id: string; name: string }; settings: PlannerSettings; loaded: Loaded; months: string[]; filters: Filters }) {
+export function TimelineTab(p: { project: { id: string; name: string }; settings: PlannerSettings; loaded: Loaded; months: string[]; filters: Filters; onPerson?(key: string): void }) {
   const L = p.loaded;
   const w = React.useMemo(() => windowOf(p.months), [p.months]);
   const [dialog, setDialog] = React.useState<number>();
@@ -52,7 +52,7 @@ export function TimelineTab(p: { project: { id: string; name: string }; settings
             overlay={nowPct !== undefined ? <div className="today" style={{ left: `calc(200px + (100% - 200px) * ${nowPct / 100})` }}><span>Today</span></div> : undefined}
             render={r => r.kind === "group" ? <div className="tl-grp">{r.team}</div> : (
               <div className="tl-row">
-                <div className="tl-name"><b title={r.p.name}>{shortName(r.p.name)}</b>{r.over.length > 0 && <span className="sw over" title={`Over capacity in ${r.over.join(", ")}`} style={{ background: "#d03b3b", color: "#fff" }}>!</span>}</div>
+                <div className="tl-name" style={p.onPerson ? { cursor: "pointer" } : undefined} onClick={p.onPerson ? () => p.onPerson!(r.p.key) : undefined}><b title={r.p.name}>{shortName(r.p.name)}</b>{r.over.length > 0 && <span className="sw over" title={`Over capacity in ${r.over.join(", ")}`} style={{ background: "#d03b3b", color: "#fff" }}>!</span>}</div>
                 <div className="tl-lane" style={{ backgroundSize: `calc(100% / ${mm}) 100%` }}>
                   {r.placed.map((x, i) => { const [bg, fg] = shade(x.task.allocation); const e = epicById.get(x.task.epicId);
                     return <div key={i} className={"gb pt" + (x.task.estimated ? " est" : "")} tabIndex={0} role="button" style={{ left: x.left + "%", width: x.width + "%", top: PAD + x.lane * LANE, background: bg, color: fg }}

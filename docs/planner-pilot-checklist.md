@@ -14,6 +14,12 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] **Heatmap** loads; first load under 10 s (note the time), a reload under 2 s.
 - [ ] **Data check** and **Diagnostics → Setup and data**: counts match a hand-checked Epic; people without capacity and rows without monthly hours are explained.
 
+## 2b. Planner tab (one screen)
+- [ ] Planner opens by default. Period, Team, Epics, search and the Filters drawer change the figures; active filters show as chips that can be removed; Clear all works.
+- [ ] Band buttons highlight and clear; team headers collapse and expand; clicking a month header changes the month of the tiles.
+- [ ] Clicking a cell or a person opens the detail panel (capacity vs booked, year trend, Epics); Esc closes it; an Epic opens its dialog.
+- [ ] Heatmap / Timeline / Epic Gantt switch keeps the filters. Refresh and CSV work.
+
 ## 3. Heatmap
 - [ ] Three people hand-checked: booked hours and available hours equal the grid and team capacity. Band colours, symbols (✓ ▲ !) and thresholds follow Settings.
 - [ ] Click a cell: side panel lists Epics and hours; click an Epic: dialog with related items; **Open the Epic form** opens the form.

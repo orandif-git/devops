@@ -1,6 +1,7 @@
 # Changelog
 
 ## Resource Planner & Heatmap (separate extension, `planner/`)
+- New one-screen **Planner** tab (default): compact filter bar with removable chips and a filters drawer, KPI strip with clickable bands, Heatmap / Timeline / Epic Gantt switch, collapsible teams, linked month highlight, detail panel (Esc closes). The separate Heatmap, Resource timeline and Epic Gantt tabs remain.
 - Heatmap, resource timeline, Epic Gantt, three dashboard widgets (utilization, over capacity, team map), Diagnostics tab, keyboard-accessible tabs, Marketplace page. Read-only (`vso.work`, `vso.project`). Pilot checklist: `docs/planner-pilot-checklist.md`.
 
 ## 2.2.0 (next)

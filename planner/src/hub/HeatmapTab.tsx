@@ -9,7 +9,7 @@ import { downloadFile } from "../../../src/shared/ado";
 import { EpicDialog } from "./EpicDialog";
 import { FilterBar } from "./FilterBar";
 
-const RAG: Record<Exclude<Band, "none">, { color: string; icon: string; label: string }> = {
+export const RAG: Record<Exclude<Band, "none">, { color: string; icon: string; label: string }> = {
   spare: { color: "#9ec5f4", icon: "", label: "Spare capacity" }, healthy: { color: "#0ca30c", icon: "✓", label: "Healthy" },
   full: { color: "#fab219", icon: "▲", label: "Nearly full" }, over: { color: "#d03b3b", icon: "!", label: "Over capacity" },
 };
@@ -17,11 +17,11 @@ const BLUES = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf",
 const blueFor = (r: number) => (r <= .10 ? 0 : r <= .25 ? 1 : r <= .40 ? 2 : r <= .55 ? 3 : r <= .70 ? 4 : r <= .85 ? 5 : 6);
 const NOCAP = "repeating-linear-gradient(45deg, var(--line) 0 4px, transparent 4px 8px)";
 const OVER_HATCH = "repeating-linear-gradient(45deg,#7a1613 0 4px,#4d0e0c 4px 8px)";
-const BANDS: Exclude<Band, "none">[] = ["spare", "healthy", "full", "over"];
+export const BANDS: Exclude<Band, "none">[] = ["spare", "healthy", "full", "over"];
 const MONTH_NAME = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const monthLabel = (m: string) => MONTH_NAME[+m.slice(5) - 1] + (m.slice(2, 4) !== String(new Date().getFullYear()).slice(2) ? " " + m.slice(2, 4) : "");
+export const monthLabel = (m: string) => MONTH_NAME[+m.slice(5) - 1] + (m.slice(2, 4) !== String(new Date().getFullYear()).slice(2) ? " " + m.slice(2, 4) : "");
 
-function paint(mode: "rag" | "shades", c: ReturnType<typeof cellOf>): { background?: string; color?: string; text: string; label: string } {
+export function paint(mode: "rag" | "shades", c: ReturnType<typeof cellOf>): { background?: string; color?: string; text: string; label: string } {
   if (c.noCapacity) return { background: NOCAP, color: "var(--fg2)", text: "?", label: "No capacity entered" };
   if (c.ratio === null) return { text: "", label: "" };
   if (mode === "rag") {
