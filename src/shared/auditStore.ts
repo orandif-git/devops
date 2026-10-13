@@ -4,12 +4,20 @@ import { dataManager } from "./ado";
 
 const COLLECTION = "wig-audit";
 const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e));
-const settingsId = (projectId: string) => `audit-settings-${projectId}`;
+/**
+ * Short, fixed-length document ids. Azure DevOps keeps documents of an extension apart by id, and a long id that differs from another
+ * one only near its end was seen to be stored as the same document (each new audit entry replaced the previous one), so the
+ * project is represented by a short hash and the ids stay well under 40 characters.
+ */
+const hashOf = (s: string, seed: number) => { let h = seed >>> 0; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(36).padStart(7, "0"); };
+const pid = (projectId: string) => hashOf(projectId, 2166136261) + hashOf(projectId, 0x9e3779b1);
+const settingsId = (projectId: string) => `as-${pid(projectId)}`;
+const legacySettingsId = (projectId: string) => `audit-settings-${projectId}`;
 
 export const currentActor = () => { const u = SDK.getUser(); return { userId: u.name || u.id, userName: u.displayName }; };
 
 type Doc = Record<string, unknown> & { id: string; kind?: string; projectId?: string; entries?: AuditEntry[]; entry?: AuditEntry; __etag?: number };
-const monthId = (projectId: string, ym: string, seq: number) => `audit-month-${projectId}-${ym}${seq ? `-${seq}` : ""}`;
+const monthId = (projectId: string, ym: string, seq: number) => `am-${pid(projectId)}-${ym}${seq ? `-${seq}` : ""}`;
 const MONTH_DOC_LIMIT = 1_500_000;                       // characters; a busier month continues in a second document
 const sleep = (ms: number) => new Promise(r => window.setTimeout(r, ms));
 
@@ -90,7 +98,8 @@ export async function deleteAudit(projectId: string, ids: string[]): Promise<voi
 
 /** Read from the list of stored documents (no separate request for a record that may not exist yet, which would show up as a 404 in the browser console). */
 export async function loadRetention(projectId: string): Promise<number> {
-  const d = (await allDocs()).find(x => x.id === settingsId(projectId)) as (Doc & { retentionMonths?: number }) | undefined;
+  const docs = await allDocs();
+  const d = (docs.find(x => x.id === settingsId(projectId)) ?? docs.find(x => x.id === legacySettingsId(projectId))) as (Doc & { retentionMonths?: number }) | undefined;
   const n = Number(d?.retentionMonths);
   return Number.isInteger(n) && n >= 1 && n <= 120 ? n : DEFAULT_RETENTION_MONTHS;
 }
@@ -99,21 +108,32 @@ export async function saveRetention(projectId: string, months: number): Promise<
 }
 
 /**
- * Diagnostic: write three throw-away records, once as separate documents and once the way entries are really kept (one month document,
- * read-modify-write), read them back and delete them. The real log is not touched. Tells whether this server stores and lists several documents.
+ * Diagnostic: writes throw-away records and reads them back (the real log is not touched):
+ *  1. three documents with short, different ids – how entries are stored now
+ *  2. three documents with long ids that differ only at the end – shows whether this server treats them as one
+ *  3. three saves into one month document – read, add, save with the version read
  */
 export async function auditStorageCheck(projectId: string): Promise<string[]> {
   const out: string[] = [];
   const m = await dataManager();
-  const tag = `audit-check-${projectId}-${Date.now()}`;
+  const tag = `ac${Date.now().toString(36)}`;
   const mark = (ok: boolean, text: string) => out.push(`${ok ? "✔" : "✖"} ${text}`);
+  const created: string[] = [];
+  const put = async (id: string, extra: Record<string, unknown> = {}) => { created.push(id); await m.setDocument(COLLECTION, { id, kind: "check", projectId, ...extra, __etag: -1 }); };
   try {
-    for (let i = 1; i <= 3; i++) await m.setDocument(COLLECTION, { id: `${tag}-doc-${i}`, kind: "check", projectId, n: i, __etag: -1 });
-    const listed = ((await m.getDocuments(COLLECTION)) as Doc[]).filter(d => d.id.startsWith(`${tag}-doc-`));
-    mark(listed.length === 3, `three separate documents written, ${listed.length} found when listing`);
-  } catch (e) { mark(false, "separate documents: " + (e as Error).message); }
+    for (let i = 1; i <= 3; i++) await put(`${tag}-s${i}`, { n: i });
+    const listed = ((await m.getDocuments(COLLECTION)) as Doc[]).filter(d => d.id.startsWith(`${tag}-s`));
+    mark(listed.length === 3, `three documents with short ids: ${listed.length} found when listing`);
+  } catch (e) { mark(false, "short ids: " + (e as Error).message); }
   try {
-    const id = `${tag}-month`;
+    const long = `audit-check-${projectId}-${tag}`;
+    for (let i = 1; i <= 3; i++) await put(`${long}-long-${i}`, { n: i });
+    const listed = ((await m.getDocuments(COLLECTION)) as Doc[]).filter(d => d.kind === "check" && d.id.startsWith("audit-check-"));
+    out.push(`${listed.length === 3 ? "✔" : "ℹ"} three documents with long ids that differ only at the end: ${listed.length} found${listed.length === 3 ? "" : " – this server treats long ids as the same document, which is why short ids are used"}`);
+  } catch (e) { mark(false, "long ids: " + (e as Error).message); }
+  try {
+    const id = `${tag}-m`;
+    created.push(id);
     for (let i = 1; i <= 3; i++) {
       let doc: Doc | undefined;
       try { doc = (await m.getDocument(COLLECTION, id)) as Doc; } catch (e) { if (!is404(e)) throw e; }
@@ -121,15 +141,16 @@ export async function auditStorageCheck(projectId: string): Promise<string[]> {
       await m.setDocument(COLLECTION, doc ? { ...doc, entries: [...entries, { id: String(i) }] } : { id, kind: "check", projectId, entries: [{ id: "1" }], __etag: -1 });
     }
     const back = (await m.getDocument(COLLECTION, id)) as Doc;
-    mark((back.entries ?? []).length === 3, `three saves into one month document, ${(back.entries ?? []).length} entries inside`);
+    mark((back.entries ?? []).length === 3, `three saves into one month document: ${(back.entries ?? []).length} entries inside`);
   } catch (e) { mark(false, "month document: " + (e as Error).message); }
-  for (const id of [1, 2, 3].map(i => `${tag}-doc-${i}`).concat(`${tag}-month`)) { try { await m.deleteDocument(COLLECTION, id); } catch { /* already gone */ } }
+  for (const d of ((await m.getDocuments(COLLECTION).catch(() => [])) as Doc[]).filter(x => x.kind === "check" && (created.includes(x.id) || x.id.startsWith("audit-check-")))) { try { await m.deleteDocument(COLLECTION, d.id); } catch { /* already gone */ } }
   try {
     const all = (await m.getDocuments(COLLECTION)) as Doc[];
     const kinds = new Map<string, number>();
-    for (const d of all) kinds.set(`${d.kind ?? "other"}${d.projectId && d.projectId !== projectId ? " (other project)" : ""}`, (kinds.get(`${d.kind ?? "other"}${d.projectId && d.projectId !== projectId ? " (other project)" : ""}`) ?? 0) + 1);
+    for (const d of all) { const k = `${d.kind ?? "other"}${d.projectId && d.projectId !== projectId ? " (other project)" : ""}`; kinds.set(k, (kinds.get(k) ?? 0) + 1); }
     mark(true, `stored in this collection: ${all.length} document(s) – ${Array.from(kinds, ([k, n]) => `${n} ${k}`).join(", ") || "none"}`);
-  } catch (e) { mark(false, "counting stored documents: " + (e as Error).message); }
-  try { mark(true, `the log currently holds ${(await listAudit(projectId)).length} entr${(await listAudit(projectId)).length === 1 ? "y" : "ies"}`); } catch (e) { mark(false, "listing the log: " + (e as Error).message); }
+    const n = (await listAudit(projectId)).length;
+    mark(true, `the log currently holds ${n} entr${n === 1 ? "y" : "ies"}`);
+  } catch (e) { mark(false, "reading the log: " + (e as Error).message); }
   return out;
 }

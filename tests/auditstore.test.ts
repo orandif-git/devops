@@ -66,8 +66,24 @@ describe("storage check", () => {
   it("reports success on a healthy store and leaves nothing behind", async () => {
     const lines = await auditStorageCheck("P");
     expect(lines.every(l => l.startsWith("✔"))).toBe(true);
-    expect(lines.join("|")).toMatch(/three separate documents written, 3 found/);
+    expect(lines.join("|")).toMatch(/short ids: 3 found/);
     expect(lines.join("|")).toMatch(/3 entries inside/);
-    expect(Array.from(store.keys()).filter(k => k.startsWith("audit-check"))).toEqual([]);
+    expect(Array.from(store.values()).filter(d => d.kind === "check")).toEqual([]);
+  });
+});
+
+describe("document ids", () => {
+  it("are short and fixed length, so the platform cannot confuse two entries", async () => {
+    await add(1);
+    for (const id of store.keys()) expect(id.length).toBeLessThan(40);
+  });
+  it("on a server that treats long ids as one document, entries are still all kept", async () => {
+    // simulate: ids are cut to 50 characters
+    const orig = fake.setDocument;
+    fake.setDocument = async (c: string, doc: Record<string, unknown>) => orig(c, { ...doc, id: (doc.id as string).slice(0, 50) });
+    const g = fake.getDocument; fake.getDocument = async (c: string, id: string) => g(c, id.slice(0, 50));
+    await add(1); await add(2); await add(3);
+    fake.setDocument = orig; fake.getDocument = g;
+    expect(await listAudit("P")).toHaveLength(3);
   });
 });
