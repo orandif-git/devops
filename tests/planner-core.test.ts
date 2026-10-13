@@ -141,3 +141,11 @@ describe("performance", () => {
     expect(ms).toBeLessThan(4000);
   });
 });
+
+import { httpError } from "../planner/src/core/httpError";
+describe("error messages", () => {
+  it("shows what Azure DevOps says is wrong, not just the status", () => {
+    expect(httpError(400, "wit/workitemsbatch", JSON.stringify({ message: "TF51535: Cannot find field Custom.startdate." }))).toBe("HTTP 400 for wit/workitemsbatch: TF51535: Cannot find field Custom.startdate.");
+    expect(httpError(403, "wit/wiql", "<html>forbidden</html>")).toBe("HTTP 403 for wit/wiql");
+  });
+});

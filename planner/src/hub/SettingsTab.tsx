@@ -4,6 +4,7 @@ import { ColumnGuess, detectColumns } from "../core/detect";
 import { validateSettings } from "../core/settings";
 import { GridSource, PlannerSettings } from "../core/types";
 import { readField } from "../data/epics";
+import { FieldInfo, hasField, listTypeFields } from "../data/fields";
 
 const COLS: [keyof GridSource["columns"], string, boolean][] = [["resource", "Resource (person)", true], ["start", "Start date", false], ["end", "End date", false], ["effort", "Effort (hours)", false], ["allocation", "Allocation %", false], ["status", "Review status", false], ["task", "Task / activity", false]];
 
@@ -17,7 +18,7 @@ function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): vo
   );
 }
 
-function SourceEditor(p: { s: GridSource; onChange(s: GridSource): void; onRemove(): void }) {
+function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; onChange(s: GridSource): void; onRemove(): void }) {
   const { s } = p;
   const [epic, setEpic] = React.useState("");
   const [found, setFound] = React.useState<{ columns: ColumnGuess[]; rows: number; scheduled: number } | string>();
@@ -37,7 +38,7 @@ function SourceEditor(p: { s: GridSource; onChange(s: GridSource): void; onRemov
     <div className="card">
       <div className="row">
         <label className="field" style={{ flex: 1 }}><span>Name</span><input value={s.name} placeholder="SDLC Timesheet" onChange={e => set({ name: e.target.value })} /></label>
-        <label className="field" style={{ flex: 1 }}><span>Data field of the grid (reference name)</span><input value={s.dataField} placeholder="Custom.ResourceGrid" onChange={e => set({ dataField: e.target.value.trim() })} /></label>
+        <label className="field" style={{ flex: 1 }}><span>Data field of the grid (the long-text field that holds its rows)</span><input list="epic-fields" value={s.dataField} placeholder="Custom.ResourceGrid" onChange={e => set({ dataField: e.target.value.trim() })} />{!hasField(p.fields, s.dataField) && <span className="err">Not a field of this work item type: pick one from the list.</span>}</label>
         <button className="btn danger" onClick={p.onRemove}>Remove</button>
       </div>
       <datalist id={"cols-" + s.id}>{keys.map(k => <option key={k} value={k} />)}</datalist>
@@ -67,10 +68,13 @@ function SourceEditor(p: { s: GridSource; onChange(s: GridSource): void; onRemov
 }
 
 /** Everything the planner needs to know about your process, in one place. */
-export function SettingsTab(p: { projectId: string; value: PlannerSettings; saved: PlannerSettings; busy: boolean; msg: string; onChange(s: PlannerSettings): void; onSave(): void; onDiscard(): void }) {
+export function SettingsTab(p: { projectId: string; projectName: string; value: PlannerSettings; saved: PlannerSettings; busy: boolean; msg: string; onChange(s: PlannerSettings): void; onSave(): void; onDiscard(): void }) {
   const s = p.value;
   const [teams, setTeams] = React.useState<TeamRef[]>([]);
+  const [fields, setFields] = React.useState<FieldInfo[]>([]);
+  const [fieldsMsg, setFieldsMsg] = React.useState("");
   React.useEffect(() => { listTeams(p.projectId).then(setTeams).catch(() => undefined); }, [p.projectId]);
+  React.useEffect(() => { setFieldsMsg(""); listTypeFields(p.projectName, p.value.workItemType).then(setFields).catch(e => { setFields([]); setFieldsMsg("The fields of this work item type could not be listed (" + (e as Error).message + "). You can still type reference names."); }); }, [p.projectName, p.value.workItemType]);
   const set = (patch: Partial<PlannerSettings>) => p.onChange({ ...s, ...patch });
   const errors = validateSettings(s);
   const dirty = JSON.stringify(s) !== JSON.stringify(p.saved);
@@ -87,13 +91,16 @@ export function SettingsTab(p: { projectId: string; value: PlannerSettings; save
       <h3>Epics</h3>
       <div className="row">
         <label className="field" style={{ width: 160 }}><span>Work item type</span><input value={s.workItemType} onChange={e => set({ workItemType: e.target.value })} /></label>
-        <label className="field" style={{ flex: 1 }}><span>Epic start-date field</span><input value={s.epicStartField} placeholder="Custom.StartDate" onChange={e => set({ epicStartField: e.target.value.trim() })} /></label>
-        <label className="field" style={{ flex: 1 }}><span>Epic target-date field</span><input value={s.epicTargetField} placeholder="Custom.TargetDate" onChange={e => set({ epicTargetField: e.target.value.trim() })} /></label>
+        <label className="field" style={{ flex: 1 }}><span>Epic start-date field</span><input list="epic-fields" value={s.epicStartField} placeholder="Custom.StartDate" onChange={e => set({ epicStartField: e.target.value.trim() })} />{!hasField(fields, s.epicStartField) && <span className="err">Not a field of this work item type.</span>}</label>
+        <label className="field" style={{ flex: 1 }}><span>Epic target-date field</span><input list="epic-fields" value={s.epicTargetField} placeholder="Custom.TargetDate" onChange={e => set({ epicTargetField: e.target.value.trim() })} />{!hasField(fields, s.epicTargetField) && <span className="err">Not a field of this work item type.</span>}</label>
       </div>
+      <datalist id="epic-fields">{fields.map(f => <option key={f.referenceName} value={f.referenceName}>{f.name}</option>)}</datalist>
+      {fieldsMsg && <div className="muted">{fieldsMsg}</div>}
+      {fields.length > 0 && <div className="help">{fields.length} fields found on {s.workItemType}. Start typing a name or reference name in a field box and pick from the list.</div>}
 
       <h3>Hours sources (grids)</h3>
       <div className="help">Each grid you add here is read from every Epic. Hours from all of them are added per person and month.</div>
-      {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
+      {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} fields={fields} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
       <button className="btn" onClick={() => set({ sources: [...s.sources, { id: "src" + Date.now().toString(36), name: "", dataField: "", columns: { resource: "" }, excludedStatuses: [] }] })}>+ Add a grid</button>
       <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={s.estimateUnscheduled} onChange={e => set({ estimateUnscheduled: e.target.checked })} /> When a row has no monthly hours stored, estimate them from its start date, end date and effort (flagged as estimated)</label>
 

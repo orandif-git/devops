@@ -2,6 +2,7 @@ import * as SDK from "azure-devops-extension-sdk";
 import { CommonServiceIds, ILocationService } from "azure-devops-extension-api";
 import { getCompat } from "../../src/shared/ado";
 import { withTimeout } from "../../src/shared/timeout";
+import { httpError } from "./core/httpError";
 
 /**
  * Read-only REST access, written the way Work Item Grid & Rules does it (which runs on Azure DevOps Server 2020 and Services):
@@ -23,6 +24,6 @@ export async function restPost<T>(path: string, body: unknown, opts: { project?:
   const res = await withTimeout(fetch(`${await baseUrl()}/${scope}_apis/${path}?${qs}`, {
     method: "POST", headers: { Authorization: `Bearer ${token}`, Accept: "application/json", "Content-Type": "application/json" }, body: JSON.stringify(body),
   }), `Calling ${path}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  if (!res.ok) throw new Error(httpError(res.status, path, await res.text().catch(() => "")));
   return (await res.json()) as T;
 }

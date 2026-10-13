@@ -84,7 +84,7 @@ function App(p: { projectId: string; projectName: string }) {
         {([["data", "Data check"], ["settings", "Settings"], ["checks", "Connection"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
           style={{ background: "none", border: 0, borderBottom: "2px solid " + (tab === k ? "var(--accent)" : "transparent"), padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 600 : 400, color: "inherit" }}>{l}</button>)}
       </div>
-      {!cur ? <div className="muted">{msg || "Loading…"}</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
+      {!cur ? <div className="muted">{msg || "Loading…"}</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} projectName={p.projectName} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
         : tab === "data" ? <DataTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} valid={!validateSettings(saved!).length} />
         : <Checks projectId={p.projectId} projectName={p.projectName} />}
     </div>
