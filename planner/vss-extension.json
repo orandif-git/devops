@@ -1,0 +1,72 @@
+{
+  "manifestVersion": 1,
+  "id": "resource-planner",
+  "version": "0.1.0",
+  "name": "Resource Planner & Heatmap",
+  "publisher": "amanullah-ado",
+  "public": false,
+  "description": "See who works on which Epic and how each person's capacity is used: a utilization heatmap, resource timeline and Epic Gantt for Azure Boards.",
+  "categories": [
+    "Azure Boards"
+  ],
+  "tags": [
+    "resource planning",
+    "capacity",
+    "heatmap",
+    "gantt",
+    "utilization",
+    "epic",
+    "timeline"
+  ],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    },
+    {
+      "id": "Microsoft.TeamFoundation.Server",
+      "version": "[16.0,)"
+    }
+  ],
+  "icons": {
+    "default": "images/planner-icon.png"
+  },
+  "content": {
+    "details": {
+      "path": "overview.md"
+    },
+    "license": {
+      "path": "LICENSE"
+    }
+  },
+  "scopes": [
+    "vso.work",
+    "vso.project"
+  ],
+  "files": [
+    {
+      "path": "dist",
+      "addressable": true,
+      "packagePath": "dist"
+    },
+    {
+      "path": "images",
+      "addressable": true,
+      "packagePath": "images"
+    }
+  ],
+  "contributions": [
+    {
+      "id": "planner-hub",
+      "type": "ms.vss-web.hub",
+      "description": "Utilization heatmap, resource timeline and Epic Gantt.",
+      "targets": [
+        "ms.vss-work-web.work-hub-group"
+      ],
+      "properties": {
+        "name": "Resource Planner",
+        "order": 60,
+        "uri": "dist/hub/index.html"
+      }
+    }
+  ]
+}

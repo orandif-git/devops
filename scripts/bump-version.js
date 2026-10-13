@@ -1,6 +1,8 @@
-// Bumps the patch version in vss-extension.json and package.json (Marketplace rejects re-uploads of the same version).
+// Bumps the patch version (Marketplace rejects re-uploads of the same version).
+// No argument: vss-extension.json and package.json (Work Item Grid & Rules). With a manifest path: only that manifest (e.g. planner/vss-extension.json).
 const fs = require('fs');
-const files = ['vss-extension.json', 'package.json'];
+const only = process.argv[2];
+const files = only ? [only] : ['vss-extension.json', 'package.json'];
 const manifest = JSON.parse(fs.readFileSync(files[0], 'utf8'));
 const [maj, min, pat] = manifest.version.split('.').map(Number);
 const next = `${maj}.${min}.${pat + 1}`;

@@ -10,7 +10,12 @@
     "test": "vitest run",
     "bump": "node scripts/bump-version.js",
     "package": "npm run bump && npm run build && tfx extension create --manifest-globs vss-extension.json --output-path out",
-    "package:dev": "npm run build:dev && tfx extension create --manifest-globs vss-extension.json --overrides-file vss-extension.dev.json --output-path out"
+    "package:dev": "npm run build:dev && tfx extension create --manifest-globs vss-extension.json --overrides-file vss-extension.dev.json --output-path out",
+    "build:planner": "webpack --config planner/webpack.config.js --mode production",
+    "build:planner:dev": "webpack --config planner/webpack.config.js --mode development",
+    "package:planner": "node scripts/bump-version.js planner/vss-extension.json && npm run build:planner && tfx extension create --manifest-globs planner/vss-extension.json --output-path out",
+    "package:planner:dev": "npm run build:planner:dev && tfx extension create --manifest-globs planner/vss-extension.json --overrides-file planner/vss-extension.dev.json --output-path out",
+    "package:all": "npm run package && npm run package:planner"
   },
   "dependencies": {
     "azure-devops-extension-api": "^4.270.0",

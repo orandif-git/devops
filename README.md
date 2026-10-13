@@ -22,6 +22,16 @@ npm run package:dev # private dev copy (vss-extension.dev.json overrides id/name
 ```
 Publish: upload the `.vsix` at https://marketplace.visualstudio.com/manage/publishers/amanullah-ado (create the publisher first if needed), or `npx tfx extension publish --token <PAT> --share-with <org>`. For Azure DevOps Server, upload the `.vsix` under Collection settings → Extensions → Manage extensions.
 
+## Resource Planner & Heatmap (second extension, in `planner/`)
+A separate extension (id `resource-planner`) with its own manifest (`planner/vss-extension.json`), build (`planner/webpack.config.js`) and `.vsix`. It reuses logic from `src/core` by import, so each package bundles its own copy.
+```
+npm run build:planner        # -> planner/dist
+npm run package:planner      # bumps the planner version, builds, -> out/amanullah-ado.resource-planner-<version>.vsix
+npm run package:planner:dev  # private dev copy (planner/vss-extension.dev.json)
+npm run package:all          # both extensions
+```
+Plan: `docs/resource-planner-build-plan.md`.
+
 ## Examples
 - `examples/sdlc-timesheet.json` – timesheet with a month per row.
 - `examples/sdlc-timesheet-scheduled.json` – the same project scheduled by start date + effort + allocation %, with a preset and a contractor override.
