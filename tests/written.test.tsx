@@ -41,7 +41,7 @@ describe("written fields", () => {
     const host = document.createElement("div");
     act(() => { ReactDOM.render(<ReadOnlyTab config={cfg()} />, host); });
     expect(host.querySelectorAll("tbody tr")).toHaveLength(5);
-    expect(host.textContent).toContain("Option A"); expect(host.textContent).toContain("Make read-only");
+    expect(host.textContent).toContain("Read-only Value control"); expect(host.textContent).toContain("Make read-only");
     const dup = cfg(); dup.calculations[0].resultField = "Custom.Total";
     act(() => { ReactDOM.render(<ReadOnlyTab config={dup} />, host); });
     expect(host.textContent).toContain("written by more than one source");

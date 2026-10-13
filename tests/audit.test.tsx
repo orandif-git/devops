@@ -59,3 +59,16 @@ describe("reason dialog", () => {
     expect(done).toHaveBeenCalledWith({ reason: "Quarterly change request", comment: "Ticket CHG-1234 approved" });
   });
 });
+
+import { formatValue, staleOutputs } from "../src/core/written";
+describe("calculated output fields", () => {
+  it("finds the fields that no longer match the calculation", () => {
+    expect(staleOutputs({ "A": 160, "B": "Approved", "C": 0 }, { A: "160", B: "Rejected", C: null })).toEqual(["B", "C"]);
+    expect(staleOutputs({ A: 10.5 }, { A: 10.5000001 })).toEqual([]);
+    expect(staleOutputs({ S: "" }, { S: null })).toEqual([]);
+  });
+  it("shows dates and yes/no in the read-only control", () => {
+    expect(formatValue("2026-10-12T00:00:00Z")).toBe("2026-10-12");
+    expect(formatValue(true)).toBe("Yes");
+  });
+});

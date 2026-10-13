@@ -163,7 +163,9 @@
                 "Integer",
                 "Double",
                 "String",
-                "PlainText"
+                "PlainText",
+                "DateTime",
+                "Boolean"
               ]
             },
             "validation": {

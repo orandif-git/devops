@@ -1,3 +1,4 @@
+import { staleOutputs } from "../core/written";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import * as SDK from "azure-devops-extension-sdk";
@@ -103,6 +104,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const knownFields = React.useRef<Set<string>>();
   const rowsRef = React.useRef<GridRow[]>([]);
   const lastOverall = React.useRef<string | undefined>(undefined);
+  const syncedOnOpen = React.useRef(false);
   const lastWritten = React.useRef<string | null>(null);
   const timer = React.useRef<number>();
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -129,6 +131,20 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     setWarn(problems.length ? `Totals not saved to: ${problems.join("; ")}. The grid rows were saved. Add these fields to this work item type or fix the mapping in Project settings → Grid & Rules.` : "");
   }, [cfg]);
 
+  /** Totals and statuses are calculated: when the work item is opened, correct any output field that was changed by hand or by another tool. */
+  const syncOutputs = React.useCallback(async (next: GridRow[]) => {
+    if (!next.length) return;
+    const wanted: Record<string, number | string> = { ...mappedTotals(next, cfg) };
+    const overall = overallValue(next, cfg);
+    if (overall) wanted[overall.field] = overall.value;
+    if (!Object.keys(wanted).length) return;
+    const svc = await getFormService();
+    if (!knownFields.current) knownFields.current = new Set((await svc.getFields()).map(f => f.referenceName));
+    const current: Record<string, unknown> = {};
+    for (const f of Object.keys(wanted)) { if (!knownFields.current.has(f)) { delete wanted[f]; continue; } try { current[f] = await svc.getFieldValue(f); } catch { delete wanted[f]; } }
+    for (const f of staleOutputs(wanted, current)) { try { await svc.setFieldValue(f, wanted[f]); } catch { /* the field may be locked by a process rule: reported when the grid is next edited */ } }
+  }, [cfg]);
+
   const readField = React.useCallback(async () => {
     const svc = await getFormService();
     if (secField) {
@@ -150,7 +166,8 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     }
     if (!parsed.length && rawText) setWarn(`The data field contains text this grid cannot read (not valid grid JSON). Starts with: ${rawText.replace(/\s+/g, " ").slice(0, 140)}${rawText.length > 140 ? "…" : ""}  – If this field is rich text, recreate it as plain text (multiple lines), or clear it and re-enter the rows.`);
     rowsRef.current = overlay(parsed); setRows(rowsRef.current);
-  }, [cfg, writeNow, secField, overlay]);
+    if (!syncedOnOpen.current && parsed.length && !cfg.readOnly) { syncedOnOpen.current = true; syncOutputs(rowsRef.current).catch(() => undefined); }
+  }, [cfg, writeNow, secField, overlay, syncOutputs]);
 
   const commit = React.useCallback((raw: GridRow[]) => {
     const next = overlay(raw);                                       // a row changed after its approval shows as pending at once

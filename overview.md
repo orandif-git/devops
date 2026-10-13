@@ -203,3 +203,10 @@ In **Grid & Rules → Grids**, open a text column and tick **Fill with the perso
 **Manual override:** tick *Allow users to type a different team*. A typed value is kept until the resource changes or the cell is cleared (then it is filled again).
 
 **Default allocation %:** in the grid's *Dates and effort* section, *Default allocation %* sets the value of new rows and of empty cells (default 100). Use 0 to make users enter it; 0 % gives no end date until filled.
+
+## Audit log, administrator-only settings and read-only outputs
+
+- **Audit log** (Grid & Rules → *Audit log*): every saved change to the settings (grids, rules, calculations, mappings, capacity settings) is recorded with the user, the time, each setting's previous and new value, and a reason and comment. Saving always asks for both (free text, at least 10 characters each). Entries are kept 24 months (changeable); entries older than that can be exported to CSV and cleared. Row data on work items is not logged. The log is stored with the other extension data, so it is an accountability record, not tamper-proof evidence.
+- **Project administrators only:** the Grid & Rules settings and the capacity register can be changed by project administrators only. Others see a message (settings) or a read-only page (capacity). If Azure DevOps cannot report the user's permissions, the page stays usable with a notice, so a real administrator is never locked out. This is a check inside the extension's pages, not an Azure DevOps security boundary.
+- **Calculated fields:** keep fields the extension fills (totals, calculation results, overall status) writable in the process rules and show them with the **Read-only Value** control. When a work item with rows is opened, any such field that was changed by hand or by another tool is corrected.
+- **Month format:** a column's *Show months / dates as* setting changes how a month or date appears in read-only cells and in CSV/Excel (for example `MM-YYYY`, `MMM-YY`). Stored values do not change.
