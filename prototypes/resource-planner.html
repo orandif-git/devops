@@ -53,6 +53,18 @@ select,.btn{font:inherit;color:var(--ink);background:var(--surface);border:1px s
 .keyrow{display:flex;gap:16px;margin:0 0 10px;color:var(--ink2);font-size:12px;flex-wrap:wrap}.keyrow span{display:inline-flex;align-items:center;gap:6px}.keyrow i{width:14px;height:4px;border-radius:2px;display:inline-block}
 table.tv{width:100%;border-collapse:collapse;font-size:12px}table.tv th,table.tv td{padding:4px 6px;border-bottom:1px solid var(--grid);text-align:right}table.tv th:first-child,table.tv td:first-child{text-align:left}
 .note{margin-top:14px;color:var(--ink2);font-size:12px}
+.lk{color:var(--s1);text-decoration:none;cursor:pointer;font-weight:600}.lk:hover{text-decoration:underline}
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;padding-top:7vh;z-index:20}
+.modal{background:var(--surface);border:1px solid var(--axis);border-radius:8px;width:min(640px,94vw);padding:16px 18px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.modal h3{margin:0 0 2px;font-size:16px}.modal .meta{color:var(--ink2);font-size:12px}
+.modal h4{margin:14px 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2)}
+.modal table{width:100%;border-collapse:collapse;font-size:12px}.modal td,.modal th{padding:5px 6px;border-bottom:1px solid var(--grid);text-align:left}.modal th{color:var(--ink2);font-weight:600}.modal td:last-child,.modal th:last-child{text-align:right}
+.chip{display:inline-block;font-size:11px;padding:0 8px;border-radius:8px;background:var(--hover);color:var(--ink2);margin-right:4px}
+.modal .acts{display:flex;gap:8px;margin-top:14px;align-items:center}.btn.p{background:var(--s1);border-color:var(--s1);color:#fff}
+.hint{color:var(--ink2);font-size:12px}
+.pop{position:absolute;background:var(--surface);border:1px solid var(--axis);border-radius:8px;padding:10px 12px;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:15;display:none;width:300px}
+.pop label{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:5px 0;color:var(--ink)}.pop input{width:64px;font:inherit;padding:3px 6px;border:1px solid var(--axis);border-radius:4px;background:var(--surface);color:var(--ink)}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:6px;vertical-align:-2px}
 </style></head>
 <body class="viz-root"><div class="wrap">
 <h1>Resource Planner</h1>
@@ -64,11 +76,13 @@ table.tv{width:100%;border-collapse:collapse;font-size:12px}table.tv th,table.tv
   <label>State <select><option>New, Active, On hold</option></select></label>
   <label>Period <select><option>Jan – Dec 2026</option></select></label>
   <label>Count rows <select><option>Not rejected</option><option>Approved only</option><option>All</option></select></label>
+  <label>Colour <select id="mode"><option value="shades">Shades</option><option value="rag">Traffic light</option></select></label><span style="position:relative"><button class="btn" id="thr">Thresholds…</button><div class="pop" id="pop"></div></span>
   <button class="btn" id="tv">Table view</button>
 </div>
 <div class="src">Hours from the <b>Resource Allocation</b> grid of each Epic · available capacity from <b>Azure DevOps team capacity</b> · last refreshed 2 min ago (212 Epics read, 14 changed)</div>
 <div id="view"></div>
 <div class="tip" id="tip"></div>
+<div class="modal-back" id="mb"><div class="modal" id="md" role="dialog" aria-modal="true"></div></div>
 </div>
 <script>
 const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -86,7 +100,19 @@ function showTip(e,title,lines){tip.replaceChildren();const b=document.createEle
 const hideTip=()=>tip.style.display="none";
 const rampFor=v=>v<=.10?"--q100":v<=.25?"--q150":v<=.40?"--q200":v<=.55?"--q300":v<=.70?"--q400":v<=.85?"--q500":v<=1?"--q600":"--q700";
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
-let selected=null,table=false;
+let selected=null,table=false,mode=new URLSearchParams(location.search).get('mode')||'shades';const TH={a:50,b:85,c:100};
+const RAG=[["Spare capacity (under A %)","#9ec5f4","","Light"],["Healthy (A to B %)","#0ca30c","✓","Healthy"],["Nearly full (B to C %)","#fab219","▲","Nearly full"],["Over capacity (above C %)","#d03b3b","!","Over"]];
+function ragIdx(v){const x=v*100;return x<TH.a?0:x<=TH.b?1:x<=TH.c?2:3}
+function paint(c,v){if(mode==='rag'){const i=ragIdx(v);c.style.background=RAG[i][1];c.textContent=RAG[i][2];c.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';c.dataset.state=RAG[i][3]}else{c.style.background=`var(${v>1?'--critical':rampFor(v)})`;if(v>1){c.textContent='!';c.title='Over capacity'}else if(v<=.25){c.style.color='var(--q700)'}}}
+function epicDialog(e){const md=document.getElementById('md');md.replaceChildren();const ppl=[['Maya R.',62],['Omar K.',48],['Lena V.',40]];const rel=[['Feature','3015','Address validation service','Active'],['Feature','3016','Bulk address clean-up','New'],['User Story','3102','Update customer letters template','Active'],['Initiative','2100','Customer data quality (parent)','Active']];
+ md.append(el('h3','',e[0]+' · '+e[1]),el('div','meta',e[3]+' · '+e[2]+' · Start '+e[4][1]+' '+MONTHS[e[4][0]]+' · Target '+e[5][1]+' '+MONTHS[e[5][0]-1]));
+ md.append(el('h4','','People and hours (from the Resource Allocation grid)'));let t=el('table');let h=el('tr');['Person','Hours'].forEach(x=>h.append(el('th','',x)));t.appendChild(h);ppl.forEach(r=>{const tr=el('tr');tr.append(el('td','',r[0]),el('td','',r[1]+' h'));t.appendChild(tr)});md.appendChild(t);
+ md.append(el('h4','','Related work items (parent, children, related)'));t=el('table');rel.forEach(r=>{const tr=el('tr');const td=el('td');const a=el('a','lk',r[1]+' · '+r[2]);a.href='#';a.onclick=ev=>ev.preventDefault();td.append(a);const ty=el('td');ty.append(el('span','chip',r[0]),el('span','chip',r[3]));tr.append(td,ty);t.appendChild(tr)});md.appendChild(t);
+ const ac=el('div','acts');const o=el('button','btn p','Open the Epic form');const n=el('button','btn','Open in a new tab');const c=el('button','btn','Close');c.onclick=()=>document.getElementById('mb').style.display='none';ac.append(o,n,c);md.appendChild(ac);
+ md.appendChild(el('div','hint','In the real tool “Open the Epic form” shows the Epic on top of this page (you keep your place); the new-tab link goes to …/_workitems/edit/'+e[0].replace('E-','')+'. Related items open the same way. Nothing is edited from the planner.'));
+ document.getElementById('mb').style.display='flex'}
+document.getElementById('mb').addEventListener('click',ev=>{if(ev.target.id==='mb')ev.target.style.display='none'});
+
 function heat(){
   const root=el("div");
   const kp=el("div","kpis");
@@ -99,15 +125,14 @@ function heat(){
   if(table){const t=el("table","tv");const h=el("tr");h.append(el("th","","Person"));MONTHS.forEach(m=>h.append(el("th","",m)));t.appendChild(h);people.forEach(p=>{const r=el("tr");r.append(el("td","",p.name+" · "+p.team));p.u.forEach((_,i)=>r.append(el("td","",Math.round(pct(p,i)*100)+"%")));t.appendChild(r)});card.appendChild(t)}
   else{const g=el("div","hm");g.appendChild(el("div"));MONTHS.forEach(m=>g.appendChild(el("div","h",m)));
     let last="";people.forEach(p=>{if(p.team!==last){g.appendChild(el("div","team",p.team));last=p.team}g.appendChild(el("div","n",p.name));
-      p.u.forEach((_,i)=>{const v=pct(p,i);const c=el("div","cell");c.tabIndex=0;c.style.background=`var(${v>1?"--critical":rampFor(v)})`;
-        if(v>1){c.textContent="!";c.title="Over capacity"} else if(v<=.25){c.style.color="var(--q700)"}
+      p.u.forEach((_,i)=>{const v=pct(p,i);const c=el("div","cell");c.tabIndex=0;paint(c,v);
         if(selected&&selected.p===p&&selected.i===i)c.classList.add("sel");
         const info=()=>[`${p.hours[i]} h booked of ${p.cap[i]} h available`,`${p.team} · ${MONTHS[i]} 2026`];
         c.addEventListener("pointermove",e=>showTip(e,Math.round(v*100)+"% · "+p.name,info()));c.addEventListener("pointerleave",hideTip);c.addEventListener("focus",e=>{const r=c.getBoundingClientRect();showTip({clientX:r.left,clientY:r.bottom-30},Math.round(v*100)+"% · "+p.name,info())});c.addEventListener("blur",hideTip);
         c.addEventListener("click",()=>{selected={p,i};render()});g.appendChild(c)})});
     card.appendChild(g);
-    const lg=el("div","legend");const rp=el("span");rp.style.display="inline-flex";rp.style.gap="8px";rp.style.alignItems="center";rp.append("0 %");const r=el("span","ramp");["--q100","--q150","--q200","--q300","--q400","--q500","--q600"].forEach(k=>{const i=el("i");i.style.background=`var(${k})`;r.appendChild(i)});rp.append(r,"100 % of available hours");
-    const ov=el("span","over");const ic=el("i","","!");ov.append(ic,"Over capacity (above 100 %)");lg.append(rp,ov);card.appendChild(lg)}
+    const lg=el("div","legend");if(mode==='rag'){RAG.forEach((r,i)=>{const sp=el('span','over');const ic=el('i','',r[2]);ic.style.background=r[1];ic.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';sp.append(ic,r[0].replace('A',TH.a).replace('B',TH.b).replace('C',TH.c));lg.appendChild(sp)});card.appendChild(lg)}else{const rp=el("span");rp.style.display="inline-flex";rp.style.gap="8px";rp.style.alignItems="center";rp.append("0 %");const r=el("span","ramp");["--q100","--q150","--q200","--q300","--q400","--q500","--q600"].forEach(k=>{const i=el("i");i.style.background=`var(${k})`;r.appendChild(i)});rp.append(r,"100 % of available hours");
+    const ov=el("span","over");const ic=el("i","","!");ov.append(ic,"Over capacity (above 100 %)");lg.append(rp,ov);card.appendChild(lg)}}
   lay.appendChild(card);
   const side=el("div","card panel");
   if(!selected){side.append(el("h3","","Select a cell"),el("div","meta","The Epics and hours behind a person’s month appear here, with a link to each Epic."))}
@@ -115,8 +140,8 @@ function heat(){
     const b=el("div","bar");const f=el("i");f.style.width=Math.min(100,v*100)+"%";if(v>1)f.style.background="var(--critical)";b.appendChild(f);side.appendChild(b);
     const mine=EPICS.filter(e=>e[3]!=="Done").slice((i+p.name.length)%4,(i+p.name.length)%4+3);const share=[.5,.3,.2];
     const t=el("table");const hr=el("tr");["Epic","Hours"].forEach(x=>hr.append(el("th","",x)));t.appendChild(hr);
-    mine.forEach((e,k)=>{const r=el("tr");const td=el("td","",e[0]+" · "+e[1]);r.append(td,el("td","",String(Math.round(p.hours[i]*share[k]))));t.appendChild(r)});side.appendChild(t);
-    side.appendChild(el("div","meta","Capacity: Azure DevOps team capacity · hours: Resource Allocation grid rows scheduled in "+MONTHS[i]));}
+    mine.forEach((e,k)=>{const r=el("tr");const td=el("td");const a=el("a","lk",e[0]);a.href="#";a.onclick=ev=>{ev.preventDefault();epicDialog(e)};td.append(a," · "+e[1]);r.append(td,el("td","",String(Math.round(p.hours[i]*share[k]))));t.appendChild(r)});side.appendChild(t);
+    side.appendChild(el("div","meta","Click an Epic to open it. Capacity: Azure DevOps team capacity · hours: Resource Allocation grid rows scheduled in "+MONTHS[i]));}
   lay.appendChild(side);root.appendChild(lay);return root}
 function monthHead(){const h=el("div","head");h.appendChild(el("div"));const mo=el("div","mo");MONTHS.forEach(m=>mo.appendChild(el("span","",m)));h.appendChild(mo);return h}
 function todayLine(tl){const t=el("div","today");t.style.setProperty("--t",TODAY);t.appendChild(el("span","todaylbl","Today"));tl.appendChild(t)}
@@ -130,7 +155,7 @@ function timeline(){
     const lane=el("div","lane");lane.style.minHeight="44px";
     const tasks=[];let s=(pi*3)%7,lane2=0;for(let k=0;k<3;k++){const len=2+((pi+k)%3);const e=EPICS[(pi+k*2)%EPICS.length];tasks.push({e,s:Math.min(10-len,s),len,al:[.25,.5,.75,1][(pi+k)%4],lane:k%2});s+=len-1}
     tasks.forEach(t=>{const b=el("div","gb pt");b.style.left=monthPos(t.s,1)+"%";b.style.width=(t.len/12*100-.4)+"%";b.style.top=(4+t.lane*17)+"px";b.style.background=`var(${t.al<=.25?"--q150":t.al<=.5?"--q300":t.al<=.75?"--q500":"--q700"})`;b.style.color=t.al<=.5?"var(--q700)":"#fff";b.textContent=t.e[0]+" · "+Math.round(t.al*100)+"%";
-      b.addEventListener("pointermove",e=>showTip(e,t.e[0]+" · "+t.e[1],[`${p.name} · allocation ${Math.round(t.al*100)}%`,`${MONTHS[t.s]} – ${MONTHS[t.s+t.len-1]} 2026`]));b.addEventListener("pointerleave",hideTip);lane.appendChild(b)});
+      b.addEventListener("pointermove",e=>showTip(e,t.e[0]+" · "+t.e[1],[`${p.name} · allocation ${Math.round(t.al*100)}%`,`${MONTHS[t.s]} – ${MONTHS[t.s+t.len-1]} 2026`]));b.addEventListener("pointerleave",hideTip);b.onclick=()=>epicDialog(t.e);lane.appendChild(b)});
     if(p.u.some((_,i)=>pct(p,i)>1)){const fl=el("span","over-flag","!");fl.title="At least one month over capacity";lane.appendChild(fl)}
     r.appendChild(lane);tl.appendChild(r)});
   todayLine(tl);
@@ -145,7 +170,7 @@ function gantt(){
     const col=e[3]==="Active"?"--s1":e[3]==="On hold"?"--s2":e[3]==="Done"?"--s3":"--s1";b.style.background=`var(${col})`;
     if(e[3]==="New"){b.style.background="repeating-linear-gradient(45deg,var(--s1) 0 4px,color-mix(in srgb,var(--s1) 55%,var(--surface)) 4px 8px)"}
     b.textContent=`${MONTHS[e[4][0]]} ${e[4][1]} – ${MONTHS[e[5][0]-1]} ${e[5][1]}`;
-    b.addEventListener("pointermove",ev=>showTip(ev,e[0]+" · "+e[1],[`${e[3]} · ${e[2]}`,`Start ${e[4][1]} ${MONTHS[e[4][0]]} 2026 · target ${e[5][1]} ${MONTHS[e[5][0]-1]} 2026`,"People on this Epic: "+(2+Math.floor((e[0].charCodeAt(3)%5)))+" · click to open"]));b.addEventListener("pointerleave",hideTip);lane.appendChild(b);
+    b.addEventListener("pointermove",ev=>showTip(ev,e[0]+" · "+e[1],[`${e[3]} · ${e[2]}`,`Start ${e[4][1]} ${MONTHS[e[4][0]]} 2026 · target ${e[5][1]} ${MONTHS[e[5][0]-1]} 2026`,"People on this Epic: "+(2+Math.floor((e[0].charCodeAt(3)%5)))+" · click to open"]));b.addEventListener("pointerleave",hideTip);b.onclick=()=>epicDialog(e);lane.appendChild(b);
     if(e[3]==="Active"&&monthPos(e[5][0]-1,e[5][1])<TODAY){const f=el("span","over-flag","Late");lane.appendChild(f)}
     r.appendChild(lane);tl.appendChild(r);lanes.push(lane)});
   todayLine(tl);
@@ -153,7 +178,11 @@ function gantt(){
 let view=+(new URLSearchParams(location.search).get("view")||1);
 function render(){const v=document.getElementById("view");v.replaceChildren(view===1?heat():view===2?timeline():gantt());document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",+b.dataset.v===view));document.getElementById("tv").style.display=view===1?"":"none"}
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{view=+b.dataset.v;render()});
+const modeSel=document.getElementById('mode');modeSel.value=mode;modeSel.onchange=()=>{mode=modeSel.value;render()};
+const pop=document.getElementById('pop');function drawPop(){pop.replaceChildren();pop.append(el('b','','Traffic-light thresholds'),el('div','hint','Share of available hours. Used when Colour is “Traffic light”; saved per project by an administrator.'));[['a','Spare capacity below'],['b','Healthy up to'],['c','Nearly full up to']].forEach(([k,l])=>{const lb=el('label');lb.append(l);const inp=el('input');inp.type='number';inp.value=TH[k];inp.onchange=()=>{TH[k]=+inp.value;render()};lb.append(inp);pop.appendChild(lb)});pop.append(el('div','hint','Above the last value is “Over capacity”.'))}
+document.getElementById('thr').onclick=()=>{drawPop();pop.style.display=pop.style.display==='block'?'none':'block'};
 document.getElementById("tv").onclick=()=>{table=!table;document.getElementById("tv").textContent=table?"Heatmap view":"Table view";render()};
 if(new URLSearchParams(location.search).get("sel")){selected={p:people[3],i:9}}
+if(new URLSearchParams(location.search).get("dlg")){setTimeout(()=>epicDialog(EPICS[0]),50)}
 render();
 </script></body></html>
