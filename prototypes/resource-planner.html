@@ -76,7 +76,7 @@ table.tv{width:100%;border-collapse:collapse;font-size:12px}table.tv th,table.tv
   <label>State <select><option>New, Active, On hold</option></select></label>
   <label>Period <select><option>Jan – Dec 2026</option></select></label>
   <label>Count rows <select><option>Not rejected</option><option>Approved only</option><option>All</option></select></label>
-  <label>Colour <select id="mode"><option value="shades">Shades</option><option value="red">Red shades</option><option value="rag">Traffic light</option></select></label><span style="position:relative"><button class="btn" id="thr">Thresholds…</button><div class="pop" id="pop"></div></span>
+  <label>Colour <select id="mode"><option value="rag">Traffic light (recommended)</option><option value="shades">Shades</option></select></label><span style="position:relative"><button class="btn" id="thr">Thresholds…</button><div class="pop" id="pop"></div></span>
   <button class="btn" id="tv">Table view</button>
 </div>
 <div class="src">Hours from the <b>Resource Allocation</b> grid of each Epic · available capacity from <b>Azure DevOps team capacity</b> · last refreshed 2 min ago (212 Epics read, 14 changed)</div>
@@ -100,7 +100,7 @@ function showTip(e,title,lines){tip.replaceChildren();const b=document.createEle
 const hideTip=()=>tip.style.display="none";
 const rampFor=v=>v<=.10?"--q100":v<=.25?"--q150":v<=.40?"--q200":v<=.55?"--q300":v<=.70?"--q400":v<=.85?"--q500":v<=1?"--q600":"--q700";
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
-let selected=null,table=false,mode=new URLSearchParams(location.search).get('mode')||'shades';const TH={a:50,b:85,c:100};
+let selected=null,table=false,mode=new URLSearchParams(location.search).get('mode')||'rag',hl=(new URLSearchParams(location.search).get('hl')!==null?+new URLSearchParams(location.search).get('hl'):null);const TH={a:50,b:85,c:100};
 const REDRAMP=["#fde4e2","#fbcfcc","#f8b6b1","#f28f89","#e86861","#d4443f","#b32c28"];const OVERHATCH="repeating-linear-gradient(45deg,#7a1613 0 4px,#4d0e0c 4px 8px)";
 const redFor=v=>v<=.10?0:v<=.25?1:v<=.40?2:v<=.55?3:v<=.70?4:v<=.85?5:6;
 const RAG=[["Spare capacity (under A %)","#9ec5f4","","Light"],["Healthy (A to B %)","#0ca30c","✓","Healthy"],["Nearly full (B to C %)","#fab219","▲","Nearly full"],["Over capacity (above C %)","#d03b3b","!","Over"]];
@@ -122,12 +122,18 @@ function heat(){
   const over=people.filter(p=>pct(p,9)>1).length, free=people.reduce((a,p)=>a+Math.max(0,p.cap[9]-p.hours[9]),0);
   [["Utilization, Oct 2026",ut+"%","across 18 of 175 people (sample)"],["Over capacity in Oct",String(over),"people above 100 %"],["Free capacity in Oct",free.toLocaleString()+" h","available hours not yet allocated"],["Epics in this view","212","12 starting, 9 ending this quarter"]].forEach(([l,v,d])=>{const t=el("div","tile");t.append(el("div","l",l),el("div","v",v),el("div","d",d));kp.appendChild(t)});
   root.appendChild(kp);
+  if(mode==='rag'){const counts=[0,0,0,0];people.forEach(p=>counts[ragIdx(pct(p,9))]++);const st=el('div','card');st.style.margin='0 0 12px';st.style.padding='10px 14px';
+    st.append(el('div','sub2','October 2026 – how the 18 people shown are spread across the bands (click a band to highlight it in the grid; click again to clear)'));
+    const row=el('div');row.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+    RAG.forEach((r,i)=>{const b=el('button','btn');b.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 12px'+(hl===i?';outline:2px solid var(--ink)':'');const ic=el('span','',r[2]);ic.style.cssText=`width:18px;height:18px;border-radius:4px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:${r[1]};color:${i===2?'#0b0b0b':i===0?'var(--q700)':'#fff'}`;const nm=['Spare capacity','Healthy','Nearly full','Over capacity'][i];b.append(ic,el('b','',String(counts[i])),nm);b.onclick=()=>{hl=hl===i?null:i;render()};row.appendChild(b)});
+    const bar=el('div');bar.style.cssText='display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin-top:10px';counts.forEach((n,i)=>{if(n){const sg=el('i');sg.style.cssText=`display:block;height:100%;flex:${n};background:${RAG[i][1]}`;bar.appendChild(sg)}});
+    st.append(row,bar);root.appendChild(st)}
   const lay=el("div","layout");const card=el("div","card");
   card.append(el("h3","","People by month – how much of the available hours is booked"),el("div","sub2","Click a cell to see which Epics make up that person’s month."));
   if(table){const t=el("table","tv");const h=el("tr");h.append(el("th","","Person"));MONTHS.forEach(m=>h.append(el("th","",m)));t.appendChild(h);people.forEach(p=>{const r=el("tr");r.append(el("td","",p.name+" · "+p.team));p.u.forEach((_,i)=>r.append(el("td","",Math.round(pct(p,i)*100)+"%")));t.appendChild(r)});card.appendChild(t)}
   else{const g=el("div","hm");g.appendChild(el("div"));MONTHS.forEach(m=>g.appendChild(el("div","h",m)));
     let last="";people.forEach(p=>{if(p.team!==last){g.appendChild(el("div","team",p.team));last=p.team}g.appendChild(el("div","n",p.name));
-      p.u.forEach((_,i)=>{const v=pct(p,i);const c=el("div","cell");c.tabIndex=0;paint(c,v);
+      p.u.forEach((_,i)=>{const v=pct(p,i);const c=el("div","cell");c.tabIndex=0;paint(c,v);if(mode==="rag"&&hl!==null&&ragIdx(v)!==hl)c.style.opacity=".2";
         if(selected&&selected.p===p&&selected.i===i)c.classList.add("sel");
         const info=()=>[`${p.hours[i]} h booked of ${p.cap[i]} h available`,`${p.team} · ${MONTHS[i]} 2026`];
         c.addEventListener("pointermove",e=>showTip(e,Math.round(v*100)+"% · "+p.name,info()));c.addEventListener("pointerleave",hideTip);c.addEventListener("focus",e=>{const r=c.getBoundingClientRect();showTip({clientX:r.left,clientY:r.bottom-30},Math.round(v*100)+"% · "+p.name,info())});c.addEventListener("blur",hideTip);
