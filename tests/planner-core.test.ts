@@ -149,3 +149,29 @@ describe("error messages", () => {
     expect(httpError(403, "wit/wiql", "<html>forbidden</html>")).toBe("HTTP 403 for wit/wiql");
   });
 });
+
+import { autoMap } from "../planner/src/core/detect";
+import { isDateType, isLongTextType } from "../planner/src/core/fieldTypes";
+describe("automatic column mapping", () => {
+  const rows = [
+    { sdlcactivity: "Design", resource: "Maya R. <mrao>", startdate: "2026-10-01", enddate: "2026-10-30", Hours: 40, allocation: 50, reviewstatus: "Approved", _months: { "2026-10": 40 } },
+    { sdlcactivity: "Build", resource: "Omar K. <okhan>", startdate: "2026-10-05", enddate: "2026-11-15", Hours: 80, allocation: 100, reviewstatus: "Rejected" },
+  ];
+  const guess = () => (detectColumns(JSON.stringify({ version: 1, rows })) as { columns: Parameters<typeof autoMap>[0] }).columns;
+  it("picks person, dates, effort, allocation, status and task from the values and the ids", () => {
+    expect(autoMap(guess())).toEqual({ resource: "resource", start: "startdate", end: "enddate", allocation: "allocation", effort: "Hours", status: "reviewstatus", task: "sdlcactivity" });
+  });
+  it("lists the status values so they can be ticked", () => {
+    const status = guess().find(c => c.key === "reviewstatus")!;
+    expect(status.values.sort()).toEqual(["Approved", "Rejected"]);
+  });
+  it("leaves a slot empty when nothing fits, and never uses a column twice", () => {
+    const m = autoMap((detectColumns(JSON.stringify([{ c1: "x", c2: 5 }])) as { columns: Parameters<typeof autoMap>[0] }).columns);
+    expect(m.resource).toBeUndefined();
+    expect(new Set(Object.values(m)).size).toBe(Object.values(m).length);
+    expect(m.effort).toBe("c2");
+  });
+  it("classifies field types", () => {
+    expect([isDateType("dateTime"), isDateType("string"), isLongTextType("plainText"), isLongTextType("html"), isLongTextType("string")]).toEqual([true, false, true, true, false]);
+  });
+});

@@ -1,12 +1,13 @@
 import * as React from "react";
 import { listTeams, TeamRef } from "../../../src/shared/capacityStore";
-import { ColumnGuess, detectColumns } from "../core/detect";
+import { autoMap, Slot } from "../core/detect";
+import { isDateType, isLongTextType } from "../core/fieldTypes";
 import { validateSettings } from "../core/settings";
 import { GridSource, PlannerSettings } from "../core/types";
-import { readField } from "../data/epics";
 import { FieldInfo, hasField, listTypeFields } from "../data/fields";
+import { GridSample, sampleGrid } from "../data/sample";
 
-const COLS: [keyof GridSource["columns"], string, boolean][] = [["resource", "Resource (person)", true], ["start", "Start date", false], ["end", "End date", false], ["effort", "Effort (hours)", false], ["allocation", "Allocation %", false], ["status", "Review status", false], ["task", "Task / activity", false]];
+const SLOTS: [Slot, string, boolean][] = [["resource", "Resource (person)", true], ["start", "Start date", false], ["end", "End date", false], ["effort", "Effort (hours)", false], ["allocation", "Allocation %", false], ["status", "Review status", false], ["task", "Task / activity", false]];
 
 function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): void }) {
   const on = (t: TeamRef) => p.value.some(x => x.id === t.id);
@@ -18,51 +19,76 @@ function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): vo
   );
 }
 
-function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; onChange(s: GridSource): void; onRemove(): void }) {
+/** A field picked from a list (falls back to typing when the list could not be read). */
+function FieldPick(p: { label: string; value: string; fields: FieldInfo[]; accept(f: FieldInfo): boolean; placeholder?: string; onChange(v: string): void; flex?: number }) {
+  const known = p.fields.length > 0;
+  const options = p.fields.filter(f => p.accept(f) || (f.type === "" && !isDateType(f.type)));
+  const missing = p.value && !hasField(p.fields, p.value);
+  return (
+    <label className="field" style={{ flex: p.flex ?? 1 }}><span>{p.label}</span>
+      {known ? (
+        <select value={p.value} onChange={e => p.onChange(e.target.value)}>
+          <option value="">(none)</option>
+          {p.value && !options.some(f => f.referenceName.toLowerCase() === p.value.toLowerCase()) && <option value={p.value}>{p.value} (not in the list)</option>}
+          {options.map(f => <option key={f.referenceName} value={f.referenceName}>{f.name} · {f.referenceName}</option>)}
+        </select>
+      ) : <input value={p.value} placeholder={p.placeholder} onChange={e => p.onChange(e.target.value.trim())} />}
+      {missing && <span className="err">Not a field of this work item type.</span>}
+    </label>
+  );
+}
+
+function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; project: string; type: string; onChange(s: GridSource): void; onRemove(): void }) {
   const { s } = p;
-  const [epic, setEpic] = React.useState("");
-  const [found, setFound] = React.useState<{ columns: ColumnGuess[]; rows: number; scheduled: number } | string>();
+  const [state, setState] = React.useState<{ busy?: boolean; msg?: string; sample?: GridSample }>({});
   const set = (patch: Partial<GridSource>) => p.onChange({ ...s, ...patch });
-  const detect = async () => {
-    setFound("Reading…");
+  const detect = async (field: string, base: GridSource) => {
+    if (!field) return;
+    setState({ busy: true, msg: "Looking for an Epic with rows in this grid…" });
     try {
-      const r = await readField(Number(epic), s.dataField);
-      if (!r) return setFound("No such work item.");
-      if (!r.text) return setFound(`Epic ${epic} (“${r.title}”) has nothing in ${s.dataField}.`);
-      const d = detectColumns(r.text);
-      setFound("error" in d ? d.error : d);
-    } catch (e) { setFound("Failed: " + (e as Error).message); }
+      const sample = await sampleGrid(p.project, p.type, field);
+      if (!sample) { setState({ msg: `No Epic has rows in ${field} yet (the 200 most recently changed were checked). Fill a grid in one Epic and try again, or type the column ids.` }); return; }
+      const m = autoMap(sample.columns);
+      p.onChange({ ...base, dataField: field, columns: { resource: m.resource ?? "", start: m.start, end: m.end, effort: m.effort, allocation: m.allocation, status: m.status, task: m.task }, excludedStatuses: [] });
+      setState({ sample, msg: `Found ${sample.rows} row(s) in Epic ${sample.epicId} (“${sample.title}”). The columns below were chosen for you: check them.` });
+    } catch (e) { setState({ msg: "Could not read the grid: " + (e as Error).message }); }
   };
-  const keys = typeof found === "object" ? found.columns.map(c => c.key) : [];
+  const cols = state.sample?.columns ?? [];
+  const statusValues = cols.find(c => c.key === s.columns.status)?.values ?? [];
+  const setCol = (slot: Slot, key: string) => set({ columns: { ...s.columns, [slot]: key || (slot === "resource" ? "" : undefined) }, ...(slot === "status" ? { excludedStatuses: [] } : {}) });
   return (
     <div className="card">
       <div className="row">
         <label className="field" style={{ flex: 1 }}><span>Name</span><input value={s.name} placeholder="SDLC Timesheet" onChange={e => set({ name: e.target.value })} /></label>
-        <label className="field" style={{ flex: 1 }}><span>Data field of the grid (the long-text field that holds its rows)</span><input list="epic-fields" value={s.dataField} placeholder="Custom.ResourceGrid" onChange={e => set({ dataField: e.target.value.trim() })} />{!hasField(p.fields, s.dataField) && <span className="err">Not a field of this work item type: pick one from the list.</span>}</label>
+        <FieldPick label="Grid's data field (the long-text field that holds its rows)" value={s.dataField} fields={p.fields} accept={f => isLongTextType(f.type)} placeholder="Custom.ResourceGrid" flex={2}
+          onChange={v => { const nm = s.name || p.fields.find(f => f.referenceName === v)?.name || ""; set({ dataField: v, name: nm }); void detect(v, { ...s, dataField: v, name: nm }); }} />
         <button className="btn danger" onClick={p.onRemove}>Remove</button>
       </div>
-      <datalist id={"cols-" + s.id}>{keys.map(k => <option key={k} value={k} />)}</datalist>
+      {state.msg && <div className={state.sample ? "ok" : "muted"} role="status">{state.busy ? "⏳ " : ""}{state.msg}</div>}
       <div className="row" style={{ flexWrap: "wrap" }}>
-        {COLS.map(([k, label, req]) => (
-          <label className="field" key={k} style={{ width: 150 }}><span>{label}{req ? " *" : ""}</span>
-            <input list={"cols-" + s.id} value={s.columns[k] ?? ""} placeholder="column id" onChange={e => set({ columns: { ...s.columns, [k]: e.target.value.trim() || (k === "resource" ? "" : undefined) } })} /></label>
+        {SLOTS.map(([slot, label, req]) => (
+          <label className="field" key={slot} style={{ width: 210 }}><span>{label}{req ? " *" : ""}</span>
+            {cols.length ? (
+              <select value={s.columns[slot] ?? ""} onChange={e => setCol(slot, e.target.value)}>
+                <option value="">{req ? "(choose)" : "(not used)"}</option>
+                {s.columns[slot] && !cols.some(c => c.key === s.columns[slot]) && <option value={s.columns[slot]}>{s.columns[slot]}</option>}
+                {cols.map(c => <option key={c.key} value={c.key}>{c.key} · {c.kind}{c.sample ? ` · e.g. ${c.sample.slice(0, 22)}` : ""}</option>)}
+              </select>
+            ) : <input value={s.columns[slot] ?? ""} placeholder="column id" onChange={e => setCol(slot, e.target.value.trim())} />}
+          </label>
         ))}
       </div>
-      <label className="field"><span>Leave out rows whose review status is (optional, comma separated, e.g. Rejected)</span>
-        <input defaultValue={s.excludedStatuses.join(", ")} onBlur={e => set({ excludedStatuses: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} /></label>
-      <div className="help">Not sure about the column ids? Enter an Epic that has rows in this grid and press <b>Detect</b>: the columns found are offered in the boxes above.</div>
-      <div className="row">
-        <input placeholder="Epic id" value={epic} style={{ width: 100 }} onChange={e => setEpic(e.target.value)} />
-        <button className="btn" disabled={!/^\d+$/.test(epic) || !s.dataField} onClick={detect}>Detect</button>
-      </div>
-      {typeof found === "string" && <div className="muted" role="status">{found}</div>}
-      {typeof found === "object" && (
-        <table style={{ borderCollapse: "collapse", marginTop: 6, fontSize: 12 }}>
-          <thead><tr><th style={{ textAlign: "left", padding: "2px 10px 2px 0" }}>Column id</th><th style={{ textAlign: "left", padding: "2px 10px" }}>Looks like</th><th style={{ textAlign: "left", padding: "2px 10px" }}>Example</th></tr></thead>
-          <tbody>{found.columns.map(c => <tr key={c.key}><td style={{ padding: "2px 10px 2px 0" }}><code>{c.key}</code></td><td style={{ padding: "2px 10px" }}>{c.kind}</td><td style={{ padding: "2px 10px" }} className="muted">{c.sample}</td></tr>)}
-            <tr><td colSpan={3} className="muted" style={{ paddingTop: 4 }}>{found.rows} row(s), {found.scheduled} with monthly hours stored by the grid.</td></tr></tbody>
-        </table>
+      {s.columns.status && (
+        <div>
+          <div className="help">Leave out rows whose review status is (optional):</div>
+          {statusValues.length ? (
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              {statusValues.map(v => <label key={v}><input type="checkbox" checked={s.excludedStatuses.includes(v)} onChange={e => set({ excludedStatuses: e.target.checked ? [...s.excludedStatuses, v] : s.excludedStatuses.filter(x => x !== v) })} /> {v}</label>)}
+            </div>
+          ) : <input defaultValue={s.excludedStatuses.join(", ")} placeholder="e.g. Rejected" onBlur={e => set({ excludedStatuses: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} />}
+        </div>
       )}
+      {s.dataField && <div className="row"><button className="btn" disabled={state.busy} onClick={() => detect(s.dataField, s)}>Detect the columns again</button></div>}
     </div>
   );
 }
@@ -74,10 +100,23 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
   const [fields, setFields] = React.useState<FieldInfo[]>([]);
   const [fieldsMsg, setFieldsMsg] = React.useState("");
   React.useEffect(() => { listTeams(p.projectId).then(setTeams).catch(() => undefined); }, [p.projectId]);
-  React.useEffect(() => { setFieldsMsg(""); listTypeFields(p.projectName, p.value.workItemType).then(setFields).catch(e => { setFields([]); setFieldsMsg("The fields of this work item type could not be listed (" + (e as Error).message + "). You can still type reference names."); }); }, [p.projectName, p.value.workItemType]);
+  React.useEffect(() => {
+    setFieldsMsg("");
+    listTypeFields(p.projectName, s.workItemType).then(setFields).catch(e => { setFields([]); setFieldsMsg("The fields of this work item type could not be listed (" + (e as Error).message + "). You can still type reference names."); });
+  }, [p.projectName, s.workItemType]);
   const set = (patch: Partial<PlannerSettings>) => p.onChange({ ...s, ...patch });
+  // preselect the Epic date fields when exactly one date field is named like a start / target date
+  React.useEffect(() => {
+    const dates = fields.filter(f => isDateType(f.type));
+    const one = (re: RegExp) => { const m = dates.filter(f => re.test(f.name) || re.test(f.referenceName)); return m.length === 1 ? m[0].referenceName : ""; };
+    const patch: Partial<PlannerSettings> = {};
+    if (!s.epicStartField && one(/start/i)) patch.epicStartField = one(/start/i);
+    if (!s.epicTargetField && one(/target|finish|end|due/i)) patch.epicTargetField = one(/target|finish|end|due/i);
+    if (Object.keys(patch).length) p.onChange({ ...s, ...patch });
+  }, [fields]);   // eslint-disable-line react-hooks/exhaustive-deps
   const errors = validateSettings(s);
   const dirty = JSON.stringify(s) !== JSON.stringify(p.saved);
+  const isDate = (f: FieldInfo) => isDateType(f.type);
   return (
     <div>
       <div className="toolbar">
@@ -91,16 +130,14 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       <h3>Epics</h3>
       <div className="row">
         <label className="field" style={{ width: 160 }}><span>Work item type</span><input value={s.workItemType} onChange={e => set({ workItemType: e.target.value })} /></label>
-        <label className="field" style={{ flex: 1 }}><span>Epic start-date field</span><input list="epic-fields" value={s.epicStartField} placeholder="Custom.StartDate" onChange={e => set({ epicStartField: e.target.value.trim() })} />{!hasField(fields, s.epicStartField) && <span className="err">Not a field of this work item type.</span>}</label>
-        <label className="field" style={{ flex: 1 }}><span>Epic target-date field</span><input list="epic-fields" value={s.epicTargetField} placeholder="Custom.TargetDate" onChange={e => set({ epicTargetField: e.target.value.trim() })} />{!hasField(fields, s.epicTargetField) && <span className="err">Not a field of this work item type.</span>}</label>
+        <FieldPick label="Epic start-date field" value={s.epicStartField} fields={fields} accept={isDate} placeholder="Custom.StartDate" onChange={v => set({ epicStartField: v })} />
+        <FieldPick label="Epic target-date field" value={s.epicTargetField} fields={fields} accept={isDate} placeholder="Custom.TargetDate" onChange={v => set({ epicTargetField: v })} />
       </div>
-      <datalist id="epic-fields">{fields.map(f => <option key={f.referenceName} value={f.referenceName}>{f.name}</option>)}</datalist>
       {fieldsMsg && <div className="muted">{fieldsMsg}</div>}
-      {fields.length > 0 && <div className="help">{fields.length} fields found on {s.workItemType}. Start typing a name or reference name in a field box and pick from the list.</div>}
 
       <h3>Hours sources (grids)</h3>
-      <div className="help">Each grid you add here is read from every Epic. Hours from all of them are added per person and month.</div>
-      {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} fields={fields} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
+      <div className="help">Add a grid and pick its data field: the planner reads a sample Epic and chooses the columns for you. Hours from all grids are added per person and month.</div>
+      {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} fields={fields} project={p.projectName} type={s.workItemType} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
       <button className="btn" onClick={() => set({ sources: [...s.sources, { id: "src" + Date.now().toString(36), name: "", dataField: "", columns: { resource: "" }, excludedStatuses: [] }] })}>+ Add a grid</button>
       <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={s.estimateUnscheduled} onChange={e => set({ estimateUnscheduled: e.target.checked })} /> When a row has no monthly hours stored, estimate them from its start date, end date and effort (flagged as estimated)</label>
 
