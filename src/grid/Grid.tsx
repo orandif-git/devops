@@ -1,3 +1,4 @@
+import { formatDateText } from "../core/dateFormat";
 import * as React from "react";
 import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, validateRows } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
@@ -77,7 +78,7 @@ export function Grid(p: GridProps) {
     let r = rows;
     if (filter.trim()) {
       const q = filter.toLowerCase();
-      r = r.filter(row => cfg.columns.some(c => String(row[c.id] ?? "").toLowerCase().includes(q)));
+      r = r.filter(row => cfg.columns.some(c => String(row[c.id] ?? "").toLowerCase().includes(q) || (!!c.displayFormat && formatDateText(row[c.id], c.displayFormat).toLowerCase().includes(q))));
     }
     if (sort) {
       const c = cfg.columns.find(x => x.id === sort.col)!;
@@ -160,6 +161,7 @@ export function Grid(p: GridProps) {
         return <input className={cls + (typeof r["_adj_" + c.id] === "number" ? " adj" : "")} title={typeof r["_adj_" + c.id] === "number" ? "Adjusted by hand – clear the cell to use the calculated value again" : title} type="number" disabled={dis} value={v === null || v === undefined ? "" : String(v)}
           min={c.min} max={c.max} onChange={e => update(r._id, c.id, e.target.value === "" ? null : parseFloat(e.target.value))} />;
       case "date":
+        if (c.displayFormat && dis) return <input className={cls + " calc"} title={title ?? String(v ?? "")} type="text" disabled readOnly value={formatDateText(v, c.displayFormat)} />;
         return <input className={cls} title={title} type="date" disabled={dis} value={String(v ?? "")} onChange={e => update(r._id, c.id, e.target.value)} />;
       case "dropdown": {
         const opts = optionsFor(c, r);
@@ -176,6 +178,7 @@ export function Grid(p: GridProps) {
         return <IdentityInput className={cls} title={title} disabled={dis} value={String(v ?? "")} includeGroups={c.identityGroups !== false}
           projectId={p.projectId} onChange={val => update(r._id, c.id, val)} />;
       default:
+        if (c.displayFormat && dis) return <input className={cls + " calc"} title={title ?? String(v ?? "")} type="text" disabled readOnly value={formatDateText(v, c.displayFormat)} />;
         return <input className={cls} title={title} type="text" disabled={dis} value={String(v ?? "")} onChange={e => update(r._id, c.id, e.target.value)} />;
     }
   };

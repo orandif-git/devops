@@ -1,8 +1,9 @@
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { coerce, normalizeRow } from "../core/gridModel";
 import { parseCsv, toCsv } from "../core/csv";
+import { formatDateText } from "../core/dateFormat";
 
-const cellText = (c: ColumnDef, v: unknown) => (c.type === "boolean" ? (v ? "Yes" : "No") : v === null || v === undefined ? "" : String(v));
+const cellText = (c: ColumnDef, v: unknown) => (c.type === "boolean" ? (v ? "Yes" : "No") : v === null || v === undefined ? "" : c.displayFormat ? formatDateText(v, c.displayFormat) : String(v));
 
 export function exportCsv(rows: GridRow[], cfg: GridConfig): string {
   return toCsv([cfg.columns.map(c => c.name), ...rows.map(r => cfg.columns.map(c => cellText(c, r[c.id])))]);

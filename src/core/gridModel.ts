@@ -1,3 +1,4 @@
+import { isDateFormat } from "./dateFormat";
 import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
 import { applySchedule } from "./schedule";
 import { parseNumber } from "./number";
@@ -354,6 +355,7 @@ export function validateConfig(cfg: GridConfig): string[] {
         if (!String(o.value ?? "").trim()) errs.push(`'${c.id}' override for '${o.when}' has no value`);
       }
     }
+    if (c.displayFormat !== undefined && !isDateFormat(c.displayFormat)) errs.push(`'${c.id}' has an invalid display format '${c.displayFormat}' (use YYYY, YY, MMMM, MMM, MM, DD with - / . or space)`);
     if (c.teamFrom) {
       const tf = c.teamFrom;
       if (!cfg.columns.some(x => x.id === tf.resource)) errs.push(`'${c.id}' takes the team of unknown column '${tf.resource}'`);

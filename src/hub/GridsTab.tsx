@@ -1,3 +1,4 @@
+import { DATE_FORMATS, formatDateText, isDateFormat } from "../core/dateFormat";
 import * as React from "react";
 import { Aggregate, ApproverRule, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, ReviewConfig, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
@@ -113,6 +114,26 @@ function TeamFromEditor(p: { col: ColumnDef; others: ColumnDef[]; onChange(tf: C
   );
 }
 
+/** How a month or date is shown in read-only cells (derived Period, End date…) and in CSV/Excel. Editable date cells keep the browser's date picker. */
+function DateFormatPicker(p: { col: ColumnDef; onChange(f: string | undefined): void }) {
+  const cur = p.col.displayFormat ?? "";
+  const preset = (DATE_FORMATS as readonly string[]).includes(cur);
+  const [custom, setCustom] = React.useState(!!cur && !preset);
+  return (
+    <div className="row">
+      <label className="field" style={{ width: 260 }}><span>Show months / dates as (read-only cells and exports)</span>
+        <select value={custom ? "__custom" : cur} onChange={e => { if (e.target.value === "__custom") setCustom(true); else { setCustom(false); p.onChange(e.target.value || undefined); } }}>
+          <option value="">As stored (YYYY-MM)</option>
+          {DATE_FORMATS.map(f => <option key={f} value={f}>{f}{" – "}{formatDateText("2026-10-12", f)}</option>)}
+          <option value="__custom">Custom…</option>
+        </select></label>
+      {custom && <label className="field" style={{ width: 180 }}><span>Custom pattern</span>
+        <input value={cur} placeholder="e.g. MMM-YY" onChange={e => p.onChange(e.target.value || undefined)} /></label>}
+      {cur && !isDateFormat(cur) && <span className="err">Use YYYY, YY, MMMM, MMM, MM, DD with - / . or space.</span>}
+    </div>
+  );
+}
+
 function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef[]; sourceCols?: ColumnDef[]; open: boolean; onToggle(): void; canUp: boolean; canDown: boolean; onMove(d: -1 | 1): void; onRename(id: string): void; onChange(c: ColumnDef): void; onDelete(): void }) {
   const c = p.c;
   const open = p.open;
@@ -193,6 +214,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
                 </div>
               </div>
             )}
+            {(c.type === "date" || c.type === "string") && <DateFormatPicker col={c} onChange={displayFormat => set({ displayFormat })} />}
             {c.type === "string" && !c.lookup && !c.formula && !c.derive && <TeamFromEditor col={c} others={p.others} onChange={teamFrom => set({ teamFrom })} />}
             {c.type !== "identity" && c.type !== "boolean" && c.type !== "calculated" && !c.teamFrom && (
               <>

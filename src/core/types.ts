@@ -54,6 +54,8 @@ export interface ColumnDef {
    * Fills itself with the names of the Azure DevOps teams / groups (of those listed) the person in column `resource` belongs to,
    * e.g. "Transformation Unit, NFR". Read-only. Direct team members only.
    */
+  /** how a month/date is shown in read-only cells and exports (e.g. MM-YYYY, MMM-YY); the stored value does not change */
+  displayFormat?: string;
   teamFrom?: { resource: string; teams: { id: string; name: string }[]; /** users may type a different value; it is kept until the resource changes or the cell is cleared */ allowOverride?: boolean };
   /** Derived grids: the person's team(s) from the capacity source (Azure DevOps team capacity or the register). Read-only. */
   teamOf?: { resource: string };
