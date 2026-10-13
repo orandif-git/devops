@@ -104,3 +104,39 @@ export function describeChange(c: AuditChange, area?: AuditEntry["area"]): Human
   if (JSON.stringify(before) === JSON.stringify(after)) return { kind: "reordered", text: `${s.text}: order changed` };
   return { kind: "changed", text: `${s.text}: changed from ${showValue(before)} to ${showValue(after)}` };
 }
+
+// ---------------- one table row per change ----------------
+
+export interface Row { kind: Human["kind"]; where: string; before: string; after: string }
+const NONE = "—";
+
+/** Values for the Before / After columns: plain text (no quotes), Yes/No, lists joined, objects as "label: value; …". */
+export function plain(v: unknown): string {
+  if (v === undefined || v === null || v === "") return NONE;
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (typeof v === "object" && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>;
+    if (typeof o.name === "string" && typeof o.type === "string" && Object.keys(o).every(k => ["id", "name", "type"].includes(k))) return `${TYPE[o.type] ?? o.type} “${o.name}”`;
+  }
+  return showValue(v).replace(/^“(.*)”$/s, "$1");
+}
+
+/** A stored change split into where it is, what it was and what it is now. */
+export function rowOf(c: AuditChange, area?: AuditEntry["area"]): Row {
+  const s = subjectOf(c.path, area);
+  const before = parse(c.before), after = parse(c.after);
+  const addedItem = /^added: (.*)$/s.exec(c.after), removedItem = /^removed: (.*)$/s.exec(c.before);
+  if (c.before === "(not in the list)" && addedItem) return { kind: "added", where: s.text, before: NONE, after: addedItem[1] };
+  if (removedItem && c.after === "(no longer in the list)") return { kind: "removed", where: s.text, before: removedItem[1], after: NONE };
+  const itemWhere = (v: unknown) => {                                    // an item of a list (a column, rule, mapping…): show it by its name and type
+    const o = typeof v === "object" && v && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
+    if (!o || !/“[^”]*”$/.test(s.leaf)) return s.text;
+    const named = typeof o.name === "string" ? s.leaf.replace(/“[^”]*”$/, quote(o.name)) : s.leaf;
+    const type = typeof o.type === "string" ? ` (${TYPE[o.type] ?? o.type})` : "";
+    return [s.parent, named + type].filter(Boolean).join(" › ");
+  };
+  if (before === undefined && after !== undefined) return { kind: "added", where: itemWhere(after), before: NONE, after: plain(after) };
+  if (before !== undefined && after === undefined) return { kind: "removed", where: itemWhere(before), before: plain(before), after: NONE };
+  if (JSON.stringify(before) === JSON.stringify(after)) return { kind: "reordered", where: s.text, before: "order", after: "different order" };
+  return { kind: "changed", where: s.text, before: plain(before), after: plain(after) };
+}

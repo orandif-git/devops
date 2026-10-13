@@ -78,3 +78,28 @@
 .hub .tag { display: inline-block; min-width: 62px; text-align: center; font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--hover); margin-right: 6px; }
 .hub .tag.added { border-color: var(--ok); color: var(--ok); }
 .hub .tag.removed { border-color: var(--err); color: var(--err); }
+
+/* audit log table */
+.hub .last { display: flex; gap: 14px; align-items: center; padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--accent); border-radius: 4px; background: var(--hover); margin: 8px 0 12px; }
+.hub table.audit { border-collapse: collapse; width: 100%; }
+.hub table.audit thead th { text-align: left; font-weight: 600; color: var(--fg2); font-size: 12px; letter-spacing: .02em; padding: 8px 10px; border-bottom: 2px solid var(--line); background: transparent; }
+.hub table.audit td { padding: 8px 10px; vertical-align: top; border-bottom: 1px dotted var(--line); }
+.hub table.audit tr.first td { border-top: 1px solid var(--line); }
+.hub table.audit tr.grp-end td { border-bottom: 1px solid var(--line); }
+.hub table.audit td.when, .hub table.audit td.who { white-space: nowrap; border-bottom: 1px solid var(--line); }
+.hub table.audit td.when { font-variant-numeric: tabular-nums; }
+.hub table.audit td.reason { border-bottom: 1px solid var(--line); }
+.hub table.audit td.reason div + div { margin-top: 3px; color: var(--fg2); }
+.hub table.audit td.val { max-width: 260px; word-break: break-word; }
+.hub table.audit td.none { color: var(--fg2); }
+.hub table.audit .path { color: var(--fg2); }
+.hub table.audit .path b { color: var(--fg); font-weight: 600; }
+.hub table.audit .tag { min-width: 62px; margin-right: 8px; font-weight: 600; border: 0; }
+.hub table.audit .tag.added { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+.hub table.audit .tag.removed { background: color-mix(in srgb, var(--err) 16%, transparent); color: var(--err); }
+.hub table.audit .tag.changed, .hub table.audit .tag.reordered { background: color-mix(in srgb, #b26a00 18%, transparent); color: #b26a00; }
+.hub table.audit .area { display: inline-block; font-size: 11px; color: var(--fg2); border: 1px solid var(--line); border-radius: 4px; padding: 0 6px; margin: 3px 4px 0 0; }
+.hub .link { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font-size: 12px; }
+.hub .link:hover { text-decoration: underline; }
+.hub table.raw { width: 100%; border-collapse: collapse; margin: 4px 0; font-size: 12px; }
+.hub table.raw th, .hub table.raw td { text-align: left; padding: 3px 8px; border-bottom: 1px solid var(--line); word-break: break-word; }

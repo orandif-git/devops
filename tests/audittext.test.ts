@@ -31,3 +31,21 @@ describe("readable audit text", () => {
     expect(say({ source: "register", defaultHours: 160 }, { source: "teams", defaultHours: 160 }, "capacity-settings")).toEqual(["Capacity settings › source: changed from “register” to “teams”"]);
   });
 });
+
+import { rowOf } from "../src/core/auditText";
+describe("table rows", () => {
+  const rows = (b: unknown, a: unknown) => diffSettings(b, a).changes.map(c => rowOf(c));
+  it("split a change into where, before and after", () => {
+    expect(rows({ grids: { G: { columns: [{ id: "p", name: "Phase", type: "dropdown", options: ["A", "B"] }] } } }, { grids: { G: { columns: [{ id: "p", name: "Stage", type: "dropdown", options: ["A", "C"] }] } } })).toEqual([
+      { kind: "changed", where: "Grid “G” › Column “p” › name", before: "Phase", after: "Stage" },
+      { kind: "added", where: "Grid “G” › Column “p” › dropdown values", before: "—", after: "C" },
+      { kind: "removed", where: "Grid “G” › Column “p” › dropdown values", before: "B", after: "—" },
+    ]);
+  });
+  it("shows an added column by its name and type, and booleans as Yes/No", () => {
+    expect(rows({ grids: { G: { columns: [] } } }, { grids: { G: { columns: [{ id: "c15", name: "test", type: "boolean" }] } } })).toEqual([
+      { kind: "added", where: "Grid “G” › Column “test” (checkbox)", before: "—", after: "checkbox “test”" },
+    ]);
+    expect(rows({ a: { required: false } }, { a: { required: true } })[0]).toMatchObject({ before: "No", after: "Yes" });
+  });
+});

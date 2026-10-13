@@ -2,7 +2,7 @@ import * as React from "react";
 import { AREA_LABEL, AuditEntry, auditCsv, olderThan } from "../core/audit";
 import { formatStamp, localTimeZone } from "../core/time";
 import { appendAudit, auditStorageCheck, deleteAudit, listAudit, loadRetention, saveRetention } from "../shared/auditStore";
-import { describeChange } from "../core/auditText";
+import { describeChange, rowOf } from "../core/auditText";
 import { useReason } from "./ReasonDialog";
 
 const download = (name: string, text: string) => {
@@ -10,12 +10,19 @@ const download = (name: string, text: string) => {
 };
 
 /** `version` changes after every save of the settings, so a list that is already open reloads and shows the new entry. */
+/** "Grid “SDLC Timesheet” › Column “test” (checkbox)": the names are shown bold. */
+function Where(p: { text: string }) {
+  return <span className="path">{p.text.split(" › ").map((seg, i) => {
+    const m = /^(.*?)“([^”]*)”(.*)$/s.exec(seg);
+    return <React.Fragment key={i}>{i > 0 && " › "}{m ? <>{m[1]}<b>{m[2]}</b>{m[3]}</> : seg}</React.Fragment>;
+  })}</span>;
+}
+
 export function AuditTab(p: { projectId: string; version?: string }) {
   const [entries, setEntries] = React.useState<AuditEntry[]>();
   const [months, setMonths] = React.useState(24);
   const [filter, setFilter] = React.useState("");
-  const [closed, setClosed] = React.useState<Set<string>>(new Set());
-  const [tech, setTech] = React.useState<Set<string>>(new Set());
+    const [tech, setTech] = React.useState<Set<string>>(new Set());
   const [msg, setMsg] = React.useState("");
   const [check, setCheck] = React.useState<string[]>();
   const { ask, dialog } = useReason();
@@ -67,7 +74,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
         <span className="muted">{shown.length} of {entries.length} entries · times in {tz}</span>
       </div>
       {entries[0] && (
-        <div className="card" role="status">
+        <div className="last" role="status">
           <b>Last change:</b> {entries[0].userName} · {when(entries[0].at)} · {AREA_LABEL[entries[0].area] ?? entries[0].area}
           <span className="muted"> · “{entries[0].reason}”</span>
         </div>
@@ -81,32 +88,45 @@ export function AuditTab(p: { projectId: string; version?: string }) {
       )}
       {check && <div className="card" role="status">{check.map((l, i) => <div key={i} className={l.startsWith("✖") ? "err" : ""}>{l}</div>)}</div>}
       {msg && <div className="muted" role="status">{msg}</div>}
-      <table className="grid" style={{ width: "100%" }}>
-        <thead><tr><th>When</th><th>User</th><th>What</th><th>Reason</th><th>Comments</th><th>Changes</th></tr></thead>
+      <table className="audit">
+        <thead><tr><th style={{ width: 150 }}>When</th><th style={{ width: 100 }}>By</th><th>What changed</th><th style={{ width: 210 }}>Before</th><th style={{ width: 250 }}>After</th><th style={{ width: 240 }}>Reason &amp; comments</th></tr></thead>
         <tbody>
-          {shown.map(e => (
-            <React.Fragment key={e.id}>
-              <tr>
-                <td>{when(e.at)}</td><td title={e.userId}>{e.userName}</td><td>{AREA_LABEL[e.area] ?? e.area}</td><td>{e.reason}</td><td>{e.comment}</td>
-                <td><button className="btn" aria-expanded={!closed.has(e.id)} onClick={() => setClosed(c => { const n = new Set(c); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}>{closed.has(e.id) ? "Show" : "Hide"} {e.changes.length}{e.omitted ? `+${e.omitted}` : ""} change(s)</button></td>
-              </tr>
-              {!closed.has(e.id) && (
-                <tr><td colSpan={6}>
-                  <ul className="chg">
-                    {e.changes.map((c, i) => { const h = describeChange(c, e.area); return <li key={i}><span className={"tag " + h.kind}>{h.kind === "reordered" ? "Reordered" : h.kind[0].toUpperCase() + h.kind.slice(1)}</span> {h.text}</li>; })}
-                  </ul>
-                  <button className="btn" onClick={() => setTech(c => { const n = new Set(c); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}>{tech.has(e.id) ? "Hide" : "Show"} technical detail</button>
-                  {tech.has(e.id) && (
-                    <table className="grid" style={{ width: "100%", marginTop: 6 }}>
-                      <thead><tr><th>Setting</th><th>Previous value</th><th>New value</th></tr></thead>
-                      <tbody>{e.changes.map((c, i) => <tr key={i}><td>{c.path}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody>
-                    </table>
-                  )}
-                  {e.omitted ? <div className="muted">{e.omitted} more change(s) were not kept.</div> : null}
-                </td></tr>
-              )}
-            </React.Fragment>
-          ))}
+          {shown.map(e => {
+            const rows = e.changes.length ? e.changes.map(c => rowOf(c, e.area)) : [undefined];
+            const span = rows.length + (e.omitted ? 1 : 0) + (tech.has(e.id) ? 1 : 0);
+            const [day, time] = when(e.at).split(" ");
+            return (
+              <React.Fragment key={e.id}>
+                {rows.map((r, i) => (
+                  <tr key={i} className={(i === 0 ? "first " : "") + (i === rows.length - 1 && !e.omitted && !tech.has(e.id) ? "grp-end" : "")}>
+                    {i === 0 && <td className="when" rowSpan={span}>{day}<br /><span className="muted">{time} {when(e.at).split(" ").slice(2).join(" ")}</span></td>}
+                    {i === 0 && <td className="who" rowSpan={span} title={e.userId}>{e.userName}</td>}
+                    {r ? (
+                      <>
+                        <td className="chg"><span className={"tag " + r.kind}>{r.kind === "reordered" ? "Reordered" : r.kind[0].toUpperCase() + r.kind.slice(1)}</span><Where text={r.where} /></td>
+                        <td className={"val" + (r.before === "—" ? " none" : "")}>{r.before}</td>
+                        <td className={"val" + (r.after === "—" ? " none" : "")}>{r.after}</td>
+                      </>
+                    ) : <td colSpan={3} className="muted">No value changes were recorded.</td>}
+                    {i === 0 && (
+                      <td className="reason" rowSpan={span}>
+                        <div><b>{e.reason}</b></div><div>{e.comment}</div>
+                        <span className="area">{AREA_LABEL[e.area] ?? e.area}</span>{" "}
+                        <button className="link" onClick={() => setTech(c => { const n = new Set(c); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}>{tech.has(e.id) ? "Hide" : "Show"} technical detail</button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {e.omitted ? <tr className={tech.has(e.id) ? "" : "grp-end"}><td colSpan={3} className="muted">{e.omitted} more change(s) were not kept.</td></tr> : null}
+                {tech.has(e.id) && (
+                  <tr className="grp-end"><td colSpan={3}>
+                    <table className="raw"><thead><tr><th>Setting</th><th>Previous value</th><th>New value</th></tr></thead>
+                      <tbody>{e.changes.map((c, i) => <tr key={i}><td>{c.path}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody></table>
+                  </td></tr>
+                )}
+              </React.Fragment>
+            );
+          })}
           {!shown.length && <tr><td colSpan={6} className="muted">{entries.length ? "No entries match." : "No changes recorded yet. Every saved change to the settings appears here."}</td></tr>}
         </tbody>
       </table>
