@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resource Planner prototype</title>
+<style>
+.viz-root{color-scheme:light;--surface:#fcfcfb;--page:#f9f9f7;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e1e0d9;--axis:#c3c2b7;--ring:rgba(11,11,11,.10);
+ --s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--critical:#d03b3b;--good:#0ca30c;--warn:#fab219;
+ --q100:#cde2fb;--q150:#b7d3f6;--q200:#9ec5f4;--q300:#6da7ec;--q400:#3987e5;--q500:#256abf;--q600:#184f95;--q700:#0d366b;--hover:rgba(11,11,11,.06)}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])) .viz-root{color-scheme:dark;--surface:#1a1a19;--page:#0d0d0d;--ink:#f0efec;--ink2:#c3c2b7;--grid:#2c2c2a;--axis:#383835;--ring:rgba(255,255,255,.10);--s1:#3987e5;--s2:#d95926;--s3:#199e70;--hover:rgba(255,255,255,.07)}}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{padding:16px 22px 28px;max-width:1380px;margin:0 auto}
+h1{font-size:20px;margin:0}.sub{color:var(--ink2);margin:2px 0 12px}
+.nav{display:flex;gap:2px;border-bottom:1px solid var(--axis);margin:10px 0 12px}
+.nav button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 14px;color:var(--ink2);font:inherit;cursor:pointer;border-radius:3px 3px 0 0}
+.nav button:hover{background:var(--hover)}.nav button.on{color:var(--ink);font-weight:600;border-bottom-color:var(--s1)}
+.filters{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.filters label{color:var(--ink2);font-size:12px;display:flex;gap:6px;align-items:center}
+select,.btn{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--axis);border-radius:4px;padding:4px 9px;cursor:pointer}
+.btn:hover,select:hover{background:var(--hover)}
+.src{color:var(--ink2);font-size:12px;margin:2px 0 12px}.src b{color:var(--ink);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:10px 14px}
+.tile .l{color:var(--ink2);font-size:12px}.tile .v{font-size:26px;font-weight:600;line-height:1.2;margin-top:2px}.tile .d{font-size:12px;color:var(--ink2);margin-top:2px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:8px;padding:12px 14px}
+.card h3{margin:0 0 2px;font-size:14px}.card .sub2{color:var(--ink2);font-size:12px;margin-bottom:10px}
+.layout{display:grid;grid-template-columns:1fr 290px;gap:12px;align-items:start}
+.hm{display:grid;grid-template-columns:170px repeat(12,1fr);gap:2px;font-size:12px}
+.hm .h{color:var(--muted);text-align:center;padding:2px 0}.hm .team{grid-column:1/-1;font-weight:600;margin-top:8px;color:var(--ink2);font-size:12px}
+.hm .n{padding:3px 6px 3px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell{height:24px;border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#fff;outline:2px solid transparent;outline-offset:-2px}
+.cell:hover,.cell:focus-visible,.cell.sel{outline-color:var(--ink)}
+.legend{display:flex;gap:14px;align-items:center;margin-top:12px;color:var(--ink2);font-size:12px;flex-wrap:wrap}
+.ramp{display:flex;gap:2px}.ramp i{width:22px;height:10px;display:block;border-radius:2px}
+.over{display:inline-flex;align-items:center;gap:5px}.over i{width:14px;height:14px;border-radius:3px;background:var(--critical);color:#fff;font-style:normal;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.panel h3{margin:0}.panel .big{font-size:22px;font-weight:600;margin:6px 0 0}.panel .meta{color:var(--ink2);font-size:12px}
+.panel table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}.panel th{text-align:left;color:var(--ink2);font-weight:600;padding:3px 0;border-bottom:1px solid var(--axis)}.panel td{padding:5px 0;border-bottom:1px solid var(--grid)}.panel td:last-child,.panel th:last-child{text-align:right}
+.bar{height:8px;border-radius:4px;background:var(--grid);margin-top:8px;overflow:hidden}.bar i{display:block;height:100%;background:var(--s1)}
+.tip{position:fixed;pointer-events:none;background:var(--surface);color:var(--ink);border:1px solid var(--axis);box-shadow:0 4px 14px rgba(0,0,0,.18);border-radius:6px;padding:7px 10px;font-size:12px;z-index:10;display:none;max-width:260px}
+.tip b{font-size:14px;display:block}.tip span{color:var(--ink2)}
+/* timeline + gantt */
+.tl{position:relative;font-size:12px;margin-bottom:22px}.tl .head,.tl .row{display:grid;grid-template-columns:200px 1fr}
+.tl .head .mo{display:grid;grid-template-columns:repeat(12,1fr);color:var(--muted);text-align:center;border-bottom:1px solid var(--axis)}
+.tl .head .mo span{padding:3px 0;border-left:1px solid var(--grid)}
+.tl .grp{font-weight:600;color:var(--ink2);padding:10px 0 3px;grid-column:1/-1}
+.tl .row{min-height:30px;align-items:stretch;border-bottom:1px solid var(--grid)}
+.tl .name{padding:6px 8px 6px 0;display:flex;flex-direction:column;justify-content:center;overflow:hidden}.tl .name small{color:var(--ink2)}
+.lane{position:relative;background-image:linear-gradient(to right,var(--grid) 1px,transparent 1px);background-size:calc(100%/12) 100%}
+.today{position:absolute;top:26px;bottom:0;width:0;border-left:2px solid var(--critical);z-index:2;pointer-events:none;left:calc(200px + (100% - 200px) * var(--t) / 100)}
+.todaylbl{position:absolute;bottom:-18px;transform:translateX(-50%);font-size:11px;color:var(--critical);font-weight:600;background:var(--surface);padding:0 4px}
+.gb{position:absolute;height:20px;border-radius:4px;color:#fff;font-size:11px;font-weight:600;padding:0 7px;display:flex;align-items:center;overflow:hidden;white-space:nowrap;cursor:pointer;outline:2px solid transparent;outline-offset:1px}
+.gb:hover{outline-color:var(--ink)}
+.gb.pt{height:14px;border-radius:3px;font-weight:600}
+.tl .over-flag{position:absolute;right:2px;top:2px;background:var(--critical);color:#fff;border-radius:3px;font-size:10px;font-weight:700;padding:0 5px;z-index:3}
+.keyrow{display:flex;gap:16px;margin:0 0 10px;color:var(--ink2);font-size:12px;flex-wrap:wrap}.keyrow span{display:inline-flex;align-items:center;gap:6px}.keyrow i{width:14px;height:4px;border-radius:2px;display:inline-block}
+table.tv{width:100%;border-collapse:collapse;font-size:12px}table.tv th,table.tv td{padding:4px 6px;border-bottom:1px solid var(--grid);text-align:right}table.tv th:first-child,table.tv td:first-child{text-align:left}
+.note{margin-top:14px;color:var(--ink2);font-size:12px}
+</style></head>
+<body class="viz-root"><div class="wrap">
+<h1>Resource Planner</h1>
+<div class="sub">Project “Project E2E SDLC Automation” · prototype with sample data (people and Epics are fictional)</div>
+<div class="nav" role="tablist"><button data-v="1" class="on">Utilization heatmap</button><button data-v="2">Resource timeline</button><button data-v="3">Epic Gantt</button></div>
+<div class="filters">
+  <label>Query <select><option>Saved: Active Epics 2026</option><option>Saved: All Epics 2026</option><option>Filter on this page…</option></select></label>
+  <label>Team <select><option>All 6 teams</option></select></label>
+  <label>State <select><option>New, Active, On hold</option></select></label>
+  <label>Period <select><option>Jan – Dec 2026</option></select></label>
+  <label>Count rows <select><option>Not rejected</option><option>Approved only</option><option>All</option></select></label>
+  <button class="btn" id="tv">Table view</button>
+</div>
+<div class="src">Hours from the <b>Resource Allocation</b> grid of each Epic · available capacity from <b>Azure DevOps team capacity</b> · last refreshed 2 min ago (212 Epics read, 14 changed)</div>
+<div id="view"></div>
+<div class="tip" id="tip"></div>
+</div>
+<script>
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const TEAMS=[["Transformation Unit",["Maya R.","Omar K.","Lena V.","Ravi S.","Noor A.","Eli T."]],["NFR",["Sana H.","Idris M.","Chloe B.","Yusuf D."]],["InfoSec",["Tariq N.","Hana L.","Jon P.","Mira F."]],["ETC",["Dina W.","Karim Z.","Leo C.","Aya O."]]];
+let seed=7;const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647};
+const people=[];TEAMS.forEach(([t,ns])=>ns.forEach(n=>{const base=.45+rnd()*.5;const u=MONTHS.map((_,m)=>{let v=base+Math.sin((m+rnd()*2)/2)*.22+(rnd()-.5)*.25;if(m<2)v-=.15;return Math.max(0,Math.min(1.35,v))});people.push({team:t,name:n,cap:[...Array(12)].map(()=>[120,128,136,144,152,160][Math.floor(rnd()*6)]),u})}));
+[1,9,12].forEach(i=>{people[i].u[9]=1.1+i*.01});
+people.forEach(p=>{p.hours=p.u.map((u,i)=>Math.round(u*p.cap[i]))});
+const pct=(p,i)=>p.hours[i]/p.cap[i];
+const EPICS=[["E-2981","Merging mailing to Qatar resident address","Transformation Unit","Active",[1,2],[12,4]],["E-3012","Credit score display features","Transformation Unit","Active",[2,3],[11,9]],["E-3044","Customer onboarding revamp","Transformation Unit","On hold",[4,1],[10,1]],["E-3101","Data migration – legacy CRM","NFR","Active",[0,15],[6,29]],["E-3120","Performance baseline","NFR","Active",[3,1],[12,15]],["E-3188","Encryption at rest","InfoSec","Active",[2,10],[11,20]],["E-3190","Access review automation","InfoSec","New",[6,1],[11,30]],["E-3205","Release pipeline hardening","ETC","Active",[1,15],[5,31]],["E-3230","Test data platform","ETC","Done",[0,5],[3,30]],["E-3251","Observability dashboards","ETC","New",[7,1],[12,20]]];
+const monthPos=(m,d)=>((m+(d-1)/30.5)/12*100);
+const TODAY=monthPos(9,13);
+const tip=document.getElementById("tip");
+function showTip(e,title,lines){tip.replaceChildren();const b=document.createElement("b");b.textContent=title;tip.appendChild(b);lines.forEach(l=>{const s=document.createElement("span");s.textContent=l;tip.appendChild(s);tip.appendChild(document.createElement("br"))});tip.style.display="block";tip.style.left=Math.min(e.clientX+14,innerWidth-280)+"px";tip.style.top=(e.clientY+14)+"px"}
+const hideTip=()=>tip.style.display="none";
+const rampFor=v=>v<=.10?"--q100":v<=.25?"--q150":v<=.40?"--q200":v<=.55?"--q300":v<=.70?"--q400":v<=.85?"--q500":v<=1?"--q600":"--q700";
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+let selected=null,table=false;
+function heat(){
+  const root=el("div");
+  const kp=el("div","kpis");
+  const ut=Math.round(people.reduce((a,p)=>a+p.hours[9],0)/people.reduce((a,p)=>a+p.cap[9],0)*100);
+  const over=people.filter(p=>pct(p,9)>1).length, free=people.reduce((a,p)=>a+Math.max(0,p.cap[9]-p.hours[9]),0);
+  [["Utilization, Oct 2026",ut+"%","across 18 of 175 people (sample)"],["Over capacity in Oct",String(over),"people above 100 %"],["Free capacity in Oct",free.toLocaleString()+" h","available hours not yet allocated"],["Epics in this view","212","12 starting, 9 ending this quarter"]].forEach(([l,v,d])=>{const t=el("div","tile");t.append(el("div","l",l),el("div","v",v),el("div","d",d));kp.appendChild(t)});
+  root.appendChild(kp);
+  const lay=el("div","layout");const card=el("div","card");
+  card.append(el("h3","","People by month – how much of the available hours is booked"),el("div","sub2","Click a cell to see which Epics make up that person’s month."));
+  if(table){const t=el("table","tv");const h=el("tr");h.append(el("th","","Person"));MONTHS.forEach(m=>h.append(el("th","",m)));t.appendChild(h);people.forEach(p=>{const r=el("tr");r.append(el("td","",p.name+" · "+p.team));p.u.forEach((_,i)=>r.append(el("td","",Math.round(pct(p,i)*100)+"%")));t.appendChild(r)});card.appendChild(t)}
+  else{const g=el("div","hm");g.appendChild(el("div"));MONTHS.forEach(m=>g.appendChild(el("div","h",m)));
+    let last="";people.forEach(p=>{if(p.team!==last){g.appendChild(el("div","team",p.team));last=p.team}g.appendChild(el("div","n",p.name));
+      p.u.forEach((_,i)=>{const v=pct(p,i);const c=el("div","cell");c.tabIndex=0;c.style.background=`var(${v>1?"--critical":rampFor(v)})`;
+        if(v>1){c.textContent="!";c.title="Over capacity"} else if(v<=.25){c.style.color="var(--q700)"}
+        if(selected&&selected.p===p&&selected.i===i)c.classList.add("sel");
+        const info=()=>[`${p.hours[i]} h booked of ${p.cap[i]} h available`,`${p.team} · ${MONTHS[i]} 2026`];
+        c.addEventListener("pointermove",e=>showTip(e,Math.round(v*100)+"% · "+p.name,info()));c.addEventListener("pointerleave",hideTip);c.addEventListener("focus",e=>{const r=c.getBoundingClientRect();showTip({clientX:r.left,clientY:r.bottom-30},Math.round(v*100)+"% · "+p.name,info())});c.addEventListener("blur",hideTip);
+        c.addEventListener("click",()=>{selected={p,i};render()});g.appendChild(c)})});
+    card.appendChild(g);
+    const lg=el("div","legend");const rp=el("span");rp.style.display="inline-flex";rp.style.gap="8px";rp.style.alignItems="center";rp.append("0 %");const r=el("span","ramp");["--q100","--q150","--q200","--q300","--q400","--q500","--q600"].forEach(k=>{const i=el("i");i.style.background=`var(${k})`;r.appendChild(i)});rp.append(r,"100 % of available hours");
+    const ov=el("span","over");const ic=el("i","","!");ov.append(ic,"Over capacity (above 100 %)");lg.append(rp,ov);card.appendChild(lg)}
+  lay.appendChild(card);
+  const side=el("div","card panel");
+  if(!selected){side.append(el("h3","","Select a cell"),el("div","meta","The Epics and hours behind a person’s month appear here, with a link to each Epic."))}
+  else{const {p,i}=selected;const v=pct(p,i);side.append(el("h3","",p.name),el("div","meta",`${p.team} · ${MONTHS[i]} 2026`),el("div","big",`${p.hours[i]} / ${p.cap[i]} h · ${Math.round(v*100)}%`));
+    const b=el("div","bar");const f=el("i");f.style.width=Math.min(100,v*100)+"%";if(v>1)f.style.background="var(--critical)";b.appendChild(f);side.appendChild(b);
+    const mine=EPICS.filter(e=>e[3]!=="Done").slice((i+p.name.length)%4,(i+p.name.length)%4+3);const share=[.5,.3,.2];
+    const t=el("table");const hr=el("tr");["Epic","Hours"].forEach(x=>hr.append(el("th","",x)));t.appendChild(hr);
+    mine.forEach((e,k)=>{const r=el("tr");const td=el("td","",e[0]+" · "+e[1]);r.append(td,el("td","",String(Math.round(p.hours[i]*share[k]))));t.appendChild(r)});side.appendChild(t);
+    side.appendChild(el("div","meta","Capacity: Azure DevOps team capacity · hours: Resource Allocation grid rows scheduled in "+MONTHS[i]));}
+  lay.appendChild(side);root.appendChild(lay);return root}
+function monthHead(){const h=el("div","head");h.appendChild(el("div"));const mo=el("div","mo");MONTHS.forEach(m=>mo.appendChild(el("span","",m)));h.appendChild(mo);return h}
+function todayLine(tl){const t=el("div","today");t.style.setProperty("--t",TODAY);t.appendChild(el("span","todaylbl","Today"));tl.appendChild(t)}
+function timeline(){
+  const card=el("div","card");card.append(el("h3","","Who works on what, and when"),el("div","sub2","One row per person. Each bar is a task on an Epic from the Resource Allocation grid (start to end date); darker means a higher allocation."));
+  const kr=el("div","keyrow");const k=el("span");const ramp=el("span","ramp");["--q150","--q300","--q500","--q700"].forEach(c=>{const i=el("i");i.style.cssText=`width:22px;height:10px;background:var(--${c.slice(2)})`;i.style.background=`var(${c})`;ramp.appendChild(i)});k.append("Allocation 25 %",ramp,"100 %");kr.append(k);const o=el("span");const f=el("i");f.style.background="var(--critical)";o.append(f,"Month over capacity (flag on the row)");kr.append(o);card.appendChild(kr);
+  const tl=el("div","tl");tl.appendChild(monthHead());
+  let last="";const shown=people.slice(0,12);
+  shown.forEach((p,pi)=>{if(p.team!==last){tl.appendChild(el("div","grp",p.team));last=p.team}
+    const r=el("div","row");const nm=el("div","name");nm.append(el("b","",p.name),el("small","",Math.round(p.hours.reduce((a,x)=>a+x,0)/p.cap.reduce((a,x)=>a+x,0)*100)+"% of the year booked"));r.appendChild(nm);
+    const lane=el("div","lane");lane.style.minHeight="44px";
+    const tasks=[];let s=(pi*3)%7,lane2=0;for(let k=0;k<3;k++){const len=2+((pi+k)%3);const e=EPICS[(pi+k*2)%EPICS.length];tasks.push({e,s:Math.min(10-len,s),len,al:[.25,.5,.75,1][(pi+k)%4],lane:k%2});s+=len-1}
+    tasks.forEach(t=>{const b=el("div","gb pt");b.style.left=monthPos(t.s,1)+"%";b.style.width=(t.len/12*100-.4)+"%";b.style.top=(4+t.lane*17)+"px";b.style.background=`var(${t.al<=.25?"--q150":t.al<=.5?"--q300":t.al<=.75?"--q500":"--q700"})`;b.style.color=t.al<=.5?"var(--q700)":"#fff";b.textContent=t.e[0]+" · "+Math.round(t.al*100)+"%";
+      b.addEventListener("pointermove",e=>showTip(e,t.e[0]+" · "+t.e[1],[`${p.name} · allocation ${Math.round(t.al*100)}%`,`${MONTHS[t.s]} – ${MONTHS[t.s+t.len-1]} 2026`]));b.addEventListener("pointerleave",hideTip);lane.appendChild(b)});
+    if(p.u.some((_,i)=>pct(p,i)>1)){const fl=el("span","over-flag","!");fl.title="At least one month over capacity";lane.appendChild(fl)}
+    r.appendChild(lane);tl.appendChild(r)});
+  todayLine(tl);
+  card.appendChild(tl);card.appendChild(el("div","note","Showing 12 of 175 people (filtered by team). Hovering a bar shows the Epic, allocation and dates; clicking opens the Epic."));return card}
+function gantt(){
+  const card=el("div","card");card.append(el("h3","","Epic timeline"),el("div","sub2","Bars run from the Epic’s start-date field to its target-date field (custom fields chosen in the settings), grouped by team."));
+  const kr=el("div","keyrow");[["--s1","Active"],["--s2","On hold"],["--s3","Done"]].forEach(([c,l])=>{const s=el("span");const i=el("i");i.style.background=`var(${c})`;i.style.width="18px";i.style.height="8px";s.append(i,l);kr.appendChild(s)});const nw=el("span");const ni=el("i");ni.style.cssText="width:18px;height:8px;background:repeating-linear-gradient(45deg,var(--s1) 0 3px,transparent 3px 6px)";nw.append(ni,"New (not started)");kr.appendChild(nw);card.appendChild(kr);
+  const tl=el("div","tl");tl.appendChild(monthHead());let last="";const lanes=[];
+  EPICS.forEach(e=>{if(e[2]!==last){tl.appendChild(el("div","grp",e[2]));last=e[2]}
+    const r=el("div","row");const nm=el("div","name");nm.append(el("b","",e[0]+" · "+e[1].slice(0,26)+(e[1].length>26?"…":"")),el("small","",e[3]+" · "+(2+Math.floor((e[0].charCodeAt(3)%5)))+" people"));r.appendChild(nm);
+    const lane=el("div","lane");const b=el("div","gb");const s=monthPos(e[4][0],e[4][1]),en=monthPos(e[5][0]-1,e[5][1]);b.style.left=s+"%";b.style.width=(en-s)+"%";b.style.top="5px";
+    const col=e[3]==="Active"?"--s1":e[3]==="On hold"?"--s2":e[3]==="Done"?"--s3":"--s1";b.style.background=`var(${col})`;
+    if(e[3]==="New"){b.style.background="repeating-linear-gradient(45deg,var(--s1) 0 4px,color-mix(in srgb,var(--s1) 55%,var(--surface)) 4px 8px)"}
+    b.textContent=`${MONTHS[e[4][0]]} ${e[4][1]} – ${MONTHS[e[5][0]-1]} ${e[5][1]}`;
+    b.addEventListener("pointermove",ev=>showTip(ev,e[0]+" · "+e[1],[`${e[3]} · ${e[2]}`,`Start ${e[4][1]} ${MONTHS[e[4][0]]} 2026 · target ${e[5][1]} ${MONTHS[e[5][0]-1]} 2026`,"People on this Epic: "+(2+Math.floor((e[0].charCodeAt(3)%5)))+" · click to open"]));b.addEventListener("pointerleave",hideTip);lane.appendChild(b);
+    if(e[3]==="Active"&&monthPos(e[5][0]-1,e[5][1])<TODAY){const f=el("span","over-flag","Late");lane.appendChild(f)}
+    r.appendChild(lane);tl.appendChild(r);lanes.push(lane)});
+  todayLine(tl);
+  card.appendChild(tl);card.appendChild(el("div","note","Group by team, area, state or resource; colour by state. Dependencies (predecessor / successor links) can be drawn later."));return card}
+let view=+(new URLSearchParams(location.search).get("view")||1);
+function render(){const v=document.getElementById("view");v.replaceChildren(view===1?heat():view===2?timeline():gantt());document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("on",+b.dataset.v===view));document.getElementById("tv").style.display=view===1?"":"none"}
+document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>{view=+b.dataset.v;render()});
+document.getElementById("tv").onclick=()=>{table=!table;document.getElementById("tv").textContent=table?"Heatmap view":"Table view";render()};
+if(new URLSearchParams(location.search).get("sel")){selected={p:people[3],i:9}}
+render();
+</script></body></html>
