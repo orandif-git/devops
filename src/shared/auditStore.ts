@@ -124,6 +124,12 @@ export async function auditStorageCheck(projectId: string): Promise<string[]> {
     mark((back.entries ?? []).length === 3, `three saves into one month document, ${(back.entries ?? []).length} entries inside`);
   } catch (e) { mark(false, "month document: " + (e as Error).message); }
   for (const id of [1, 2, 3].map(i => `${tag}-doc-${i}`).concat(`${tag}-month`)) { try { await m.deleteDocument(COLLECTION, id); } catch { /* already gone */ } }
+  try {
+    const all = (await m.getDocuments(COLLECTION)) as Doc[];
+    const kinds = new Map<string, number>();
+    for (const d of all) kinds.set(`${d.kind ?? "other"}${d.projectId && d.projectId !== projectId ? " (other project)" : ""}`, (kinds.get(`${d.kind ?? "other"}${d.projectId && d.projectId !== projectId ? " (other project)" : ""}`) ?? 0) + 1);
+    mark(true, `stored in this collection: ${all.length} document(s) – ${Array.from(kinds, ([k, n]) => `${n} ${k}`).join(", ") || "none"}`);
+  } catch (e) { mark(false, "counting stored documents: " + (e as Error).message); }
   try { mark(true, `the log currently holds ${(await listAudit(projectId)).length} entr${(await listAudit(projectId)).length === 1 ? "y" : "ies"}`); } catch (e) { mark(false, "listing the log: " + (e as Error).message); }
   return out;
 }
