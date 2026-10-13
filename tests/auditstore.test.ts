@@ -47,3 +47,16 @@ describe("audit store", () => {
     expect((await listAudit("P")).map(e => e.reason)).toEqual(["reason 2"]);
   });
 });
+
+import { loadRetention, saveRetention } from "../src/shared/auditStore";
+describe("retention setting", () => {
+  it("is 24 months until changed, and read without asking for a missing document", async () => {
+    const asked: string[] = [];
+    const orig = fake.getDocument; fake.getDocument = async (c: string, id: string) => { asked.push(id); return orig(c, id); };
+    expect(await loadRetention("P")).toBe(24);
+    expect(asked).toEqual([]);
+    await saveRetention("P", 12);
+    expect(await loadRetention("P")).toBe(12);
+    fake.getDocument = orig;
+  });
+});

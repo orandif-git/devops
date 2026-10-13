@@ -88,12 +88,11 @@ export async function deleteAudit(projectId: string, ids: string[]): Promise<voi
   }
 }
 
+/** Read from the list of stored documents (no separate request for a record that may not exist yet, which would show up as a 404 in the browser console). */
 export async function loadRetention(projectId: string): Promise<number> {
-  try {
-    const d = await (await dataManager()).getDocument(COLLECTION, settingsId(projectId));
-    const n = Number(d?.retentionMonths);
-    return Number.isInteger(n) && n >= 1 && n <= 120 ? n : DEFAULT_RETENTION_MONTHS;
-  } catch (e) { if (is404(e)) return DEFAULT_RETENTION_MONTHS; throw e; }
+  const d = (await allDocs()).find(x => x.id === settingsId(projectId)) as (Doc & { retentionMonths?: number }) | undefined;
+  const n = Number(d?.retentionMonths);
+  return Number.isInteger(n) && n >= 1 && n <= 120 ? n : DEFAULT_RETENTION_MONTHS;
 }
 export async function saveRetention(projectId: string, months: number): Promise<void> {
   await (await dataManager()).setDocument(COLLECTION, { id: settingsId(projectId), kind: "settings", projectId, retentionMonths: months, __etag: -1 });
