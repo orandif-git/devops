@@ -97,3 +97,33 @@ export async function loadRetention(projectId: string): Promise<number> {
 export async function saveRetention(projectId: string, months: number): Promise<void> {
   await (await dataManager()).setDocument(COLLECTION, { id: settingsId(projectId), kind: "settings", projectId, retentionMonths: months, __etag: -1 });
 }
+
+/**
+ * Diagnostic: write three throw-away records, once as separate documents and once the way entries are really kept (one month document,
+ * read-modify-write), read them back and delete them. The real log is not touched. Tells whether this server stores and lists several documents.
+ */
+export async function auditStorageCheck(projectId: string): Promise<string[]> {
+  const out: string[] = [];
+  const m = await dataManager();
+  const tag = `audit-check-${projectId}-${Date.now()}`;
+  const mark = (ok: boolean, text: string) => out.push(`${ok ? "✔" : "✖"} ${text}`);
+  try {
+    for (let i = 1; i <= 3; i++) await m.setDocument(COLLECTION, { id: `${tag}-doc-${i}`, kind: "check", projectId, n: i, __etag: -1 });
+    const listed = ((await m.getDocuments(COLLECTION)) as Doc[]).filter(d => d.id.startsWith(`${tag}-doc-`));
+    mark(listed.length === 3, `three separate documents written, ${listed.length} found when listing`);
+  } catch (e) { mark(false, "separate documents: " + (e as Error).message); }
+  try {
+    const id = `${tag}-month`;
+    for (let i = 1; i <= 3; i++) {
+      let doc: Doc | undefined;
+      try { doc = (await m.getDocument(COLLECTION, id)) as Doc; } catch (e) { if (!is404(e)) throw e; }
+      const entries = (Array.isArray(doc?.entries) ? doc!.entries! : []) as unknown[];
+      await m.setDocument(COLLECTION, doc ? { ...doc, entries: [...entries, { id: String(i) }] } : { id, kind: "check", projectId, entries: [{ id: "1" }], __etag: -1 });
+    }
+    const back = (await m.getDocument(COLLECTION, id)) as Doc;
+    mark((back.entries ?? []).length === 3, `three saves into one month document, ${(back.entries ?? []).length} entries inside`);
+  } catch (e) { mark(false, "month document: " + (e as Error).message); }
+  for (const id of [1, 2, 3].map(i => `${tag}-doc-${i}`).concat(`${tag}-month`)) { try { await m.deleteDocument(COLLECTION, id); } catch { /* already gone */ } }
+  try { mark(true, `the log currently holds ${(await listAudit(projectId)).length} entr${(await listAudit(projectId)).length === 1 ? "y" : "ies"}`); } catch (e) { mark(false, "listing the log: " + (e as Error).message); }
+  return out;
+}

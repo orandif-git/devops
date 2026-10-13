@@ -60,3 +60,14 @@ describe("retention setting", () => {
     fake.getDocument = orig;
   });
 });
+
+import { auditStorageCheck } from "../src/shared/auditStore";
+describe("storage check", () => {
+  it("reports success on a healthy store and leaves nothing behind", async () => {
+    const lines = await auditStorageCheck("P");
+    expect(lines.every(l => l.startsWith("✔"))).toBe(true);
+    expect(lines.join("|")).toMatch(/three separate documents written, 3 found/);
+    expect(lines.join("|")).toMatch(/3 entries inside/);
+    expect(Array.from(store.keys()).filter(k => k.startsWith("audit-check"))).toEqual([]);
+  });
+});

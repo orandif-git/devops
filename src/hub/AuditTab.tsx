@@ -1,7 +1,7 @@
 import * as React from "react";
 import { AREA_LABEL, AuditEntry, auditCsv, olderThan } from "../core/audit";
 import { formatStamp, localTimeZone } from "../core/time";
-import { appendAudit, deleteAudit, listAudit, loadRetention, saveRetention } from "../shared/auditStore";
+import { appendAudit, auditStorageCheck, deleteAudit, listAudit, loadRetention, saveRetention } from "../shared/auditStore";
 import { useReason } from "./ReasonDialog";
 
 const download = (name: string, text: string) => {
@@ -15,6 +15,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
   const [filter, setFilter] = React.useState("");
   const [closed, setClosed] = React.useState<Set<string>>(new Set());
   const [msg, setMsg] = React.useState("");
+  const [check, setCheck] = React.useState<string[]>();
   const { ask, dialog } = useReason();
   const tz = React.useMemo(localTimeZone, []);
   const when = (iso: string) => formatStamp(new Date(iso), tz);
@@ -60,6 +61,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
         <button className="btn" onClick={exportAll} disabled={!shown.length}>Export CSV{q ? " (filtered)" : ""}</button>
         <label className="fixed">Keep entries for <input type="number" min={1} max={120} style={{ width: 60 }} defaultValue={months} key={months} onBlur={e => changeRetention(parseInt(e.target.value, 10))} /> months</label>
         <button className="btn" onClick={reload}>Refresh</button>
+        <button className="btn" title="Writes and removes a few test records to see whether this server stores and lists them. The real log is not touched." onClick={() => { setCheck(["Checking…"]); auditStorageCheck(p.projectId).then(setCheck).catch(e => setCheck(["✖ " + (e as Error).message])); }}>Check storage</button>
         <span className="muted">{shown.length} of {entries.length} entries · times in {tz}</span>
       </div>
       {entries[0] && (
@@ -75,6 +77,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
             <button className="btn danger" onClick={() => clearOld(false)}>Clear without exporting</button></div>
         </div>
       )}
+      {check && <div className="card" role="status">{check.map((l, i) => <div key={i} className={l.startsWith("✖") ? "err" : ""}>{l}</div>)}</div>}
       {msg && <div className="muted" role="status">{msg}</div>}
       <table className="grid" style={{ width: "100%" }}>
         <thead><tr><th>When</th><th>User</th><th>What</th><th>Reason</th><th>Comments</th><th>Changes</th></tr></thead>
