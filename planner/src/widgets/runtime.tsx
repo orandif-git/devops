@@ -20,8 +20,10 @@ async function draw(kind: Kind, s: WidgetSettings) {
     ReactDOM.render(kind === "tile" ? <Tile d={d} /> : kind === "over" ? <OverList d={d} /> : <TeamMap d={d} />, root);
     return WidgetStatusHelper.Success();
   } catch (e) {
-    ReactDOM.render(<div className="wg err" role="alert">{(e as Error).message}</div>, root);
-    return WidgetStatusHelper.Failure((e as Error).message);
+    // Failure() makes the dashboard show a generic "Widget failed to load" card; show the reason in the widget instead
+    const m = (e as Error)?.message || String(e);
+    ReactDOM.render(<div className="wg err" role="alert"><b>Resource Planner</b><div>{m}</div></div>, root);
+    return WidgetStatusHelper.Success();
   }
 }
 
