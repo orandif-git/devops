@@ -75,15 +75,17 @@ export function newAuditEntry(p: { at?: Date; userId: string; userName: string; 
 
 export const AREA_LABEL: Record<AuditEntry["area"], string> = { configuration: "Grid & Rules configuration", "capacity-settings": "Capacity settings", "audit-settings": "Audit log settings", "backup-restore": "Restore from backup" };
 
+import { describeChange } from "./auditText";
+
 const csvCell = (s: string) => /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 /** One CSV row per changed value (an entry without value changes still gets one row). */
 export function auditCsv(entries: AuditEntry[], when: (iso: string) => string): string {
-  const rows: string[][] = [["When", "User", "User id", "Area", "Reason", "Comment", "Setting", "Previous value", "New value"]];
+  const rows: string[][] = [["When", "User", "User id", "Area", "Reason", "Comment", "What changed", "Setting", "Previous value", "New value"]];
   for (const e of entries) {
     const head = [when(e.at), e.userName, e.userId, AREA_LABEL[e.area] ?? e.area, e.reason, e.comment];
-    if (!e.changes.length) rows.push([...head, "", "", ""]);
-    for (const c of e.changes) rows.push([...head, c.path, c.before, c.after]);
-    if (e.omitted) rows.push([...head, `(${e.omitted} more changes not kept)`, "", ""]);
+    if (!e.changes.length) rows.push([...head, "", "", "", ""]);
+    for (const c of e.changes) rows.push([...head, describeChange(c, e.area).text, c.path, c.before, c.after]);
+    if (e.omitted) rows.push([...head, `(${e.omitted} more changes not kept)`, "", "", ""]);
   }
   return rows.map(r => r.map(c => `"${csvCell(c).replace(/"/g, '""')}"`).join(",")).join("\r\n");
 }

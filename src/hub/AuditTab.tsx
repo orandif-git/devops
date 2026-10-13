@@ -2,6 +2,7 @@ import * as React from "react";
 import { AREA_LABEL, AuditEntry, auditCsv, olderThan } from "../core/audit";
 import { formatStamp, localTimeZone } from "../core/time";
 import { appendAudit, auditStorageCheck, deleteAudit, listAudit, loadRetention, saveRetention } from "../shared/auditStore";
+import { describeChange } from "../core/auditText";
 import { useReason } from "./ReasonDialog";
 
 const download = (name: string, text: string) => {
@@ -14,6 +15,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
   const [months, setMonths] = React.useState(24);
   const [filter, setFilter] = React.useState("");
   const [closed, setClosed] = React.useState<Set<string>>(new Set());
+  const [tech, setTech] = React.useState<Set<string>>(new Set());
   const [msg, setMsg] = React.useState("");
   const [check, setCheck] = React.useState<string[]>();
   const { ask, dialog } = useReason();
@@ -27,7 +29,7 @@ export function AuditTab(p: { projectId: string; version?: string }) {
 
   if (!entries) return <div className="muted">{msg || "Loading…"}</div>;
   const q = filter.trim().toLowerCase();
-  const shown = q ? entries.filter(e => [e.userName, e.userId, e.reason, e.comment, AREA_LABEL[e.area], when(e.at), ...e.changes.flatMap(c => [c.path, c.before, c.after])].join("\n").toLowerCase().includes(q)) : entries;
+  const shown = q ? entries.filter(e => [e.userName, e.userId, e.reason, e.comment, AREA_LABEL[e.area], when(e.at), ...e.changes.flatMap(c => [describeChange(c, e.area).text, c.path, c.before, c.after])].join("\n").toLowerCase().includes(q)) : entries;
   const old = olderThan(entries, months);
 
   const exportAll = () => download(`audit-log-${new Date().toISOString().slice(0, 10)}.csv`, auditCsv(shown, when));
@@ -90,10 +92,16 @@ export function AuditTab(p: { projectId: string; version?: string }) {
               </tr>
               {!closed.has(e.id) && (
                 <tr><td colSpan={6}>
-                  <table className="grid" style={{ width: "100%" }}>
-                    <thead><tr><th>Setting</th><th>Previous value</th><th>New value</th></tr></thead>
-                    <tbody>{e.changes.map((c, i) => <tr key={i}><td>{c.path}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody>
-                  </table>
+                  <ul className="chg">
+                    {e.changes.map((c, i) => { const h = describeChange(c, e.area); return <li key={i}><span className={"tag " + h.kind}>{h.kind === "reordered" ? "Reordered" : h.kind[0].toUpperCase() + h.kind.slice(1)}</span> {h.text}</li>; })}
+                  </ul>
+                  <button className="btn" onClick={() => setTech(c => { const n = new Set(c); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}>{tech.has(e.id) ? "Hide" : "Show"} technical detail</button>
+                  {tech.has(e.id) && (
+                    <table className="grid" style={{ width: "100%", marginTop: 6 }}>
+                      <thead><tr><th>Setting</th><th>Previous value</th><th>New value</th></tr></thead>
+                      <tbody>{e.changes.map((c, i) => <tr key={i}><td>{c.path}</td><td>{c.before}</td><td>{c.after}</td></tr>)}</tbody>
+                    </table>
+                  )}
                   {e.omitted ? <div className="muted">{e.omitted} more change(s) were not kept.</div> : null}
                 </td></tr>
               )}

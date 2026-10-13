@@ -73,3 +73,8 @@
 .modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 1000; }
 .modal { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px; width: min(520px, 92vw); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
 .modal textarea { width: 100%; box-sizing: border-box; }
+.hub ul.chg { list-style: none; margin: 4px 0 8px; padding: 0; }
+.hub ul.chg li { padding: 3px 0; line-height: 1.5; }
+.hub .tag { display: inline-block; min-width: 62px; text-align: center; font-size: 11px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--hover); margin-right: 6px; }
+.hub .tag.added { border-color: var(--ok); color: var(--ok); }
+.hub .tag.removed { border-color: var(--err); color: var(--err); }
