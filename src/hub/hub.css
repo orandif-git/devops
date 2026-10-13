@@ -67,3 +67,6 @@
 .hub .badge.sect-ok { color: var(--ok); border-color: var(--ok); }
 .hub .badge.sect-todo { color: #8a6d00; border-color: #c19c00; }
 .hub .issue .go { margin-left: 8px; }
+.modal-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding-top: 12vh; z-index: 1000; }
+.modal { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 16px 18px; width: min(520px, 92vw); box-shadow: 0 8px 28px rgba(0,0,0,.35); }
+.modal textarea { width: 100%; box-sizing: border-box; }

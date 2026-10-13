@@ -17,6 +17,11 @@ import { Ctx } from "./ui";
 import { writtenFields } from "../core/written";
 import { makeCatalog, validateProject } from "./validate";
 import { issueTarget, nextStep, Tab, TAB_INTRO } from "./sections";
+import { AuditTab } from "./AuditTab";
+import { useReason } from "./ReasonDialog";
+import { projectAdminStatus } from "../shared/presetAccess";
+import { appendAudit } from "../shared/auditStore";
+import { diffSettings } from "../core/audit";
 
 
 function JsonTab(p: { config: ProjectConfig; onApply(c: ProjectConfig): void }) {
@@ -60,6 +65,9 @@ function Hub(props: { projectId: string; projectName: string }) {
   const [loadErrors, setLoadErrors] = React.useState<string[]>([]);
   const [attempt, setAttempt] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
+  const [admin, setAdmin] = React.useState<"yes" | "no" | "unknown">();
+  const { ask, dialog } = useReason();
+  React.useEffect(() => { projectAdminStatus(props.projectId).then(setAdmin); }, [props.projectId]);
 
   React.useEffect(() => {
     setLoadErrors([]);
@@ -101,7 +109,8 @@ function Hub(props: { projectId: string; projectName: string }) {
     window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  if (!config) return <div className="hub">{msg || "Loading…"}</div>;
+  if (admin === "no") return <div className="hub"><h2>Grid &amp; Rules</h2><div className="help" role="alert">Only project administrators can open these settings. Ask a project administrator of “{props.projectName}” to make the change.</div></div>;
+  if (!config || !admin) return <div className="hub">{msg || "Loading…"}</div>;
 
   const save = async () => {
     setSaving(true);
@@ -117,7 +126,12 @@ function Hub(props: { projectId: string; projectName: string }) {
           return [n, untouched && theirs ? { ...g, presets: theirs } : g];
         })) };
       } catch { /* could not re-read: save what is on screen */ }
-      await saveConfig(props.projectId, out); setConfig(out); setSaved(JSON.stringify(out)); setMsg("Saved. Open work items pick up changes on next load.");
+      const diff = diffSettings(base, out);
+      const why = diff.changes.length ? await ask("Why are you changing the settings?", `${diff.changes.length + diff.omitted} value(s) will change. Examples: ${diff.changes.slice(0, 3).map(c => c.path).join(", ")}${diff.changes.length > 3 ? "…" : ""}`) : { reason: "", comment: "" };
+      if (!why) { setMsg("Not saved: a reason is required."); return; }
+      await saveConfig(props.projectId, out); setConfig(out); setSaved(JSON.stringify(out));
+      try { if (diff.changes.length) await appendAudit(props.projectId, { area: "configuration", reason: why.reason, comment: why.comment, before: base, after: out }); setMsg("Saved. Open work items pick up changes on next load."); }
+      catch (e) { setMsg("Saved, but the audit log entry could not be written: " + (e as Error).message); }
     }
     catch (e) { setMsg("Save failed: " + (e as Error).message); } finally { setSaving(false); }
   };
@@ -125,6 +139,8 @@ function Hub(props: { projectId: string; projectName: string }) {
   return (
     <Ctx.Provider value={{ projectName: props.projectName, types, fields: pickerFields, loadError: loadErrors[0], lookups: config.lookups ?? {}, setLookups: lookups => setConfig({ ...config, lookups }) }}>
       <div className="hub">
+        {dialog}
+        {admin === "unknown" && <div className="help" role="status">Your permissions could not be checked, so the settings are shown. Only project administrators should change them.</div>}
         <h2>Grid &amp; Rules</h2>
         <div className="muted">Project “{props.projectName}” · conditional rules, dependent dropdowns and smart grids</div>
         <div className="savebar">
@@ -154,7 +170,7 @@ function Hub(props: { projectId: string; projectName: string }) {
           );
         })()}
         <div className="tabs" role="tablist">
-          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["json", "JSON"]] as [Tab, string][])
+          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["audit", "Audit log"], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
         </div>
         <div className="tabintro">{TAB_INTRO[tab]}</div>
@@ -165,6 +181,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "readonly" && <ReadOnlyTab config={config} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
+        {tab === "audit" && <AuditTab projectId={props.projectId} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (
           <>

@@ -1,9 +1,9 @@
-import * as SDK from "azure-devops-extension-sdk";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
 import { keyNorm } from "../core/keys";
 import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
-import { dataManager, getCompat, getProject, getTeamMembersCompat, getTeamsCompat, withTimeout, workClient } from "./ado";
+import { dataManager, getCompat, getProject, getTeamsCompat, withTimeout, workClient } from "./ado";
+import { projectAdminStatus } from "./presetAccess";
 
 const COLLECTION = "wig-capacity";
 
@@ -15,7 +15,7 @@ export interface CapacitySettings {
   source: CapacitySource;
   /** source = "teams": the teams whose iterations hold the capacity (e.g. one yearly iteration "Capacity 2026") */
   capacityTeams: TeamRef[];
-  /** members of these Azure DevOps teams may edit capacity (empty = any project member). Project administrators always may. */
+  /** no longer used: only project administrators edit capacity (kept so stored settings still load) */
   editorTeams: TeamRef[];
   /** hours per month for registered people who have no default of their own */
   defaultHours: number | null;
@@ -142,18 +142,13 @@ export const listTeams = async (projectId: string): Promise<TeamRef[]> =>
   (await withTimeout(getTeamsCompat(projectId, 200), "Loading teams")).map(t => ({ id: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
 
 /**
- * May the current user edit capacity? Yes when no team is configured, or when they are a (direct) member of a configured team.
- * Project administrators edit capacity in the Grid & Rules settings page, which only they can open.
+ * May the current user edit capacity? Project administrators only.
+ * If the permission check itself fails, editing stays possible (with a notice) so that a real administrator is not locked out.
  * Note: this is access control inside the extension's pages, not a security boundary of Azure DevOps.
  */
-export async function checkCanEdit(projectId: string, settings: CapacitySettings): Promise<{ canEdit: boolean; reason: string }> {
-  if (!settings.editorTeams.length) return { canEdit: true, reason: "No editor team is configured, so any project member may edit." };
-  const me = SDK.getUser().id.toLowerCase();
-  for (const t of settings.editorTeams) {
-    try {
-      const members = await withTimeout(getTeamMembersCompat(projectId, t.id, 1000), "Loading team members");
-      if (members.some(m => m.identity?.id?.toLowerCase() === me)) return { canEdit: true, reason: `You are a member of the team “${t.name}”.` };
-    } catch { /* team not readable: treat as not a member */ }
-  }
-  return { canEdit: false, reason: `Read-only: you are not a member of ${settings.editorTeams.map(t => `“${t.name}”`).join(" or ")}. Ask a team administrator to add you.` };
+export async function checkCanEdit(projectId: string): Promise<{ canEdit: boolean; reason: string }> {
+  const status = await projectAdminStatus(projectId);
+  if (status === "yes") return { canEdit: true, reason: "You are a project administrator, so you can edit." };
+  if (status === "unknown") return { canEdit: true, reason: "Your permissions could not be checked, so editing is allowed. Only project administrators should edit capacity." };
+  return { canEdit: false, reason: "Read-only: only project administrators can edit capacity." };
 }

@@ -5,6 +5,14 @@ import { getCompat, getTeamMembersCompat, withTimeout } from "./ado";
 const PROJECT_NAMESPACE = "52d39943-cb85-4d7f-8fa8-c6baac873819";
 const EDIT_PROJECT = 2;
 
+/** yes / no, or unknown when the permission check itself failed (then callers must not lock real administrators out). */
+export async function projectAdminStatus(projectId: string): Promise<"yes" | "no" | "unknown"> {
+  try {
+    const r = await withTimeout(getCompat<{ value?: boolean[] }>(`permissions/${PROJECT_NAMESPACE}/${EDIT_PROJECT}`, { tokens: `$PROJECT:vstfs:///Classification/TeamProject/${projectId}` }), "Checking permissions");
+    return r.value?.[0] === true ? "yes" : r.value?.[0] === false ? "no" : "unknown";
+  } catch { return "unknown"; }
+}
+
 /** Best effort: false when it cannot be determined (then only the team rule can grant access). */
 export async function isProjectAdmin(projectId: string): Promise<boolean> {
   try {

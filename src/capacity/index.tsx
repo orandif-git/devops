@@ -27,7 +27,7 @@ function Page(p: { projectId: string; projectName: string }) {
   }, [p.projectId]);
 
   React.useEffect(() => {
-    loadSettings(p.projectId).then(async s => { setSettings(s); setAccess(await checkCanEdit(p.projectId, s)); })
+    loadSettings(p.projectId).then(async s => { setSettings(s); setAccess(await checkCanEdit(p.projectId)); })
       .catch(e => setAccess({ canEdit: false, reason: "Could not check permissions: " + e.message }));
   }, [p.projectId]);
 

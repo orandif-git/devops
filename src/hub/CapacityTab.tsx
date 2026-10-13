@@ -17,6 +17,9 @@ const WEEK: [number, string][] = [[0, "Sun"], [1, "Mon"], [2, "Tue"], [3, "Wed"]
  * Admin view of capacity: choose WHERE capacity is maintained (this register, or Azure DevOps team capacity),
  * who may edit the register (teams), the project default, and see the overview and the people.
  */
+import { useReason } from "./ReasonDialog";
+import { appendAudit } from "../shared/auditStore";
+
 export function CapacityTab(p: { projectId: string }) {
   const [settings, setSettings] = React.useState<CapacitySettings>(defaultSettings());
   const [saved, setSaved] = React.useState("");
@@ -24,6 +27,7 @@ export function CapacityTab(p: { projectId: string }) {
   const [msg, setMsg] = React.useState("");
   const [report, setReport] = React.useState<NativeReport[] | string>();
   const [version, setVersion] = React.useState(0);
+  const { ask, dialog } = useReason();
 
   const savedSettings = React.useMemo<CapacitySettings>(() => (saved ? { ...defaultSettings(), ...JSON.parse(saved) } : defaultSettings()), [saved]);
   const fromTeams = savedSettings.source === "teams";
@@ -46,12 +50,22 @@ export function CapacityTab(p: { projectId: string }) {
   }, [p.projectId]);
 
   const dirty = JSON.stringify(settings) !== saved;
-  const toggle = (key: "editorTeams" | "capacityTeams", t: TeamRef) =>
+  const toggle = (key: "capacityTeams", t: TeamRef) =>
     setSettings(s => ({ ...s, [key]: s[key].some(x => x.id === t.id) ? s[key].filter(x => x.id !== t.id) : [...s[key], t] }));
   const save = async () => {
     if (settings.source === "register" && !settings.calendar.workingDays.length) { setMsg("Tick at least one working day in the calendar."); return; }
     const clean = { ...settings, calendar: { ...settings.calendar, holidays: settings.calendar.holidays.filter(h => h.start && (!h.end || h.end >= h.start)) } };
-    try { await saveSettings(p.projectId, clean); setSettings(clean); setSaved(JSON.stringify(clean)); setMsg(clean.calendar.holidays.length === settings.calendar.holidays.length ? "Capacity settings saved." : "Capacity settings saved (holidays without a valid date were dropped)."); setReport(undefined); setVersion(v => v + 1); }
+    const before = JSON.parse(saved || JSON.stringify(defaultSettings())) as CapacitySettings;
+    const { editorTeams: _a, ...cleanNow } = clean, { editorTeams: _b, ...beforeNow } = before;   // the retired editor-team list is not part of the audit
+    void _a; void _b;
+    const why = await ask("Why are you changing the capacity settings?", "Capacity settings decide where available hours come from and the working calendar.");
+    if (!why) { setMsg("Not saved: a reason is required."); return; }
+    try {
+      await saveSettings(p.projectId, clean); setSettings(clean); setSaved(JSON.stringify(clean)); setReport(undefined); setVersion(v => v + 1);
+      const dropped = clean.calendar.holidays.length !== settings.calendar.holidays.length;
+      try { await appendAudit(p.projectId, { area: "capacity-settings", reason: why.reason, comment: why.comment, before: beforeNow, after: cleanNow }); setMsg(dropped ? "Capacity settings saved (holidays without a valid date were dropped)." : "Capacity settings saved."); }
+      catch (e) { setMsg("Saved, but the audit log entry could not be written: " + (e as Error).message); }
+    }
     catch (e) { setMsg("Save failed: " + (e as Error).message); }
   };
   const check = async () => {
@@ -59,7 +73,7 @@ export function CapacityTab(p: { projectId: string }) {
     try { setReport((await readNativeCapacity(settings.capacityTeams, true)).report); setVersion(v => v + 1); }
     catch (e) { setReport("Could not read team capacity: " + (e as Error).message); }
   };
-  const chips = (key: "editorTeams" | "capacityTeams") => (
+  const chips = (key: "capacityTeams") => (
     <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "6px 0" }}>
       {teams.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t.id} className={"chip" + (settings[key].some(x => x.id === t.id) ? " on" : "")} onClick={() => toggle(key, t)}>{t.name}</span>)}
       {!teams.length && <span className="muted">Loading teams…</span>}
@@ -68,6 +82,7 @@ export function CapacityTab(p: { projectId: string }) {
 
   return (
     <div>
+      {dialog}
       <div className="card" style={{ marginTop: 0 }}>
         <h3 style={{ margin: "0 0 4px" }}>Where is capacity maintained?</h3>
         <label style={{ display: "block", margin: "4px 0" }}><input type="radio" checked={settings.source === "register"} onChange={() => setSettings(s => ({ ...s, source: "register" }))} />{" "}
@@ -127,19 +142,13 @@ export function CapacityTab(p: { projectId: string }) {
         </div>
       )}
 
-      {settings.source === "register" && (
-        <div className="card">
-          <h3 style={{ margin: "0 0 4px" }}>Who may edit the register</h3>
-          <div className="help">Members of the selected Azure DevOps <b>teams</b> can edit the Capacity page; everyone else sees it read-only. Leave all unselected to let any project member edit. Project administrators (you, on this page) can always edit. Add people directly to the team – members that come only through a nested group may not be recognised. This controls the extension's pages; it is not a security boundary of Azure DevOps.</div>
-          {chips("editorTeams")}
-        </div>
-      )}
+      <div className="help">Only project administrators can change capacity settings and the register.</div>
 
       <h3>Utilization overview (all Epics)</h3>
       <Overview load={load} key={"ov" + version} />
       <h3>{fromTeams ? "People and capacity read from Azure DevOps" : "Capacity register"}</h3>
       <CapacityEditor api={api} canEdit={!fromTeams} projectId={p.projectId} actor={SDK.getUser().displayName} key={"ed" + version}
-        reason={fromTeams ? "Read-only: capacity comes from Azure DevOps team capacity (Boards → Sprints → Capacity). Change it there." : "You are a project administrator, so you can always edit."} />
+        reason={fromTeams ? "Read-only: capacity comes from Azure DevOps team capacity (Boards → Sprints → Capacity). Change it there." : "Only project administrators can edit the register."} />
     </div>
   );
 }
