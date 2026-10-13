@@ -173,7 +173,10 @@ function Hub(props: { projectId: string; projectName: string }) {
         })()}
         <div className="tabs" role="tablist">
           {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["controls", `Controls${config.commentOnly?.enabled ? " (1 on)" : ""}`], ["backup", "Backup & restore"], ["audit", "Audit log"], ["json", "JSON"]] as [Tab, string][])
-            .map(([t, l]) => <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
+            .map(([t, l]) => {
+              const m = /^(.*?)\s*\((.+)\)$/.exec(l);             // "Grids (2)" → name + small count badge
+              return <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{m ? m[1] : l}{m && <span className="tc">{m[2]}</span>}</button>;
+            })}
         </div>
         <div className="tabintro">{TAB_INTRO[tab]}</div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}

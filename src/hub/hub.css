@@ -1,9 +1,12 @@
 .hub { padding: 12px 20px 40px; max-width: 1200px; }
 .hub h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
 .hub h3 { margin: 16px 0 6px; font-size: 14px; font-weight: 600; }
-.hub .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0; }
-.hub .tab { padding: 6px 14px; cursor: pointer; border: 0; background: none; border-bottom: 2px solid transparent; }
-.hub .tab.on { border-bottom-color: var(--accent); font-weight: 600; }
+.hub .tabs { display: flex; flex-wrap: nowrap; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0; overflow-x: auto; scrollbar-width: thin; }
+.hub .tab { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; padding: 8px 12px; cursor: pointer; border: 0; background: none; border-bottom: 2px solid transparent; border-radius: 3px 3px 0 0; color: var(--fg2); }
+.hub .tab:hover { background: var(--hover); color: var(--fg); }
+.hub .tab .tc { font-size: 11px; line-height: 16px; min-width: 16px; padding: 0 6px; border-radius: 8px; text-align: center; background: var(--hover); border: 1px solid var(--line); color: var(--fg2); }
+.hub .tab.on .tc { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.hub .tab.on { border-bottom-color: var(--accent); font-weight: 600; color: var(--fg); }
 .hub .split { display: grid; grid-template-columns: 240px 1fr; gap: 16px; align-items: start; }
 @media (max-width: 800px) { .hub .split { grid-template-columns: 1fr; } }
 .hub .list { border: 1px solid var(--line); }
