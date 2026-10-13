@@ -19,6 +19,13 @@ describe("audit diff", () => {
     expect(changes.map(c => c.path)).toEqual(["c[x]"]);
     expect(changes[0].before).toBe("(not set)");
   });
+  it("lists exactly which dropdown options were added or removed", () => {
+    const { changes } = diffSettings({ c: { options: ["Discovery", "Build"] } }, { c: { options: ["Discovery", "Test"] } });
+    expect(changes).toEqual([
+      { path: "c.options", before: "(not in the list)", after: "added: Test" },
+      { path: "c.options", before: "removed: Build", after: "(no longer in the list)" },
+    ]);
+  });
   it("shows added and removed values, truncates long ones and caps the number kept", () => {
     expect(diffSettings({ a: 1 }, { a: 1, b: "x" }).changes).toEqual([{ path: "b", before: "(not set)", after: "x" }]);
     expect(diffSettings({ t: "x" }, { t: "y".repeat(1000) }).changes[0].after.length).toBeLessThan(310);

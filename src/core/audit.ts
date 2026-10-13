@@ -14,6 +14,8 @@ export interface AuditEntry {
   omitted?: number;
 }
 
+const randomId = () => { try { return crypto.randomUUID().replace(/-/g, "").slice(0, 16); } catch { return Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 10); } };
+
 export const MIN_REASON = 10;
 export const DEFAULT_RETENTION_MONTHS = 24;
 const MAX_CHANGES = 150;
@@ -51,7 +53,13 @@ export function diffSettings(before: unknown, after: unknown): { changes: AuditC
       if (key) {
         const bm = new Map(b.map(x => [(x as Record<string, string>)[key], x])), am = new Map(a.map(x => [(x as Record<string, string>)[key], x]));
         for (const k of new Set([...bm.keys(), ...am.keys()])) walk(`${path}[${k}]`, bm.get(k), am.get(k));
-      } else if (b.every(x => typeof x !== "object") && a.every(x => typeof x !== "object")) push(path, b, a);
+      } else if (b.every(x => typeof x !== "object") && a.every(x => typeof x !== "object")) {
+        // a list of plain values (dropdown options, allowed values…): say exactly what was added and removed
+        const added = a.filter(x => !b.includes(x)), removed = b.filter(x => !a.includes(x));
+        for (const x of added) push(`${path}`, "(not in the list)", `added: ${String(x)}`);
+        for (const x of removed) push(`${path}`, `removed: ${String(x)}`, "(no longer in the list)");
+        if (!added.length && !removed.length) push(path, b, a);          // same values, different order
+      }
       else for (let i = 0; i < Math.max(b.length, a.length); i++) walk(`${path}[${i}]`, b[i], a[i]);
     } else push(path, b, a);
   };
@@ -62,7 +70,7 @@ export function diffSettings(before: unknown, after: unknown): { changes: AuditC
 export function newAuditEntry(p: { at?: Date; userId: string; userName: string; area: AuditEntry["area"]; reason: string; comment: string; before: unknown; after: unknown }): AuditEntry {
   const { changes, omitted } = diffSettings(p.before, p.after);
   const at = (p.at ?? new Date()).toISOString();
-  return { id: `${at.replace(/[^0-9]/g, "")}-${Math.random().toString(36).slice(2, 8)}`, at, userId: p.userId, userName: p.userName, area: p.area, reason: p.reason.trim(), comment: p.comment.trim(), changes, ...(omitted ? { omitted } : {}) };
+  return { id: `${at.replace(/[^0-9]/g, "")}-${randomId()}`, at, userId: p.userId, userName: p.userName, area: p.area, reason: p.reason.trim(), comment: p.comment.trim(), changes, ...(omitted ? { omitted } : {}) };
 }
 
 export const AREA_LABEL: Record<AuditEntry["area"], string> = { configuration: "Grid & Rules configuration", "capacity-settings": "Capacity settings", "audit-settings": "Audit log settings" };

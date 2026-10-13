@@ -11,7 +11,11 @@ export const currentActor = () => { const u = SDK.getUser(); return { userId: u.
 
 export async function appendAudit(projectId: string, p: Omit<Parameters<typeof newAuditEntry>[0], "userId" | "userName">): Promise<AuditEntry> {
   const entry = newAuditEntry({ ...currentActor(), ...p });
-  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId, entry.id), kind: "entry", projectId, entry, __etag: -1 });
+  const m = await dataManager();
+  await m.setDocument(COLLECTION, { id: docId(projectId, entry.id), kind: "entry", projectId, entry, __etag: -1 });
+  // read it back: an entry that did not really get stored must be reported, not assumed
+  const back = await m.getDocument(COLLECTION, docId(projectId, entry.id));
+  if (back?.entry?.id !== entry.id) throw new Error("the entry was not found after it was written");
   return entry;
 }
 

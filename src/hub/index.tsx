@@ -151,7 +151,7 @@ function Hub(props: { projectId: string; projectName: string }) {
             {errors.length ? `${errors.length} error(s)` : "No errors"}{warns.length ? ` · ${warns.length} warning(s)` : ""}
           </span>
           {dirty && <span className="badge">unsaved</span>}
-          <span className="spacer" style={{ flex: 1 }} /><span className="muted">{msg}</span>
+          <span className="spacer" style={{ flex: 1 }} /><span className={/audit|failed|Not saved/i.test(msg) ? "err" : "muted"} role="status">{msg}</span>
         </div>
         {loadErrors.length > 0 && (
           <div className="err" style={{ border: "1px solid var(--err)", padding: "6px 10px", margin: "8px 0" }}>
@@ -183,7 +183,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "readonly" && <ReadOnlyTab config={config} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
         {tab === "controls" && <CommentOnlyTab value={config.commentOnly} onChange={commentOnly => setConfig({ ...config, commentOnly })} />}
-        {tab === "audit" && <AuditTab projectId={props.projectId} />}
+        {tab === "audit" && <AuditTab projectId={props.projectId} version={saved} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (
           <>

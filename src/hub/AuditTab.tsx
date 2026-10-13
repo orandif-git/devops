@@ -8,11 +8,12 @@ const download = (name: string, text: string) => {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv" })); a.download = name; a.click();
 };
 
-export function AuditTab(p: { projectId: string }) {
+/** `version` changes after every save of the settings, so a list that is already open reloads and shows the new entry. */
+export function AuditTab(p: { projectId: string; version?: string }) {
   const [entries, setEntries] = React.useState<AuditEntry[]>();
   const [months, setMonths] = React.useState(24);
   const [filter, setFilter] = React.useState("");
-  const [open, setOpen] = React.useState<string>();
+  const [closed, setClosed] = React.useState<Set<string>>(new Set());
   const [msg, setMsg] = React.useState("");
   const { ask, dialog } = useReason();
   const tz = React.useMemo(localTimeZone, []);
@@ -21,7 +22,7 @@ export function AuditTab(p: { projectId: string }) {
   const reload = React.useCallback(() => {
     Promise.all([listAudit(p.projectId), loadRetention(p.projectId)]).then(([e, m]) => { setEntries(e); setMonths(m); }).catch(e => setMsg("Could not load the audit log: " + e.message));
   }, [p.projectId]);
-  React.useEffect(reload, [reload]);
+  React.useEffect(reload, [reload, p.version]);
 
   if (!entries) return <div className="muted">{msg || "Loading…"}</div>;
   const q = filter.trim().toLowerCase();
@@ -58,6 +59,7 @@ export function AuditTab(p: { projectId: string }) {
         <input type="search" placeholder="Search user, setting, value, reason…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 300 }} />
         <button className="btn" onClick={exportAll} disabled={!shown.length}>Export CSV{q ? " (filtered)" : ""}</button>
         <label className="fixed">Keep entries for <input type="number" min={1} max={120} style={{ width: 60 }} defaultValue={months} key={months} onBlur={e => changeRetention(parseInt(e.target.value, 10))} /> months</label>
+        <button className="btn" onClick={reload}>Refresh</button>
         <span className="muted">{shown.length} of {entries.length} entries · times in {tz}</span>
       </div>
       {old.length > 0 && (
@@ -75,9 +77,9 @@ export function AuditTab(p: { projectId: string }) {
             <React.Fragment key={e.id}>
               <tr>
                 <td>{when(e.at)}</td><td title={e.userId}>{e.userName}</td><td>{AREA_LABEL[e.area] ?? e.area}</td><td>{e.reason}</td><td>{e.comment}</td>
-                <td><button className="btn" aria-expanded={open === e.id} onClick={() => setOpen(open === e.id ? undefined : e.id)}>{e.changes.length}{e.omitted ? `+${e.omitted}` : ""} value(s)</button></td>
+                <td><button className="btn" aria-expanded={!closed.has(e.id)} onClick={() => setClosed(c => { const n = new Set(c); if (n.has(e.id)) n.delete(e.id); else n.add(e.id); return n; })}>{closed.has(e.id) ? "Show" : "Hide"} {e.changes.length}{e.omitted ? `+${e.omitted}` : ""} change(s)</button></td>
               </tr>
-              {open === e.id && (
+              {!closed.has(e.id) && (
                 <tr><td colSpan={6}>
                   <table className="grid" style={{ width: "100%" }}>
                     <thead><tr><th>Setting</th><th>Previous value</th><th>New value</th></tr></thead>
