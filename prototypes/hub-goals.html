@@ -1,0 +1,66 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Prototype C – goals</title>
+<style>
+:root{--bg:#fff;--fg:#1f2328;--fg2:#59636e;--line:#e3e6ea;--soft:#f6f8fa;--accent:#0f6cbd;--ok:#1a7f37;--okbg:#e6f4ea;--warn:#b26a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#e8e8ea;--fg2:#a0a4ab;--line:#33363c;--soft:#25272c;--accent:#4aa3f0;--ok:#4cc26a;--okbg:#17321f;--warn:#f0c36a;--warnbg:#3a2f14}}
+*{box-sizing:border-box}body{margin:0;background:var(--soft);color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif;padding:18px 24px}
+.cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg2);margin:14px 0 6px}
+.screen{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:16px 20px;margin-bottom:10px}
+h2{margin:0;font-size:20px}h3{margin:14px 0 4px}.muted{color:var(--fg2)}
+.goals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:10px}
+.goal{border:1px solid var(--line);border-radius:6px;padding:11px 13px;background:var(--bg)}.goal.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 20%,transparent)}
+.goal b{display:block;font-size:13px}.goal span{color:var(--fg2);font-size:12px}.goal i{display:block;margin-top:6px;font-style:normal;font-size:11px;color:var(--accent)}
+.stepper{display:flex;gap:0;margin:12px 0 6px}
+.st{flex:1;position:relative;padding:0 8px 0 0}.st:not(:last-child)::after{content:"";position:absolute;top:13px;left:30px;right:6px;height:2px;background:var(--line)}
+.st .n{width:26px;height:26px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;background:var(--bg);position:relative;z-index:1;color:var(--fg2)}
+.st.done .n{background:var(--okbg);border-color:var(--ok);color:var(--ok)}.st.next .n{border-color:var(--accent);color:var(--accent)}
+.st b{display:block;margin-top:6px;font-size:12px}.st span{display:block;color:var(--fg2);font-size:11.5px}
+.panel{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;margin-top:12px}
+.box{border:1px solid var(--line);border-radius:6px;padding:12px 14px;background:var(--soft)}.box h4{margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--fg2)}
+table{border-collapse:collapse;width:100%;font-size:12px}th{text-align:left;color:var(--fg2);font-weight:600;padding:4px 8px;border-bottom:1px solid var(--line)}td{padding:4px 8px;border-bottom:1px dotted var(--line)}
+.tag{font-size:11px;padding:0 8px;border-radius:8px;font-weight:600}.tag.a{background:var(--okbg);color:var(--ok)}.tag.p{background:var(--warnbg);color:var(--warn)}
+.btn{display:inline-block;padding:3px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.mini{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px}.mini .box{background:var(--bg)}
+code{background:var(--soft);padding:0 4px;border-radius:3px}
+</style></head><body>
+
+<div class="cap">Prototype C · Goals – “What do you want to do?” opens a guided journey with a worked example</div>
+<div class="screen">
+  <h2>Grid &amp; Rules</h2><div class="muted">Project “Project E2E SDLC Automation” · pick a goal; the page walks you through it step by step</div>
+  <div class="goals">
+    <div class="goal"><b>Track people’s hours</b><span>A table per Epic with totals and capacity.</span><i>Grids · Dates &amp; effort · Capacity →</i></div>
+    <div class="goal on"><b>Have rows approved</b><span>Approve / reject per row, with locking and an overall status.</span><i>Approvals · Secure mode · Audit →</i></div>
+    <div class="goal"><b>Fill an Epic field automatically</b><span>A total or formula writes into a field people cannot edit.</span><i>Calculations · Read-only fields →</i></div>
+    <div class="goal"><b>Limit what some people can do</b><span>Comment-only reviewers, administrator-only pages.</span><i>Controls · Security →</i></div>
+    <div class="goal"><b>Keep my settings safe</b><span>Backup, restore, see who changed what.</span><i>Backup · Audit log →</i></div>
+    <div class="goal"><b>Something is not working</b><span>Check storage, permissions and Azure DevOps access.</span><i>Diagnostics →</i></div>
+  </div>
+
+  <h3>Goal: Have rows approved</h3>
+  <div class="muted">Example: the PMO team approves the rows of the SDLC Timesheet; approved rows lock and the Epic shows “Partially approved”.</div>
+  <div class="stepper">
+    <div class="st done"><div class="n">✓</div><b>Add a status column</b><span>Grids › SDLC Timesheet › Approval</span></div>
+    <div class="st done"><div class="n">✓</div><b>Choose approvers</b><span>Team “PMO”; nobody approves their own row</span></div>
+    <div class="st next"><div class="n">3</div><b>Lock and reset</b><span>Lock approved rows; reset to pending when edited</span></div>
+    <div class="st"><div class="n">4</div><b>Write the overall status</b><span>Field “Review Status” on the Epic</span></div>
+    <div class="st"><div class="n">5</div><b>Make it enforced</b><span>Secure mode: protected approvals field</span></div>
+    <div class="st"><div class="n">6</div><b>Test as an approver</b><span>Open an Epic, approve one row</span></div>
+  </div>
+  <div class="panel">
+    <div class="box"><h4>What you will see in the Epic</h4>
+      <table><thead><tr><th>Activity</th><th>Hours</th><th>Review status</th><th>Reviewed by</th></tr></thead><tbody>
+      <tr><td>Detailed requirements</td><td>10</td><td><span class="tag a">Approved</span></td><td>Aman S</td></tr>
+      <tr><td>Technical design</td><td>40</td><td><span class="tag p">Pending review</span></td><td></td></tr>
+      <tr><td>Data migration</td><td>20</td><td><span class="tag a">Approved</span></td><td>Aman S</td></tr></tbody></table>
+      <div class="muted" style="margin-top:6px">Epic field “Review Status” → <b>Partially approved</b> · approved hours 30 of 70</div></div>
+    <div class="box"><h4>Step 3 · Lock and reset</h4>
+      <label style="display:block;margin:4px 0"><input type="checkbox" checked> Lock approved rows (only administrators can edit them)</label>
+      <label style="display:block;margin:4px 0"><input type="checkbox" checked> Reset to pending when an approved row is edited</label>
+      <div class="muted" style="margin:6px 0">Next: choose the field for the overall status.</div><span class="btn p">Continue to step 4</span> <span class="btn">Back</span>
+      <div class="muted" style="margin-top:8px">Not sure? <u>Use the recommended settings</u></div></div>
+  </div>
+  <div class="mini">
+    <div class="box"><h4>Goal: Fill an Epic field automatically – the journey</h4>1 Define the formula · 2 Pick the field · 3 Try on a real Epic · 4 Add the Read-only Value control · 5 Check the field type<br><span class="muted">Example: <code>TOTAL(Hours)</code> → “Total Project Man Hours”.</span></div>
+    <div class="box"><h4>Goal: Limit what some people can do – the journey</h4>1 Choose people or teams · 2 Choose the fields that stay editable · 3 Test as a restricted user · 4 Read what is and is not enforced<br><span class="muted">Example: team “Reviewers” may only comment on Epics.</span></div>
+  </div>
+</div>
+</body></html>

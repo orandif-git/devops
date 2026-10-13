@@ -1,0 +1,71 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Prototype B – journey rail</title>
+<style>
+:root{--bg:#fff;--fg:#1f2328;--fg2:#59636e;--line:#e3e6ea;--soft:#f6f8fa;--accent:#0f6cbd;--ok:#1a7f37;--okbg:#e6f4ea;--warn:#b26a00;--warnbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#e8e8ea;--fg2:#a0a4ab;--line:#33363c;--soft:#25272c;--accent:#4aa3f0;--ok:#4cc26a;--okbg:#17321f;--warn:#f0c36a;--warnbg:#3a2f14}}
+*{box-sizing:border-box}body{margin:0;background:var(--soft);color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif;padding:18px 24px}
+.cap{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--fg2);margin:14px 0 6px}
+.screen{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0;overflow:hidden;margin-bottom:10px}
+.top{padding:14px 20px;border-bottom:1px solid var(--line)}h2{margin:0;font-size:20px}.muted{color:var(--fg2)}
+.wrap{display:grid;grid-template-columns:230px 1fr}
+.rail{border-right:1px solid var(--line);padding:14px 10px;background:var(--soft)}
+.stage{display:flex;gap:10px;padding:9px 10px;border-radius:6px;margin-bottom:4px;align-items:flex-start}
+.stage .n{flex:0 0 24px;height:24px;border-radius:50%;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--fg2);background:var(--bg)}
+.stage.done .n{background:var(--okbg);border-color:var(--ok);color:var(--ok)}.stage.on{background:var(--bg);border:1px solid var(--line)}.stage.on .n{border-color:var(--accent);color:var(--accent)}
+.stage b{display:block}.stage span{color:var(--fg2);font-size:12px}
+.main{padding:16px 20px}
+.cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.card{border:1px solid var(--line);border-radius:6px;padding:11px 13px}
+.card h4{margin:0 0 2px;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+.badge{font-size:11px;font-weight:400;padding:0 8px;border-radius:8px;background:var(--okbg);color:var(--ok);white-space:nowrap}.badge.todo{background:var(--warnbg);color:var(--warn)}.badge.off{background:var(--soft);color:var(--fg2);border:1px solid var(--line)}
+.ex{margin-top:6px;padding:6px 9px;background:var(--soft);border-left:3px solid var(--accent);font-size:12px}.ex b{font-weight:600}
+.btn{display:inline-block;margin-top:8px;padding:3px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg)}.btn.p{background:var(--accent);border-color:var(--accent);color:#fff}
+table{border-collapse:collapse;width:100%;font-size:12px}th{text-align:left;color:var(--fg2);font-weight:600;padding:6px 8px;border-bottom:2px solid var(--line)}td{padding:5px 8px;border-bottom:1px solid var(--line)}
+td.c{text-align:center;width:90px}.d{color:var(--accent);font-size:15px;line-height:1}.d.o{color:var(--fg2)}
+</style></head><body>
+
+<div class="cap">Prototype B · Journey rail – the page follows the order in which an administrator works</div>
+<div class="screen">
+  <div class="top"><h2>Grid &amp; Rules</h2><div class="muted">Project “Project E2E SDLC Automation” · you are at stage 1 of 5</div></div>
+  <div class="wrap">
+    <div class="rail">
+      <div class="stage on"><span class="n">1</span><div><b>Design</b><span>What people fill in</span></div></div>
+      <div class="stage"><span class="n">2</span><div><b>Connect</b><span>Fields and layout in Azure DevOps</span></div></div>
+      <div class="stage"><span class="n">3</span><div><b>Try it</b><span>Test with real work items</span></div></div>
+      <div class="stage"><span class="n">4</span><div><b>Run</b><span>People, capacity, approvals</span></div></div>
+      <div class="stage"><span class="n">5</span><div><b>Protect &amp; maintain</b><span>Backup, audit, security, checks</span></div></div>
+    </div>
+    <div class="main">
+      <h3 style="margin:0">1 · Design – decide what people fill in</h3>
+      <div class="muted">Start with the grid. Everything else on this stage is optional and grows from it.</div>
+      <div class="cards">
+        <div class="card"><h4>Grids <span class="badge">2 defined</span></h4>The table inside the work item: columns, types, totals.
+          <div class="ex"><b>Example:</b> SDLC Timesheet – Activity (dropdown), Resource (person), Hours (number, total).</div><span class="btn p">Open Grids</span></div>
+        <div class="card"><h4>Dates &amp; effort <span class="badge off">off</span></h4>Start date + effort + allocation % → end date and hours per month.
+          <div class="ex"><b>Example:</b> 80 h at 100 %, 8 h a day → 10 working days, ends 13 Oct.</div><span class="btn">Turn on in a grid</span></div>
+        <div class="card"><h4>Calculations <span class="badge">1 defined</span></h4>A formula that fills a work item field.
+          <div class="ex"><b>Example:</b> Total man-hours = TOTAL(Hours) → field “Total Project Man Hours”.</div><span class="btn">Open Calculations</span></div>
+        <div class="card"><h4>Dropdown values &amp; mappings <span class="badge">1 mapping</span></h4>Lists and “value → category” tables.
+          <div class="ex"><b>Example:</b> Team ETU → treatment “Capitalizable”.</div><span class="btn">Open Mappings</span></div>
+        <div class="card"><h4>Rules &amp; dependent dropdowns <span class="badge off">0</span></h4>Require, restrict or block saving when conditions are met.
+          <div class="ex"><b>Example:</b> Phase = Build → only “Capitalizable” treatments.</div><span class="btn">Open Rules</span></div>
+        <div class="card"><h4>Presets <span class="badge off">0</span></h4>Ready-made rows people add with one click.
+          <div class="ex"><b>Example:</b> “Standard SDLC” adds 7 activity rows.</div><span class="btn">Add a preset</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="cap">Prototype B · The same journey as a map – where each feature is touched</div>
+<div class="screen"><div class="main">
+<table><thead><tr><th>Feature</th><th class="c">1 Design</th><th class="c">2 Connect</th><th class="c">3 Try it</th><th class="c">4 Run</th><th class="c">5 Protect</th><th>Typical example</th></tr></thead><tbody>
+<tr><td><b>Grids</b></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"></td><td>Timesheet inside an Epic</td></tr>
+<tr><td><b>Dates &amp; effort</b></td><td class="c"><span class="d">●</span></td><td class="c"></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"></td><td>End date from start + effort</td></tr>
+<tr><td><b>Calculations</b></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"></td><td class="c"><span class="d o">●</span></td><td>Total hours into an Epic field</td></tr>
+<tr><td><b>Rules, dropdowns, mappings</b></td><td class="c"><span class="d">●</span></td><td class="c"></td><td class="c"><span class="d">●</span></td><td class="c"></td><td class="c"></td><td>Allowed values by phase</td></tr>
+<tr><td><b>Approvals</b></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td>PMO approves rows; secure mode</td></tr>
+<tr><td><b>Capacity</b></td><td class="c"></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"></td><td>Hours per person and month</td></tr>
+<tr><td><b>Controls (comment-only)</b></td><td class="c"></td><td class="c"></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td>Reviewers can only comment</td></tr>
+<tr><td><b>Read-only fields</b></td><td class="c"></td><td class="c"><span class="d">●</span></td><td class="c"><span class="d">●</span></td><td class="c"></td><td class="c"><span class="d">●</span></td><td>Lock a calculated total</td></tr>
+<tr><td><b>Backup · Audit · Security · Diagnostics</b></td><td class="c"></td><td class="c"></td><td class="c"><span class="d o">●</span></td><td class="c"></td><td class="c"><span class="d">●</span></td><td>Restore yesterday’s settings</td></tr>
+</tbody></table></div></div>
+</body></html>
