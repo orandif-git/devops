@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resource Planner – command center prototype</title>
+<style>
+:root{color-scheme:light;--surface:#fff;--page:#f6f6f4;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e8e7e1;--axis:#c9c8bf;--ring:rgba(11,11,11,.10);--hover:rgba(11,11,11,.06);--accent:#2a78d6;--accent-fg:#fff;
+ --spare:#9ec5f4;--spare-t:#0d366b;--healthy:#0ca30c;--full:#fab219;--full-t:#0b0b0b;--over:#d03b3b;
+ --s1:#2a78d6;--s2:#eb6834;--s3:#17a2b8;--st-new:#8fa3bd;--st-active:#2a78d6;--st-hold:#e0a100;--st-done:#1f9d55;--shadow:0 8px 28px rgba(0,0,0,.18)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--surface:#1c1c1b;--page:#101010;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8d8b83;--grid:#2c2c2a;--axis:#42413d;--ring:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--accent:#5aa0f0;--accent-fg:#06121f;--spare:#3b6fae;--spare-t:#e5f0ff;--shadow:0 8px 28px rgba(0,0,0,.6)}}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select,input{font:inherit;color:inherit}
+.app{max-width:1500px;margin:0 auto;padding:14px 22px 30px}
+.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.top h1{font-size:19px;margin:0}.top .sub{color:var(--ink2);font-size:12px}
+.bar{display:flex;gap:8px;align-items:center;margin:10px 0 8px;position:sticky;top:0;z-index:30;background:var(--page);padding:6px 0;flex-wrap:wrap}
+.ctl{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 10px;background:var(--surface);border:1px solid var(--axis);border-radius:15px;cursor:pointer;white-space:nowrap}
+.ctl:hover{background:var(--hover)}.ctl select{border:0;background:transparent;outline:0;cursor:pointer;padding:0;max-width:150px}
+.ctl .k{color:var(--muted);font-size:12px}
+.ctl.search{cursor:text;min-width:170px}.ctl.search input{border:0;background:transparent;outline:0;width:130px}
+.ctl:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--axis);border-radius:15px;padding:2px;margin-left:auto}
+.seg button{border:0;background:none;height:24px;padding:0 14px;border-radius:12px;cursor:pointer;color:var(--ink2)}
+.seg button.on{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px;min-height:0}
+.chip{display:inline-flex;gap:6px;align-items:center;height:24px;padding:0 4px 0 10px;border-radius:12px;background:var(--hover);border:1px solid var(--ring);font-size:12px}
+.chip button{border:0;background:none;cursor:pointer;width:18px;height:18px;border-radius:9px;line-height:16px;color:var(--ink2)}.chip button:hover{background:var(--ring)}
+.chips .clear{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12px}
+.drawer{position:absolute;z-index:40;top:44px;background:var(--surface);border:1px solid var(--axis);border-radius:10px;box-shadow:var(--shadow);padding:12px 14px;width:290px;display:none}
+.drawer.open{display:block}.drawer h4{margin:0 0 6px;font-size:12px;color:var(--ink2);font-weight:600}.drawer .g{display:flex;flex-wrap:wrap;gap:6px 14px;margin-bottom:12px}.drawer label{display:flex;gap:6px;align-items:center;cursor:pointer}
+.strip{display:grid;grid-template-columns:1.1fr 1fr 1fr 2.4fr;gap:10px;margin-bottom:10px}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:8px 14px}
+.tile .l{color:var(--ink2);font-size:12px}.tile .v{font-size:24px;font-weight:650;line-height:1.15;display:flex;align-items:center;gap:8px}.tile .d{font-size:12px;color:var(--ink2)}
+.bands{display:flex;gap:6px;align-items:stretch;flex-wrap:wrap}
+.band{flex:1;min-width:112px;display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--ring);border-radius:8px;background:var(--surface);cursor:pointer;text-align:left}
+.band:hover{background:var(--hover)}.band.on{outline:2px solid var(--ink)}.band.dim{opacity:.5}
+.band b{font-size:18px;line-height:1}.band span{font-size:12px;color:var(--ink2)}
+.sw{display:inline-flex;width:18px;height:18px;border-radius:5px;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+.sw.spare{background:var(--spare);color:var(--spare-t)}.sw.healthy{background:var(--healthy);color:#fff}.sw.full{background:var(--full);color:var(--full-t)}.sw.over{background:var(--over);color:#fff}
+.main{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}.main.withpanel{grid-template-columns:1fr 330px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:10px 12px;min-width:0}
+.scroller{max-height:560px;overflow:auto;position:relative}
+.grid{display:grid;grid-template-columns:176px repeat(12,minmax(44px,1fr));gap:2px;font-size:12px;align-items:center}
+.grid .mh{position:sticky;top:0;z-index:5;background:var(--surface);border:0;border-bottom:2px solid transparent;color:var(--muted);padding:4px 0;cursor:pointer;text-align:center}
+.grid .mh.focus{color:var(--ink);font-weight:650;border-bottom-color:var(--accent)}
+.grid .hl{background:var(--hover)}
+.team{grid-column:1/-1;display:flex;align-items:center;gap:8px;margin-top:8px;padding:3px 4px;border-radius:5px;cursor:pointer;color:var(--ink2);font-weight:600;background:none;border:0;text-align:left}
+.team:hover{background:var(--hover)}.team .car{display:inline-block;transition:transform .15s}.team.shut .car{transform:rotate(-90deg)}
+.team .mini{margin-left:auto;font-weight:400;color:var(--muted);font-size:12px;display:flex;gap:10px;align-items:center}
+.nm{padding:2px 6px 2px 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;border-radius:4px;background:none;border:0;text-align:left}.nm:hover,.nm.sel{background:var(--hover)}
+.cell{height:26px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:0;cursor:pointer;outline:2px solid transparent;outline-offset:-2px;transition:transform .08s,opacity .15s}
+.cell:hover,.cell:focus-visible{outline-color:var(--ink);transform:scale(1.06)}.cell.sel{outline-color:var(--ink)}.cell.dim{opacity:.18}
+.cell.spare{background:var(--spare);color:var(--spare-t)}.cell.healthy{background:var(--healthy);color:#fff}.cell.full{background:var(--full);color:var(--full-t)}.cell.over{background:var(--over);color:#fff}.cell.none{background:repeating-linear-gradient(45deg,var(--grid) 0 4px,transparent 4px 8px);color:var(--muted)}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink2);font-size:12px;margin-top:10px;align-items:center}.legend span{display:inline-flex;gap:6px;align-items:center}
+/* timeline */
+.tl{display:grid;grid-template-columns:176px 1fr;font-size:12px}
+.tl .axis{display:grid;grid-template-columns:repeat(12,1fr);position:sticky;top:0;z-index:5;background:var(--surface)}
+.tl .axis button{border:0;background:none;color:var(--muted);padding:4px 0;cursor:pointer;border-bottom:2px solid transparent}.tl .axis button.focus{color:var(--ink);font-weight:650;border-bottom-color:var(--accent)}
+.lane{position:relative;min-height:34px;border-top:1px solid var(--grid)}
+.lane .guides{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,1fr);pointer-events:none}.lane .guides i{border-left:1px solid var(--grid)}.lane .guides i.hl{background:var(--hover)}
+.lane .heat{position:absolute;left:0;right:0;top:2px;height:5px;display:grid;grid-template-columns:repeat(12,1fr);gap:1px}.lane .heat i{border-radius:2px}
+.heat .spare{background:var(--spare)}.heat .healthy{background:var(--healthy)}.heat .full{background:var(--full)}.heat .over{background:var(--over)}.heat .none{background:var(--grid)}
+.lname{display:flex;align-items:center;gap:6px;padding:0 6px 0 14px;border-top:1px solid var(--grid);cursor:pointer;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;min-height:34px}.lname:hover{background:var(--hover)}.lname b{min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gb{position:absolute;height:17px;border-radius:5px;color:#fff;font-size:11px;padding:0 6px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;border:0;cursor:pointer;line-height:17px;text-align:left;outline:2px solid transparent;outline-offset:-2px}
+.gb:hover,.gb:focus-visible,.gb.sel{outline-color:var(--ink)}
+.c0{background:var(--s1)}.c1{background:var(--s2)}.c2{background:var(--s3)}
+.st-new{background:var(--st-new)}.st-active{background:var(--st-active)}.st-hold{background:var(--st-hold);color:#111}.st-done{background:var(--st-done)}
+.late{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.28) 0 4px,transparent 4px 8px)}
+.today{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--over);pointer-events:none;z-index:2}
+.flag{flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;color:var(--over);font-weight:700;font-size:11px}
+/* panel */
+.panel{position:sticky;top:60px}.panel h3{margin:0;font-size:15px}.panel .x{float:right;border:0;background:none;cursor:pointer;font-size:16px;color:var(--ink2);border-radius:4px;width:26px;height:26px}.panel .x:hover{background:var(--hover)}
+.panel .meta{color:var(--ink2);font-size:12px}.panel .big{font-size:26px;font-weight:650;margin-top:6px;display:flex;gap:8px;align-items:center}
+.meter{height:10px;border-radius:5px;background:var(--grid);margin:8px 0;position:relative;overflow:hidden}.meter i{display:block;height:100%}.meter u{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+.panel table{width:100%;border-collapse:collapse;margin-top:8px;font-size:12px}.panel th{text-align:left;color:var(--ink2);padding:3px 0;border-bottom:1px solid var(--axis);font-weight:600}.panel td{padding:5px 0;border-bottom:1px solid var(--grid)}.panel td.r,.panel th.r{text-align:right}
+.panel a{color:var(--accent);cursor:pointer;text-decoration:none}.panel a:hover{text-decoration:underline}
+.trend{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;align-items:end;height:54px;margin-top:6px}.trend i{display:block;border-radius:3px 3px 0 0;min-height:2px}.trend i.cur{outline:2px solid var(--ink)}
+.trendl{display:grid;grid-template-columns:repeat(12,1fr);gap:3px;font-size:10px;color:var(--muted);text-align:center}
+.empty{color:var(--muted);padding:26px 4px;text-align:center}
+.tip{position:fixed;pointer-events:none;z-index:60;background:var(--surface);border:1px solid var(--axis);box-shadow:var(--shadow);border-radius:8px;padding:7px 10px;font-size:12px;display:none;max-width:260px}.tip b{display:block;font-size:13px}.tip span{color:var(--ink2)}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+@media (max-width:1000px){.strip{grid-template-columns:1fr 1fr}.main.withpanel{grid-template-columns:1fr}.panel{position:static}}
+</style></head><body>
+<div class="app">
+  <div class="top"><h1>Resource Planner</h1><span class="sub" id="sub"></span></div>
+  <div class="bar" id="bar">
+    <label class="ctl"><span class="k">Period</span><select id="period"><option>This calendar year</option><option>Next 12 months</option><option>This quarter</option></select></label>
+    <label class="ctl"><span class="k">Team</span><select id="team"></select></label>
+    <label class="ctl"><span class="k">Epics</span><select id="query"><option value="">All Epics</option><option value="q4">Q4 commitments</option><option value="nfr">NFR programme</option></select></label>
+    <label class="ctl search"><span class="k">⌕</span><input id="search" placeholder="Find a person…" aria-label="Find a person"></label>
+    <button class="ctl" id="more" aria-expanded="false">⚙ Filters <span id="moren"></span></button>
+    <div class="drawer" id="drawer" role="dialog" aria-label="More filters"></div>
+    <div class="seg" role="tablist" aria-label="View" id="seg"><button data-v="heat" class="on" role="tab">Heatmap</button><button data-v="time" role="tab">Timeline</button><button data-v="gantt" role="tab">Epic Gantt</button></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="strip" id="strip"></div>
+  <div class="main" id="main"><div class="card" id="canvas"></div><div class="card panel" id="panel" style="display:none"></div></div>
+  <div class="note">Prototype with sample data. Hover a month to see it across the page · click a band to highlight it · click a person, cell or Epic for the detail panel · Esc closes it · the address bar keeps your filters.</div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],FOCUS0=9,TODAY=9+13/31;
+const TH={spare:50,healthy:85,full:100},BAND={spare:["","Spare capacity"],healthy:["✓","Healthy"],full:["▲","Nearly full"],over:["!","Over capacity"]};
+let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const TEAMS=["Platform","Payments","Risk & Credit","Data","Mobile"];
+const FIRST=["Ana","Ben","Chen","Dara","Eli","Fay","Gus","Hana","Ivo","Jun","Kai","Lea","Mo","Nia","Omar","Pia","Quin","Raj","Sol","Tia","Uma","Vik","Wen","Xia","Yan","Zoe","Abel","Bea"];
+const LAST=["Ng","Roy","Park","Diaz","Khan","Moss","Lund","Cole","Shah","Ito","Vega","Frey","Hale","Sato"];
+const EP=[["Credit scoring v2","Active","Risk & Credit","q4",0,"2026-03-02","2026-12-18"],["Payments gateway upgrade","Active","Payments","q4",1,"2026-02-09","2026-09-30"],["Data lake migration","Active","Data","nfr",2,"2026-04-06","2027-01-29"],["Mobile onboarding redesign","Active","Mobile","q4",0,"2026-06-01","2026-11-27"],["Platform observability","Hold","Platform","nfr",1,"2026-05-04","2026-12-11"],["KYC automation","New","Risk & Credit","q4",2,"2026-10-05","2027-03-26"],["Fraud rules engine","Active","Payments","nfr",0,"2026-01-12","2026-10-30"],["API gateway hardening","Done","Platform","nfr",1,"2026-01-05","2026-06-26"],["Reporting warehouse","Active","Data","q4",2,"2026-07-06","2026-12-18"],["Biometric login","New","Mobile","q4",1,"2026-11-02","2027-02-26"],["Loan origination revamp","Active","Risk & Credit","nfr",2,"2026-08-03","2027-02-12"],["Cloud cost control","Active","Platform","q4",0,"2026-09-07","2026-12-04"]]
+ .map((e,i)=>({id:1100+i*7,name:e[0],state:e[1],team:e[2],tag:e[3],bu:["Retail","Corporate","Shared"][e[4]],start:e[5],end:e[6]}));
+const mi=d=>{const [y,m,dd]=d.split("-").map(Number);return (y-2026)*12+m-1+(dd-1)/31};
+EP.forEach(e=>{e.s=mi(e.start);e.e=mi(e.end)});
+const PEOPLE=[];const per=[6,6,6,5,5];
+TEAMS.forEach((t,ti)=>{for(let k=0;k<per[ti];k++){const n=FIRST[PEOPLE.length]+" "+LAST[(PEOPLE.length*3)%LAST.length];
+  const own=EP.filter(e=>e.team===t),oth=EP.filter(e=>e.team!==t),pick=[own[Math.floor(rnd()*own.length)],own[Math.floor(rnd()*own.length)],oth[Math.floor(rnd()*oth.length)]].filter((x,i,a)=>a.indexOf(x)===i);
+  const shares=pick.map(()=>0.18+rnd()*0.34);const boost=rnd()<0.14?1.35:rnd()<0.2?0.5:1;
+  const avail=Array.from({length:12},(_,m)=>m===11?112:m===7?144:160);
+  const h=Array.from({length:12},()=>({}));
+  pick.forEach((e,j)=>{for(let m=0;m<12;m++){const ov=Math.max(0,Math.min(m+1,e.e)-Math.max(m,e.s));if(ov>0&&e.state!=="New"||ov>0&&m>=Math.floor(e.s)){h[m][e.id]=Math.round(avail[m]*shares[j]*boost*ov*(0.85+rnd()*0.3))}}});
+  PEOPLE.push({name:n,team:t,avail,h,epics:pick.map(e=>e.id)})}});
+const epicById=id=>EP.find(e=>e.id===id);
+const tot=(p,m,ids)=>Object.entries(p.h[m]).reduce((a,[id,v])=>a+(ids.has(+id)?v:0),0);
+const bandOf=r=>r===null?"none":r*100<TH.spare?"spare":r*100<=TH.healthy?"healthy":r*100<=TH.full?"full":"over";
+const S={view:"heat",team:"",query:"",search:"",states:[],bus:[],focus:FOCUS0,band:"",sel:null,shut:{},mh:-1};
+function readHash(){try{const p=new URLSearchParams(location.hash.slice(1));S.view=p.get("v")||S.view;S.team=p.get("t")||"";S.query=p.get("q")||"";S.search=p.get("s")||"";S.states=(p.get("st")||"").split(",").filter(Boolean);S.bus=(p.get("bu")||"").split(",").filter(Boolean);S.focus=+(p.get("m")??FOCUS0)}catch(e){}}
+function writeHash(){const p=new URLSearchParams();if(S.view!=="heat")p.set("v",S.view);if(S.team)p.set("t",S.team);if(S.query)p.set("q",S.query);if(S.search)p.set("s",S.search);if(S.states.length)p.set("st",S.states);if(S.bus.length)p.set("bu",S.bus);if(S.focus!==FOCUS0)p.set("m",S.focus);try{history.replaceState(null,"","#"+p)}catch(e){}}
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function view(){const ids=new Set(EP.filter(e=>(!S.states.length||S.states.includes(e.state))&&(!S.bus.length||S.bus.includes(e.bu))&&(!S.query||e.tag===S.query)).map(e=>e.id));
+  const q=S.search.trim().toLowerCase();
+  const people=PEOPLE.filter(p=>(!S.team||p.team===S.team)&&(!q||p.name.toLowerCase().includes(q)));
+  return {ids,people,epics:EP.filter(e=>ids.has(e.id)&&(!S.team||e.team===S.team))}}
+const cellOf=(p,m,ids)=>{const h=tot(p,m,ids),a=p.avail[m],r=a?h/a:null;return {h,a,r,band:h===0&&!a?"none":bandOf(r)}};
+function summary(V,m){const c={spare:0,healthy:0,full:0,over:0};let h=0,a=0;for(const p of V.people){const x=cellOf(p,m,V.ids);c[x.band]++;h+=x.h;a+=x.a}return {c,h,a,u:a?h/a:null,free:V.people.reduce((s,p)=>{const x=cellOf(p,m,V.ids);return s+Math.max(0,x.a-x.h)},0)}}
+const pct=r=>r===null?"–":Math.round(r*100)+"%";
+const sw=b=>`<span class="sw ${b}" aria-hidden="true">${BAND[b][0]}</span>`;
+function render(){writeHash();const V=view(),sm=summary(V,S.focus);
+  $("sub").textContent=`Sample data · ${V.people.length} people · ${V.epics.length} Epics · refreshed just now (0.2 s)`;
+  $("team").innerHTML='<option value="">All teams</option>'+TEAMS.map(t=>`<option ${S.team===t?"selected":""}>${t}</option>`).join("");$("team").value=S.team;$("query").value=S.query;
+  const chips=[...(S.states.map(s=>["State: "+s,()=>S.states=S.states.filter(x=>x!==s)])),...(S.bus.map(b=>["BU: "+b,()=>S.bus=S.bus.filter(x=>x!==b)])),...(S.team?[["Team: "+S.team,()=>S.team=""]]:[]),...(S.query?[["Query: "+$("query").selectedOptions[0].text,()=>S.query=""]]:[]),...(S.band?[["Band: "+BAND[S.band][1],()=>S.band=""]]:[])];
+  $("chips").innerHTML=chips.map((c,i)=>`<span class="chip">${esc(c[0])}<button data-i="${i}" aria-label="Remove filter ${esc(c[0])}">×</button></span>`).join("")+(chips.length>1?'<button class="clear" id="clr">Clear all</button>':"");
+  $("chips").querySelectorAll(".chip button").forEach(b=>b.onclick=()=>{chips[+b.dataset.i][1]();render()});if($("clr"))$("clr").onclick=()=>{S.states=[];S.bus=[];S.team="";S.query="";S.band="";render()};
+  $("moren").textContent=S.states.length+S.bus.length?`(${S.states.length+S.bus.length})`:"";
+  $("strip").innerHTML=`<div class="tile"><div class="l">Utilization · ${M[S.focus]}</div><div class="v">${pct(sm.u)}</div><div class="d">${Math.round(sm.h)} of ${Math.round(sm.a)} h</div></div>
+   <div class="tile"><div class="l">Over capacity</div><div class="v">${sw("over")}${sm.c.over}</div><div class="d">people above 100%</div></div>
+   <div class="tile"><div class="l">Free capacity</div><div class="v">${Math.round(sm.free)} h</div><div class="d">not yet booked</div></div>
+   <div class="tile"><div class="l">${M[S.focus]}: how ${V.people.length} people spread across the bands</div><div class="bands" style="margin-top:4px">${["spare","healthy","full","over"].map(b=>`<button class="band ${S.band===b?"on":S.band?"dim":""}" data-b="${b}" aria-pressed="${S.band===b}">${sw(b)}<b>${sm.c[b]}</b><span>${BAND[b][1]}</span></button>`).join("")}</div></div>`;
+  $("strip").querySelectorAll(".band").forEach(b=>b.onclick=()=>{S.band=S.band===b.dataset.b?"":b.dataset.b;render()});
+  $("seg").querySelectorAll("button").forEach(b=>{b.classList.toggle("on",b.dataset.v===S.view);b.setAttribute("aria-selected",b.dataset.v===S.view)});
+  $("canvas").innerHTML=S.view==="heat"?heat(V):S.view==="time"?timeline(V):gantt(V);wire(V);panel(V)}
+const legend=`<div class="legend"><span>${sw("spare")}Spare (under 50%)</span><span>${sw("healthy")}Healthy (50–85%)</span><span>${sw("full")}Nearly full (85–100%)</span><span>${sw("over")}Over capacity</span></div>`;
+function groups(V){return TEAMS.map(t=>({t,ps:V.people.filter(p=>p.team===t)})).filter(g=>g.ps.length)}
+function heat(V){let h=`<div class="scroller"><div class="grid"><div class="mh" style="cursor:default"></div>${M.map((m,i)=>`<button class="mh${i===S.focus?" focus":""}" data-m="${i}">${m}</button>`).join("")}`;
+  for(const g of groups(V)){const sm=summary({...V,people:g.ps},S.focus);
+   h+=`<button class="team${S.shut[g.t]?" shut":""}" data-team="${g.t}"><span class="car">▾</span>${g.t}<span class="mini">${g.ps.length} people · ${pct(sm.u)} in ${M[S.focus]}${sm.c.over?` · <span class="flag">${sw("over")}${sm.c.over} over</span>`:""}</span></button>`;
+   if(!S.shut[g.t])for(const p of g.ps){h+=`<button class="nm${S.sel&&S.sel.p===p.name?" sel":""}" data-p="${esc(p.name)}">${esc(p.name)}</button>`;
+    for(let m=0;m<12;m++){const c=cellOf(p,m,V.ids);const dim=S.band&&c.band!==S.band&&m===S.focus||S.band&&m!==S.focus&&c.band!==S.band;
+     h+=`<button class="cell ${c.band}${dim?" dim":""}${S.sel&&S.sel.p===p.name&&S.sel.m===m?" sel":""}" data-m="${m}" data-p="${esc(p.name)}" data-tip="1" aria-label="${esc(p.name)} ${M[m]} ${pct(c.r)}">${c.band==="none"?"":BAND[c.band][0]}</button>`}}}
+  return h+`</div></div>`+legend}
+function timeline(V){let h=`<div class="scroller"><div class="tl"><div></div><div class="axis">${M.map((m,i)=>`<button data-m="${i}" class="${i===S.focus?"focus":""}">${m}</button>`).join("")}</div>`;
+  for(const g of groups(V)){h+=`<button class="team${S.shut[g.t]?" shut":""}" data-team="${g.t}" style="grid-column:1/-1"><span class="car">▾</span>${g.t}<span class="mini">${g.ps.length} people</span></button>`;
+   if(!S.shut[g.t])for(const p of g.ps){const cs=Array.from({length:12},(_,m)=>cellOf(p,m,V.ids));const f=cs[S.focus];
+    const tasks=p.epics.filter(id=>V.ids.has(id)).map(id=>epicById(id));
+    h+=`<button class="lname" data-p="${esc(p.name)}" style="height:${Math.max(34,10+tasks.length*21)}px">${f.band==="over"?sw("over"):f.band==="none"?"":sw(f.band)}<b>${esc(p.name)}</b></button><div class="lane" style="height:${Math.max(34,10+tasks.length*21)}px"><div class="guides">${M.map((_,i)=>`<i data-m="${i}" ${i===S.focus?'class="hl"':""}></i>`).join("")}</div><div class="heat">${cs.map(c=>`<i class="${c.band}"></i>`).join("")}</div>`;
+    tasks.forEach((e,j)=>{const s=Math.max(0,e.s),en=Math.min(12,e.e);if(en<=s)return;const hrs=p.h.reduce((a,x)=>a+(x[e.id]||0),0);
+     h+=`<button class="gb c${EP.indexOf(e)%3}" style="left:${s/12*100}%;width:${(en-s)/12*100}%;top:${10+j*21}px" data-e="${e.id}" data-p="${esc(p.name)}" data-tip="2" aria-label="${esc(e.name)}">${esc(e.name)} · ${hrs} h</button>`});
+    h+=`<div class="today" style="left:${TODAY/12*100}%"></div></div>`}}
+  return h+`</div></div>`+legend+`<div class="legend"><span>The thin strip on top of each row is that person's utilization per month. The dashed line is today.</span></div>`}
+function gantt(V){let h=`<div class="scroller"><div class="tl"><div></div><div class="axis">${M.map((m,i)=>`<button data-m="${i}" class="${i===S.focus?"focus":""}">${m}</button>`).join("")}</div>`;
+  for(const t of TEAMS){const es=V.epics.filter(e=>e.team===t);if(!es.length)continue;
+   h+=`<button class="team${S.shut[t]?" shut":""}" data-team="${t}" style="grid-column:1/-1"><span class="car">▾</span>${t}<span class="mini">${es.length} Epics</span></button>`;
+   if(!S.shut[t])for(const e of es){const s=Math.max(0,e.s),en=Math.min(12,e.e),late=e.e<TODAY&&e.state!=="Done";
+    h+=`<button class="lname" data-e="${e.id}"><b>${e.id} · ${esc(e.name)}</b>${late?'<span class="flag">⚑ late</span>':""}</button><div class="lane" style="min-height:34px"><div class="guides">${M.map((_,i)=>`<i data-m="${i}" ${i===S.focus?'class="hl"':""}></i>`).join("")}</div>
+     <button class="gb st-${e.state.toLowerCase()}${late?" late":""}" style="left:${s/12*100}%;width:${Math.max(1,(en-s))/12*100}%;top:8px;height:19px" data-e="${e.id}" data-tip="3" aria-label="${esc(e.name)} ${e.state}">${e.state}${late?" · late":""}</button><div class="today" style="left:${TODAY/12*100}%"></div></div>`}}
+  return h+`</div></div><div class="legend"><span><i class="sw" style="background:var(--st-new)"></i>New</span><span><i class="sw" style="background:var(--st-active)"></i>Active</span><span><i class="sw" style="background:var(--st-hold)"></i>On hold</span><span><i class="sw" style="background:var(--st-done)"></i>Done</span><span class="flag">⚑ late = past its target date and not done</span></div>`}
+function panel(V){const el=$("panel"),main=$("main");if(!S.sel){el.style.display="none";main.classList.remove("withpanel");return}
+  el.style.display="";main.classList.add("withpanel");
+  if(S.sel.e){const e=epicById(S.sel.e);const who=PEOPLE.map(p=>({p,h:p.h.reduce((a,x)=>a+(x[e.id]||0),0)})).filter(x=>x.h>0).sort((a,b)=>b.h-a.h);
+   el.innerHTML=`<button class="x" id="close" aria-label="Close">×</button><h3>${esc(e.name)}</h3><div class="meta">Epic ${e.id} · ${e.state} · ${e.team} · ${e.bu}</div><div class="meta">${e.start} → ${e.end}</div>
+   <table><tr><th>Person</th><th class="r">Hours</th></tr>${who.map(x=>`<tr><td><a data-p="${esc(x.p.name)}">${esc(x.p.name)}</a></td><td class="r">${x.h} h</td></tr>`).join("")}</table><p class="meta"><a>Open the Epic form ↗</a></p>`}
+  else{const p=PEOPLE.find(x=>x.name===S.sel.p),m=S.sel.m??S.focus,c=cellOf(p,m,V.ids);
+   const list=Object.entries(p.h[m]).filter(([id])=>V.ids.has(+id)).sort((a,b)=>b[1]-a[1]);
+   const mx=Math.max(...Array.from({length:12},(_,i)=>cellOf(p,i,V.ids).r||0),1.2);
+   el.innerHTML=`<button class="x" id="close" aria-label="Close">×</button><h3>${esc(p.name)}</h3><div class="meta">${p.team} · ${M[m]} 2026</div>
+   <div class="big">${c.band==="none"?"":sw(c.band)}${pct(c.r)}<span class="meta" style="font-weight:400">${Math.round(c.h)} of ${c.a} h · ${BAND[c.band]?BAND[c.band][1]:"No capacity"}</span></div>
+   <div class="meter" aria-hidden="true"><i style="width:${Math.min(100,(c.r||0)*100/mx*1)}%;background:var(--${c.band==="none"?"axis":c.band})"></i><u style="left:${100/mx}%"></u></div>
+   <div class="trend" aria-label="Utilization over the year">${Array.from({length:12},(_,i)=>{const x=cellOf(p,i,V.ids);return `<i class="${i===m?"cur":""}" title="${M[i]} ${pct(x.r)}" style="height:${Math.max(2,Math.min(1,(x.r||0)/mx)*100)}%;background:var(--${x.band==="none"?"axis":x.band})"></i>`}).join("")}</div><div class="trendl">${M.map(x=>`<span>${x[0]}</span>`).join("")}</div>
+   <table><tr><th>Epic</th><th class="r">Hours</th></tr>${list.map(([id,v])=>`<tr><td><a data-e="${id}">${esc(epicById(+id).name)}</a><div class="meta">${epicById(+id).state}</div></td><td class="r">${v} h</td></tr>`).join("")||'<tr><td colspan="2" class="meta">Nothing booked.</td></tr>'}</table>`}
+  $("close").onclick=()=>{S.sel=null;render()};
+  el.querySelectorAll("a[data-p]").forEach(a=>a.onclick=()=>{S.sel={p:a.dataset.p,m:S.focus};render()});el.querySelectorAll("a[data-e]").forEach(a=>a.onclick=()=>{S.sel={e:+a.dataset.e};render()})}
+const tip=$("tip");function showTip(ev,html){tip.innerHTML=html;tip.style.display="block";const w=tip.offsetWidth;tip.style.left=Math.min(innerWidth-w-8,ev.clientX+14)+"px";tip.style.top=ev.clientY+14+"px"}
+function wire(V){const c=$("canvas");
+  c.querySelectorAll(".mh[data-m],.axis button").forEach(b=>b.onclick=()=>{S.focus=+b.dataset.m;render()});
+  c.querySelectorAll(".team").forEach(b=>b.onclick=()=>{S.shut[b.dataset.team]=!S.shut[b.dataset.team];render()});
+  c.querySelectorAll(".cell").forEach(b=>b.onclick=()=>{S.sel={p:b.dataset.p,m:+b.dataset.m};S.focus=+b.dataset.m;render()});
+  c.querySelectorAll(".nm,.lname[data-p]").forEach(b=>b.onclick=()=>{S.sel={p:b.dataset.p,m:S.focus};render()});
+  c.querySelectorAll(".gb,.lname[data-e]").forEach(b=>b.onclick=()=>{S.sel={e:+b.dataset.e};render()});
+  const hl=m=>{c.querySelectorAll(".hl").forEach(x=>x.classList.remove("hl"));if(m>=0)c.querySelectorAll(`.guides i[data-m="${m}"],.mh[data-m="${m}"]:not(.focus)`).forEach(x=>x.classList.add("hl"))};
+  c.querySelectorAll("[data-m]").forEach(b=>{b.addEventListener("mouseenter",()=>{S.mh=+b.dataset.m;c.querySelectorAll(".guides i,.cell,.mh").forEach(x=>x.classList.toggle("hl",+x.dataset.m===S.mh&&!x.classList.contains("cell")))})});
+  c.addEventListener("mouseleave",()=>{c.querySelectorAll(".hl").forEach(x=>x.classList.remove("hl"));c.querySelectorAll(".guides i").forEach(x=>{if(+x.dataset.m===S.focus)x.classList.add("hl")});tip.style.display="none"});
+  c.querySelectorAll("[data-tip]").forEach(b=>{b.addEventListener("mousemove",ev=>{const k=b.dataset.tip;let h="";
+    if(k==="1"){const p=PEOPLE.find(x=>x.name===b.dataset.p),m=+b.dataset.m,x=cellOf(p,m,V.ids);h=`<b>${esc(p.name)} · ${M[m]}</b><span>${Math.round(x.h)} of ${x.a} h · ${pct(x.r)} · ${BAND[x.band]?BAND[x.band][1]:""}</span>`}
+    else{const e=epicById(+b.dataset.e);h=`<b>${esc(e.name)}</b><span>${e.state} · ${e.start} → ${e.end}</span>`}showTip(ev,h)});b.addEventListener("mouseleave",()=>tip.style.display="none")})}
+$("team").onchange=e=>{S.team=e.target.value;render()};$("query").onchange=e=>{S.query=e.target.value;render()};$("search").oninput=e=>{S.search=e.target.value;render();$("search").focus()};
+$("seg").querySelectorAll("button").forEach(b=>b.onclick=()=>{S.view=b.dataset.v;render()});
+$("more").onclick=()=>{const d=$("drawer"),o=!d.classList.contains("open");d.classList.toggle("open",o);$("more").setAttribute("aria-expanded",o);if(o)drawer()};
+function drawer(){const d=$("drawer");d.style.left=$("more").offsetLeft+"px";
+  d.innerHTML=`<h4>Epic state</h4><div class="g">${["New","Active","Hold","Done"].map(s=>`<label><input type="checkbox" data-k="states" value="${s}" ${S.states.includes(s)?"checked":""}>${s}</label>`).join("")}</div><h4>Business unit</h4><div class="g">${["Retail","Corporate","Shared"].map(s=>`<label><input type="checkbox" data-k="bus" value="${s}" ${S.bus.includes(s)?"checked":""}>${s}</label>`).join("")}</div><div class="meta" style="color:var(--muted);font-size:12px">Extra fields come from Settings → filter fields.</div>`;
+  d.querySelectorAll("input").forEach(i=>i.onchange=()=>{const a=S[i.dataset.k];i.checked?a.push(i.value):a.splice(a.indexOf(i.value),1);render();drawer()})}
+document.addEventListener("click",e=>{if(!e.target.closest("#drawer,#more")){$("drawer").classList.remove("open");$("more").setAttribute("aria-expanded","false")}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if($("drawer").classList.contains("open")){$("drawer").classList.remove("open")}else if(S.sel){S.sel=null;render()}}});
+readHash();$("search").value=S.search;render();
+</script></body></html>
