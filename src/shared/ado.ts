@@ -4,8 +4,6 @@ import { CoreRestClient } from "azure-devops-extension-api/Core";
 import { WorkRestClient } from "azure-devops-extension-api/Work";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
 import { IWorkItemFormService, WorkItemTrackingServiceIds } from "azure-devops-extension-api/WorkItemTracking/WorkItemTrackingServices";
-import { emptyConfig, ProjectConfig } from "../core/types";
-import { normalizeProject } from "../core/normalize";
 import { withTimeout } from "./timeout";
 
 export async function init(loadSucceeded = true): Promise<void> {
@@ -64,31 +62,10 @@ export async function getTeamMembersCompat(projectId: string, teamId: string, to
   return (await getCompat<{ value: MemberLite[] }>(`projects/${encodeURIComponent(projectId)}/teams/${encodeURIComponent(teamId)}/members`, { $top: top })).value;
 }
 
-// ---------- config storage (extension data service, one document per project) ----------
-const COLLECTION = "wig-config";
-
+// ---------- extension data service ----------
 export async function dataManager() {
   const svc = await SDK.getService<IExtensionDataService>(CommonServiceIds.ExtensionDataService);
   return svc.getExtensionDataManager(SDK.getExtensionContext().id, await SDK.getAccessToken());
-}
-
-export async function loadConfig(projectId: string): Promise<ProjectConfig> {
-  try {
-    const m = await dataManager();
-    const doc = await m.getDocument(COLLECTION, `project-${projectId}`);
-    const c = doc?.config as ProjectConfig | undefined;
-    return c ? normalizeProject({ ...emptyConfig(), ...c }) : emptyConfig();
-  } catch (e) {
-    // 404 = not configured yet
-    if ((e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e))) return emptyConfig();
-    throw e;
-  }
-}
-
-export async function saveConfig(projectId: string, config: ProjectConfig): Promise<void> {
-  const m = await dataManager();
-  // __etag -1 = overwrite whatever version is stored (last save wins); without it a second save fails with 1660003
-  await m.setDocument(COLLECTION, { id: `project-${projectId}`, config, __etag: -1 });
 }
 
 // ---------- field helpers ----------

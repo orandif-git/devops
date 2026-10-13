@@ -3,7 +3,8 @@ import { isRestrictedUser } from "../core/commentOnly";
 import { keyNorm } from "../core/keys";
 import { CommentOnlyConfig } from "../core/types";
 import { commentOnlyApplies } from "../core/commentOnly";
-import { getFormService, getTeamMembersCompat, loadConfig, withTimeout } from "./ado";
+import { getFormService, getTeamMembersCompat, withTimeout } from "./ado";
+import { loadConfig } from "./configStore";
 
 /**
  * Is the current user restricted to comments? By name, or by direct membership of a restricted team.

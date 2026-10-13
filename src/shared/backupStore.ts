@@ -1,7 +1,7 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { Current, RestorePlan } from "../core/backup";
 import { CapacityRecord } from "../core/capacity";
-import { loadConfig, saveConfig } from "./ado";
+import { loadConfig, saveConfig } from "./configStore";
 import { appendAudit, importAudit, listAudit } from "./auditStore";
 import { deleteRecord, listRecords, loadSettings, saveRecord, saveSettings } from "./capacityStore";
 

@@ -3,7 +3,8 @@ import { Cascade, ProjectConfig, Rule } from "../core/types";
 import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { cascadeApplies, cascadeErrors, evaluateRules, hintedParent, ruleApplies } from "../core/rules";
-import { getFormService, getProject, loadConfig } from "../shared/ado";
+import { getFormService, getProject } from "../shared/ado";
+import { loadConfig } from "../shared/configStore";
 import { commentOnlyApplies, DEFAULT_MESSAGE, fieldsToRevert } from "../core/commentOnly";
 import { isCommentOnlyUser } from "../shared/commentOnlyAccess";
 

@@ -5,7 +5,8 @@ import "../shared/styles.css";
 import "./hub.css";
 import { emptyConfig, ProjectConfig } from "../core/types";
 import { normalizeProject } from "../core/normalize";
-import { FieldInfo, getProject, init, listFields, listWorkItemTypes, loadConfig, saveConfig } from "../shared/ado";
+import { FieldInfo, getProject, init, listFields, listWorkItemTypes } from "../shared/ado";
+import { ConfigConflictError, loadConfigDoc, saveConfig } from "../shared/configStore";
 import { CalculationsTab } from "./CalculationsTab";
 import { CapacityTab } from "./CapacityTab";
 import { CascadesTab } from "./CascadesTab";
@@ -20,6 +21,7 @@ import { issueTarget, nextStep, Tab, TAB_INTRO } from "./sections";
 import { AuditTab } from "./AuditTab";
 import { CommentOnlyTab } from "./CommentOnlyTab";
 import { BackupTab } from "./BackupTab";
+import { DiagnosticsTab } from "./DiagnosticsTab";
 import { useReason } from "./ReasonDialog";
 import { projectAdminStatus } from "../shared/presetAccess";
 import { appendAudit } from "../shared/auditStore";
@@ -67,6 +69,8 @@ function Hub(props: { projectId: string; projectName: string }) {
   const [loadErrors, setLoadErrors] = React.useState<string[]>([]);
   const [attempt, setAttempt] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
+  const etagRef = React.useRef(-1);                         // the version of the settings this page was opened at
+  const [conflict, setConflict] = React.useState(false);
   const [admin, setAdmin] = React.useState<"yes" | "no" | "unknown">();
   const { ask, dialog } = useReason();
   React.useEffect(() => { projectAdminStatus(props.projectId).then(setAdmin); }, [props.projectId]);
@@ -74,7 +78,7 @@ function Hub(props: { projectId: string; projectName: string }) {
   React.useEffect(() => {
     setLoadErrors([]);
     const fail = (e: Error) => setLoadErrors(list => (list.includes(e.message) ? list : [...list, e.message]));
-    loadConfig(props.projectId).then(c => { setConfig(c); setSaved(JSON.stringify(c)); }).catch(e => setMsg("Could not load configuration: " + e.message));
+    loadConfigDoc(props.projectId).then(d => { setConfig(d.config); setSaved(JSON.stringify(d.config)); etagRef.current = d.etag; setConflict(false); }).catch(e => setMsg("Could not load configuration: " + e.message));
     listWorkItemTypes(props.projectName).then(setTypes).catch(fail);
     listFields(props.projectName).then(setFields).catch(fail);
   }, [props.projectId, props.projectName, attempt]);
@@ -114,28 +118,38 @@ function Hub(props: { projectId: string; projectName: string }) {
   if (admin === "no") return <div className="hub"><h2>Grid &amp; Rules</h2><div className="help" role="alert">Only project administrators can open these settings. Ask a project administrator of “{props.projectName}” to make the change.</div></div>;
   if (!config || !admin) return <div className="hub">{msg || "Loading…"}</div>;
 
-  const save = async () => {
+  const save = async (overwrite = false) => {
     setSaving(true);
     try {
       // presets may have been saved from work items since this page was opened: keep those unless this page changed the grid's presets
       const base = JSON.parse(saved) as ProjectConfig;
       let out = config;
+      let useEtag: number | undefined = overwrite ? undefined : etagRef.current;
       try {
-        const latest = await loadConfig(props.projectId);
+        const latest = await loadConfigDoc(props.projectId);
+        const withoutPresets = (c: ProjectConfig) => JSON.stringify({ ...c, grids: Object.fromEntries(Object.entries(c.grids).map(([n, g]) => [n, { ...g, presets: undefined }])) });
+        if (!overwrite && latest.etag !== etagRef.current) {
+          // somebody saved since this page was opened: only a changed preset (saved from a work item) can be merged automatically
+          if (withoutPresets(latest.config) !== withoutPresets(base)) { setConflict(true); setMsg("Not saved: the settings were changed by someone else."); return; }
+          useEtag = latest.etag;
+        }
         out = { ...config, grids: Object.fromEntries(Object.entries(config.grids).map(([n, g]) => {
           const untouched = JSON.stringify(g.presets ?? null) === JSON.stringify(base.grids[n]?.presets ?? null);
-          const theirs = latest.grids[n]?.presets;
+          const theirs = latest.config.grids[n]?.presets;
           return [n, untouched && theirs ? { ...g, presets: theirs } : g];
         })) };
-      } catch { /* could not re-read: save what is on screen */ }
+      } catch { /* could not re-read: save what is on screen (a clash is still detected when saving) */ }
       const diff = diffSettings(base, out);
       const why = diff.changes.length ? await ask("Why are you changing the settings?", `${diff.changes.length + diff.omitted} value(s) will change. Examples: ${diff.changes.slice(0, 3).map(c => c.path).join(", ")}${diff.changes.length > 3 ? "…" : ""}`) : { reason: "", comment: "" };
       if (!why) { setMsg("Not saved: a reason is required."); return; }
-      await saveConfig(props.projectId, out); setConfig(out); setSaved(JSON.stringify(out));
-      try { if (diff.changes.length) await appendAudit(props.projectId, { area: "configuration", reason: why.reason, comment: why.comment, before: base, after: out }); setMsg("Saved. Open work items pick up changes on next load."); }
+      etagRef.current = await saveConfig(props.projectId, out, useEtag); setConfig(out); setSaved(JSON.stringify(out)); setConflict(false);
+      try { if (diff.changes.length) await appendAudit(props.projectId, { area: "configuration", reason: why.reason + (overwrite ? " (overwrote changes saved by someone else)" : ""), comment: why.comment, before: base, after: out }); setMsg("Saved. Open work items pick up changes on next load."); }
       catch (e) { setMsg("Saved, but the audit log entry could not be written: " + (e as Error).message); }
     }
-    catch (e) { setMsg("Save failed: " + (e as Error).message); } finally { setSaving(false); }
+    catch (e) {
+      if (e instanceof ConfigConflictError) { setConflict(true); setMsg("Not saved: the settings were changed by someone else."); }
+      else setMsg("Save failed: " + (e as Error).message);
+    } finally { setSaving(false); }
   };
 
   return (
@@ -146,7 +160,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         <h2>Grid &amp; Rules</h2>
         <div className="muted">Project “{props.projectName}” · conditional rules, dependent dropdowns and smart grids</div>
         <div className="savebar">
-          <button className="btn primary" disabled={!dirty || saving} onClick={save}>{saving ? "Saving…" : "Save"}</button>
+          <button className="btn primary" disabled={!dirty || saving} onClick={() => save()}>{saving ? "Saving…" : "Save"}</button>
           <button className="btn" disabled={!dirty} onClick={() => setConfig(JSON.parse(saved))}>Discard</button>
           <span className={errors.length ? "err" : warns.length ? "muted" : "ok"}>
             {errors.length ? `${errors.length} error(s)` : "No errors"}{warns.length ? ` · ${warns.length} warning(s)` : ""}
@@ -154,6 +168,15 @@ function Hub(props: { projectId: string; projectName: string }) {
           {dirty && <span className="badge">unsaved</span>}
           <span className="spacer" style={{ flex: 1 }} /><span className={/audit|failed|Not saved/i.test(msg) ? "err" : "muted"} role="status">{msg}</span>
         </div>
+        {conflict && (
+          <div className="err" role="alert" style={{ border: "1px solid var(--err)", padding: "6px 10px", margin: "8px 0" }}>
+            <strong>Someone else saved the settings while you were editing.</strong> Saving now would replace their changes.
+            <div className="toolbar">
+              <button className="btn" onClick={() => setAttempt(n => n + 1)}>Load their version (discards my unsaved changes)</button>
+              <button className="btn danger" onClick={() => save(true)}>Overwrite with my version</button>
+            </div>
+          </div>
+        )}
         {loadErrors.length > 0 && (
           <div className="err" style={{ border: "1px solid var(--err)", padding: "6px 10px", margin: "8px 0" }}>
             <strong>Could not read your process from Azure DevOps.</strong> Field suggestions, work item type choices and live checks need it.
@@ -172,7 +195,7 @@ function Hub(props: { projectId: string; projectName: string }) {
           );
         })()}
         <div className="tabs" role="tablist">
-          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["controls", `Controls${config.commentOnly?.enabled ? " (1 on)" : ""}`], ["backup", "Backup & restore"], ["audit", "Audit log"], ["json", "JSON"]] as [Tab, string][])
+          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["controls", `Controls${config.commentOnly?.enabled ? " (1 on)" : ""}`], ["backup", "Backup & restore"], ["audit", "Audit log"], ["diagnostics", "Diagnostics"], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => {
               const m = /^(.*?)\s*\((.+)\)$/.exec(l);             // "Grids (2)" → name + small count badge
               return <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{m ? m[1] : l}{m && <span className="tc">{m[2]}</span>}</button>;
@@ -188,6 +211,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
         {tab === "controls" && <CommentOnlyTab value={config.commentOnly} onChange={commentOnly => setConfig({ ...config, commentOnly })} />}
         {tab === "backup" && <BackupTab projectId={props.projectId} projectName={props.projectName} dirty={dirty} onRestored={() => setAttempt(a => a + 1)} />}
+        {tab === "diagnostics" && <DiagnosticsTab />}
         {tab === "audit" && <AuditTab projectId={props.projectId} version={saved} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (

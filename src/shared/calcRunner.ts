@@ -1,7 +1,8 @@
 import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { ProjectConfig } from "../core/types";
-import { getFormService, getProject, loadConfig } from "./ado";
+import { getFormService, getProject } from "./ado";
+import { loadConfig } from "./configStore";
 
 /**
  * Runs the project's calculations against the open work item and writes changed results to their fields.

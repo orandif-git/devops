@@ -22,7 +22,8 @@ import { loadCalendarBook } from "../shared/capacityStore";
 import { setCalendarBook } from "../core/schedule";
 import { setTeamBooks, TeamBook } from "../core/teamBook";
 import { loadTeamBook } from "../shared/teamMembership";
-import { downloadFile, getFormService, getProject, init, loadConfig, saveConfig, witClient } from "../shared/ado";
+import { downloadFile, getFormService, getProject, init, witClient } from "../shared/ado";
+import { ConfigConflictError, loadConfig, loadConfigDoc, saveConfig } from "../shared/configStore";
 import { exportCsv, exportXlsx, importFile } from "../shared/excel";
 
 interface Inputs { GridName?: string; DataField?: string; ConfigJson?: string }
@@ -239,15 +240,19 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const savePreset = async (name: string) => {
     try {
       if (!props.gridName) throw new Error("this grid is configured inline, not by name");
-      const project = await loadConfig(props.projectId);
-      const g = project.grids[props.gridName];
-      if (!g) throw new Error(`grid '${props.gridName}' no longer exists`);
-      const existing = (g.presets ?? []).find(x => x.name.trim().toLowerCase() === name.toLowerCase());
-      const preset = presetFromRows(rowsRef.current, cfg, name, existing?.columns ?? defaultPresetColumns(cfg));
-      const list = upsertPreset(g.presets, preset);
-      await saveConfig(props.projectId, { ...project, grids: { ...project.grids, [props.gridName]: { ...g, presets: list } } });
+      let list: GridPreset[] = [], rowCount = 0;
+      for (let attempt = 0; ; attempt++) {                              // read, change one grid's presets, save with the version read; if someone saved meanwhile, read again
+        const { config: project, etag } = await loadConfigDoc(props.projectId);
+        const g = project.grids[props.gridName];
+        if (!g) throw new Error(`grid '${props.gridName}' no longer exists`);
+        const existing = (g.presets ?? []).find(x => x.name.trim().toLowerCase() === name.toLowerCase());
+        const preset = presetFromRows(rowsRef.current, cfg, name, existing?.columns ?? defaultPresetColumns(cfg));
+        list = upsertPreset(g.presets, preset); rowCount = preset.rows.length;
+        try { await saveConfig(props.projectId, { ...project, grids: { ...project.grids, [props.gridName]: { ...g, presets: list } } }, etag); break; }
+        catch (e) { if (!(e instanceof ConfigConflictError) || attempt >= 2) throw e; }
+      }
       setPresets(list);
-      flash(`Saved preset “${name}” (${preset.rows.length} rows). Add a rule for it under Project settings → Grid & Rules if it should only show on some work items.`);
+      flash(`Saved preset “${name}” (${rowCount} rows). Add a rule for it under Project settings → Grid & Rules if it should only show on some work items.`);
     } catch (e) { flash("Could not save the preset: " + (e as Error).message); }
   };
 

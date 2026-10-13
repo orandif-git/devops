@@ -1,5 +1,6 @@
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
 import { keyNorm } from "../core/keys";
+import { shortHash } from "./ids";
 import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
 import { dataManager, getCompat, getProject, getTeamsCompat, withTimeout, workClient } from "./ado";
@@ -26,7 +27,9 @@ export const defaultSettings = (): CapacitySettings => ({ source: "register", ca
 
 const hash = (s: string) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(16); };
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40);
-const recordId = (projectId: string, key: string) => `res-${projectId}-${slug(key)}-${hash(key)}`;
+/** Written by earlier versions: long ids that can collide on Azure DevOps (see ids.ts). Still read, and removed when the person is removed or migrated. */
+const legacyRecordId = (projectId: string, key: string) => `res-${projectId}-${slug(key)}-${hash(key)}`;
+const recordId = (projectId: string, key: string) => `rg-${shortHash(projectId)}-${shortHash(keyNorm(key))}`;
 const settingsId = (projectId: string) => `settings-${projectId}`;
 const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e));
 
@@ -42,20 +45,51 @@ export async function saveSettings(projectId: string, settings: CapacitySettings
   await (await dataManager()).setDocument(COLLECTION, { id: settingsId(projectId), kind: "settings", projectId, settings, __etag: -1 });
 }
 
-/** One document per person, so two managers editing different people never overwrite each other. */
+type RecDoc = { id: string; kind?: string; projectId?: string; record?: CapacityRecord };
+const isShortId = (id: string) => id.startsWith("rg-");
+
+async function recordDocs(projectId: string): Promise<RecDoc[]> {
+  let docs: RecDoc[] = [];
+  try { docs = (await (await dataManager()).getDocuments(COLLECTION)) as RecDoc[]; } catch (e) { if (!is404(e)) throw e; }
+  return docs.filter(d => d.kind === "resource" && d.projectId === projectId && d.record);
+}
+
+/** One document per person, so two managers editing different people never overwrite each other. A person found under an old and a new id counts once (the new one wins). */
 export async function listRecords(projectId: string): Promise<CapacityRecord[]> {
-  let docs: { kind?: string; projectId?: string; record?: CapacityRecord }[] = [];
-  try { docs = await (await dataManager()).getDocuments(COLLECTION); } catch (e) { if (!is404(e)) throw e; }
-  return docs.filter(d => d.kind === "resource" && d.projectId === projectId && d.record).map(d => d.record!)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const byKey = new Map<string, RecDoc>();
+  for (const d of await recordDocs(projectId)) {
+    const k = keyNorm(d.record!.key);
+    const cur = byKey.get(k);
+    if (!cur || (isShortId(d.id) && !isShortId(cur.id)) || (isShortId(d.id) === isShortId(cur.id) && (d.record!.updatedAt ?? "") > (cur.record!.updatedAt ?? ""))) byKey.set(k, d);
+  }
+  return Array.from(byKey.values()).map(d => d.record!).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export async function saveRecord(projectId: string, record: CapacityRecord): Promise<void> {
   await (await dataManager()).setDocument(COLLECTION, { id: recordId(projectId, record.key), kind: "resource", projectId, record, __etag: -1 });
 }
 
+/** Removes the person under every id they were stored with (found by listing, so ids cut by the platform are removed too). */
 export async function deleteRecord(projectId: string, key: string): Promise<void> {
-  try { await (await dataManager()).deleteDocument(COLLECTION, recordId(projectId, key)); } catch (e) { if (!is404(e)) throw e; }
+  const m = await dataManager();
+  const ids = new Set([recordId(projectId, key), ...(await recordDocs(projectId)).filter(d => keyNorm(d.record!.key) === keyNorm(key)).map(d => d.id)]);
+  for (const id of ids) { try { await m.deleteDocument(COLLECTION, id); } catch (e) { if (!is404(e)) throw e; } }
+}
+
+/** Move every person stored under an old, long id to the short id. Returns how many were moved. */
+export async function migrateRecordIds(projectId: string): Promise<number> {
+  const m = await dataManager();
+  let moved = 0;
+  const all = await recordDocs(projectId);
+  const have = new Set(all.filter(d => isShortId(d.id)).map(d => keyNorm(d.record!.key)));
+  for (const d of all) {
+    if (isShortId(d.id)) continue;
+    const to = recordId(projectId, d.record!.key);
+    if (!have.has(keyNorm(d.record!.key))) await m.setDocument(COLLECTION, { id: to, kind: "resource", projectId, record: d.record, __etag: -1 });                // a newer copy under the short id is kept, the old one just removed
+    try { await m.deleteDocument(COLLECTION, d.id); } catch (e) { if (!is404(e)) throw e; }
+    moved++;
+  }
+  return moved;
 }
 
 // ---------- capacity from Azure DevOps team capacity ----------

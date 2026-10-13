@@ -1,7 +1,7 @@
 import { ProjectConfig } from "../core/types";
 import { Issue } from "./validate";
 
-export type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "readonly" | "controls" | "backup" | "audit" | "json";
+export type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "readonly" | "controls" | "backup" | "audit" | "diagnostics" | "json";
 export type SectionId = "storage" | "derived" | "columns" | "dates" | "review" | "presets" | "totals" | "child" | "preview";
 
 /** Which part of the grid editor a validation message is about (so it can be shown next to it and jumped to). */
@@ -69,6 +69,7 @@ export const TAB_INTRO: Record<Tab, string> = {
   readonly: "The fields this extension writes, and how to lock them.",
   controls: "Who may do what on the work item form. For now: people or teams who may only add comments.",
   backup: "Download everything the extension stores for this project, or restore it (all or in parts) from a file.",
+  diagnostics: "Checks that the server stores the extension's data correctly and Azure DevOps can be read. Copy the result if you need help.",
   audit: "Who changed the settings, when, what the value was before and after, and why.",
   json: "The whole configuration as JSON, for backup or copying to another project.",
 };

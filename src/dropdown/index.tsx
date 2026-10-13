@@ -4,7 +4,8 @@ import * as SDK from "azure-devops-extension-sdk";
 import "../shared/styles.css";
 import { Cascade } from "../core/types";
 import { allowedChildValues } from "../core/rules";
-import { getFormService, getProject, init, loadConfig } from "../shared/ado";
+import { getFormService, getProject, init } from "../shared/ado";
+import { loadConfig } from "../shared/configStore";
 
 /**
  * Smart Dropdown: replaces a picklist field's control. Shows only the values that are valid

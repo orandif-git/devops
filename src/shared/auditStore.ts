@@ -1,6 +1,7 @@
 import * as SDK from "azure-devops-extension-sdk";
 import { AuditEntry, DEFAULT_RETENTION_MONTHS, newAuditEntry } from "../core/audit";
 import { dataManager } from "./ado";
+import { shortHash } from "./ids";
 
 const COLLECTION = "wig-audit";
 const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not exist|404|DocumentDoesNotExist/i.test(String((e as Error)?.message ?? e));
@@ -9,8 +10,7 @@ const is404 = (e: unknown) => (e as { status?: number })?.status === 404 || /not
  * one only near its end was seen to be stored as the same document (each new audit entry replaced the previous one), so the
  * project is represented by a short hash and the ids stay well under 40 characters.
  */
-const hashOf = (s: string, seed: number) => { let h = seed >>> 0; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619) >>> 0; return h.toString(36).padStart(7, "0"); };
-const pid = (projectId: string) => hashOf(projectId, 2166136261) + hashOf(projectId, 0x9e3779b1);
+const pid = shortHash;
 const settingsId = (projectId: string) => `as-${pid(projectId)}`;
 const legacySettingsId = (projectId: string) => `audit-settings-${projectId}`;
 
