@@ -18,6 +18,7 @@ import { writtenFields } from "../core/written";
 import { makeCatalog, validateProject } from "./validate";
 import { issueTarget, nextStep, Tab, TAB_INTRO } from "./sections";
 import { AuditTab } from "./AuditTab";
+import { CommentOnlyTab } from "./CommentOnlyTab";
 import { useReason } from "./ReasonDialog";
 import { projectAdminStatus } from "../shared/presetAccess";
 import { appendAudit } from "../shared/auditStore";
@@ -170,7 +171,7 @@ function Hub(props: { projectId: string; projectName: string }) {
           );
         })()}
         <div className="tabs" role="tablist">
-          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["audit", "Audit log"], ["json", "JSON"]] as [Tab, string][])
+          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["commentonly", `Comment-only access${config.commentOnly?.enabled ? " (on)" : ""}`], ["audit", "Audit log"], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{l}</button>)}
         </div>
         <div className="tabintro">{TAB_INTRO[tab]}</div>
@@ -181,6 +182,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "readonly" && <ReadOnlyTab config={config} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
+        {tab === "commentonly" && <CommentOnlyTab value={config.commentOnly} onChange={commentOnly => setConfig({ ...config, commentOnly })} />}
         {tab === "audit" && <AuditTab projectId={props.projectId} />}
         {tab === "json" && <JsonTab key={saved + JSON.stringify(config).length} config={config} onApply={setConfig} />}
         {issues.length > 0 && (

@@ -325,6 +325,20 @@ export interface ProjectConfig {
   cascades: Cascade[];
   grids: Record<string, GridConfig>;
   calculations: Calculation[];
+  /** selected users / teams may only add comments on the work item form: every other field change is undone */
+  commentOnly?: CommentOnlyConfig;
+}
+
+export interface CommentOnlyConfig {
+  enabled: boolean;
+  /** work item types the restriction applies to (empty = all) */
+  workItemTypes: string[];
+  teams: { id: string; name: string }[];
+  /** "Name <sign-in>" */
+  people: string[];
+  /** fields that stay editable (reference names); the discussion is always allowed */
+  allowedFields: string[];
+  message?: string;
 }
 
 export const emptyConfig = (): ProjectConfig => ({ version: 1, rules: [], cascades: [], grids: {}, calculations: [], lookups: {} });

@@ -349,7 +349,7 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
 }
 
 /** Chips to pick Azure DevOps teams. */
-function TeamChips(p: { all: TeamRef[]; value: { id: string; name: string }[]; onChange(v: { id: string; name: string }[]): void }) {
+export function TeamChips(p: { all: TeamRef[]; value: { id: string; name: string }[]; onChange(v: { id: string; name: string }[]): void }) {
   return (
     <div className="chips" style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
       {p.all.map(t => <span role="button" tabIndex={0} onKeyDown={activate} key={t.id} className={"chip" + (p.value.some(x => x.id === t.id) ? " on" : "")} onClick={() => p.onChange(p.value.some(x => x.id === t.id) ? p.value.filter(x => x.id !== t.id) : [...p.value, t])}>{t.name}</span>)}
@@ -360,7 +360,7 @@ function TeamChips(p: { all: TeamRef[]; value: { id: string; name: string }[]; o
 }
 
 /** Named people ("Name <sign-in>") picked from the directory. */
-function PeopleList(p: { value: string[]; projectId: string; onChange(v: string[]): void }) {
+export function PeopleList(p: { value: string[]; projectId: string; onChange(v: string[]): void }) {
   const [text, setText] = React.useState("");
   const add = () => { const t = text.trim(); if (t && !p.value.includes(t)) p.onChange([...p.value, t]); setText(""); };
   return (

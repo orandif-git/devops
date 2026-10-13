@@ -38,6 +38,13 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
   const cfg: ProjectConfig = { ...raw, grids: resolvedGrids(raw) };
   const add = (level: Issue["level"], where: string, message: string) => out.push({ level, where, message });
 
+  const co = cfg.commentOnly;
+  if (co?.enabled) {
+    if (!co.teams.length && !co.people.length) add("error", "Comment-only access", "Choose at least one team or person, or switch it off");
+    for (const t of co.workItemTypes) if (cat.types.length && !cat.types.includes(t)) add("warn", "Comment-only access", `Work item type '${t}' does not exist in this project`);
+    for (const f of co.allowedFields) if (!/^[A-Za-z][\w.]*$/.test(f)) add("error", "Comment-only access", `'${f}' is not a field reference name`);
+  }
+
   const checkField = (where: string, ref: string, types: string[]) => {
     if (!ref) { add("error", where, "No field selected"); return undefined; }
     if (!cat.all.size) return undefined; // catalog not loaded

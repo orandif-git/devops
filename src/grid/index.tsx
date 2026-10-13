@@ -1,3 +1,4 @@
+import { commentOnlyHere } from "../shared/commentOnlyAccess";
 import { staleOutputs } from "../core/written";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
@@ -61,6 +62,8 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const { cfg } = props;
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [ready, setReady] = React.useState(false);
+  const [commentOnly, setCommentOnly] = React.useState(false);
+  const commentOnlyP = React.useMemo(() => commentOnlyHere(props.projectId).then(r => { setCommentOnly(r); return r; }), [props.projectId]);
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");
@@ -133,7 +136,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
 
   /** Totals and statuses are calculated: when the work item is opened, correct any output field that was changed by hand or by another tool. */
   const syncOutputs = React.useCallback(async (next: GridRow[]) => {
-    if (!next.length) return;
+    if (!next.length || await commentOnlyP) return;
     const wanted: Record<string, number | string> = { ...mappedTotals(next, cfg) };
     const overall = overallValue(next, cfg);
     if (overall) wanted[overall.field] = overall.value;
@@ -143,7 +146,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     const current: Record<string, unknown> = {};
     for (const f of Object.keys(wanted)) { if (!knownFields.current.has(f)) { delete wanted[f]; continue; } try { current[f] = await svc.getFieldValue(f); } catch { delete wanted[f]; } }
     for (const f of staleOutputs(wanted, current)) { try { await svc.setFieldValue(f, wanted[f]); } catch { /* the field may be locked by a process rule: reported when the grid is next edited */ } }
-  }, [cfg]);
+  }, [cfg, commentOnlyP]);
 
   const readField = React.useCallback(async () => {
     const svc = await getFormService();
@@ -364,7 +367,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       {reviewNote && <div className="muted" style={{ padding: "2px 8px" }}>{reviewNote}</div>}
       {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
-      <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} projectId={props.projectId} busyChildren={busy} status={status}
+      <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly || commentOnly} projectId={props.projectId} busyChildren={busy} status={status}
         review={cfg.review ? { actor, actorName: SDK.getUser().displayName, onDecide: secField ? onDecide : undefined } : undefined}
         onChange={commit} onImport={onImport} onExport={onExport}
         presetTools={presetList.length || canSave ? { presets: presetList.map(x => ({ id: x.id, name: x.name, count: x.rows.length })), onLoad: loadPreset, canSave, onSave: savePreset } : undefined}

@@ -1,5 +1,6 @@
 import { DEFAULT_STATUSES } from "./review";
 import { GridConfig, ProjectConfig, ReviewConfig } from "./types";
+import { normalizeCommentOnly } from "./commentOnly";
 
 /** A review setting with every part present, so a partly written (hand-edited, older) one cannot crash the pages. */
 export function normalizeReview(r: Partial<ReviewConfig> | undefined): ReviewConfig | undefined {
@@ -31,5 +32,7 @@ export function normalizeGrid(g: GridConfig): GridConfig {
 
 /** Fill in what an older or hand-written configuration leaves out. */
 export function normalizeProject(c: ProjectConfig): ProjectConfig {
-  return { ...c, grids: Object.fromEntries(Object.entries(c.grids ?? {}).map(([k, g]) => [k, normalizeGrid(g)])) };
+  const out: ProjectConfig = { ...c, grids: Object.fromEntries(Object.entries(c.grids ?? {}).map(([k, g]) => [k, normalizeGrid(g)])) };
+  if (c.commentOnly !== undefined) out.commentOnly = normalizeCommentOnly(c.commentOnly);
+  return out;
 }

@@ -4,6 +4,8 @@ import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { cascadeApplies, cascadeErrors, evaluateRules, hintedParent, ruleApplies } from "../core/rules";
 import { getFormService, getProject, loadConfig } from "../shared/ado";
+import { commentOnlyApplies, DEFAULT_MESSAGE, fieldsToRevert } from "../core/commentOnly";
+import { isCommentOnlyUser } from "../shared/commentOnlyAccess";
 
 /**
  * Rules observer: runs invisibly on every work item form.
@@ -29,6 +31,45 @@ const refsOf = (rules: Rule[], cascades: Cascade[]) => {
   return Array.from(s);
 };
 
+// ---- comment-only guard: selected users/teams may only add comments; any other field change is put back ----
+let guardP: Promise<{ restricted: boolean; allowed: string[]; message: string }> | undefined;
+let snapshot: Record<string, unknown> | undefined;
+let reverting = false;
+let guardTimer: number | undefined;
+
+/** Decide (once per load) whether this user is restricted on this work item, and remember the field values as opened. */
+function prepareGuard(): Promise<{ restricted: boolean; allowed: string[]; message: string }> {
+  return (async () => {
+    const none = { restricted: false, allowed: [] as string[], message: "" };
+    try {
+      if (!projectId) projectId = (await getProject()).id;
+      if (!config) config = await loadConfig(projectId);
+      const co = config.commentOnly;
+      const svc = await getFormService();
+      if (!co?.enabled) return none;
+      if (await svc.isNew()) return none;
+      const type = String(await svc.getFieldValue("System.WorkItemType"));
+      if (!commentOnlyApplies(co, type)) return none;
+      if (!(await isCommentOnlyUser(projectId, co))) return none;
+      const refs = (await svc.getFields()).map(f => f.referenceName);
+      snapshot = (await svc.getFieldValues(refs)) as Record<string, unknown>;
+      return { restricted: true, allowed: co.allowedFields, message: co.message || DEFAULT_MESSAGE };
+    } catch (e) { console.warn("[Grid & Rules] comment-only guard could not start:", (e as Error).message); return none; }
+  })();
+}
+
+async function guardChange(changed: Record<string, unknown>) {
+  const g = await guardP;
+  if (!g?.restricted || !snapshot || reverting) return;
+  const back = fieldsToRevert(changed, snapshot, g.allowed);
+  if (!back.length) return;
+  const svc = await getFormService();
+  reverting = true;
+  try { for (const b of back) { try { await svc.setFieldValue(b.field, (b.value ?? "") as Object); } catch (e) { console.warn(`[Grid & Rules] could not undo ${b.field}:`, (e as Error).message); } } }
+  finally { window.setTimeout(() => { reverting = false; }, 300); }
+  try { await svc.setError(g.message); window.clearTimeout(guardTimer); guardTimer = window.setTimeout(() => { svc.clearError().catch(() => undefined); }, 6000); } catch { /* message only */ }
+}
+
 async function run(isLoad: boolean) {
   if (running) { again = true; return; }
   running = true;
@@ -37,6 +78,8 @@ async function run(isLoad: boolean) {
     if (!config) config = await loadConfig(projectId);
     const svc = await getFormService();
     const type = String(await svc.getFieldValue("System.WorkItemType"));
+    if (!guardP) guardP = prepareGuard();
+    if ((await guardP).restricted) return;                 // comment-only users: no rules or calculations write to the work item
     const rules = config.rules.filter(r => ruleApplies(r, type));
     const cascades = config.cascades.filter(c => cascadeApplies(c, type));
     const calcs = (config.calculations ?? []).filter(c => calcApplies(c, type));
@@ -102,11 +145,11 @@ async function main() {
   await SDK.init({ loaded: false, applyTheme: true });
   await SDK.ready();
   SDK.register(SDK.getContributionId(), () => ({
-    onLoaded: () => { config = undefined; formFields = undefined; run(true); },
-    onFieldChanged: () => { run(false); },
-    onSaved: () => { run(false); },
-    onReset: () => { run(false); },
-    onRefreshed: () => { run(false); },
+    onLoaded: () => { config = undefined; formFields = undefined; snapshot = undefined; guardP = undefined; guardP = prepareGuard(); run(true); },
+    onFieldChanged: (a: { changedFields?: Record<string, unknown> }) => { if (a?.changedFields) guardChange(a.changedFields).catch(() => undefined); run(false); },
+    onSaved: () => { snapshot = undefined; guardP = prepareGuard(); run(false); },
+    onReset: () => { snapshot = undefined; guardP = prepareGuard(); run(false); },
+    onRefreshed: () => { snapshot = undefined; guardP = prepareGuard(); run(false); },
   }));
   await SDK.notifyLoadSucceeded();
   console.info("[Grid & Rules] observer started");
