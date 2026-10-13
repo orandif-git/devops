@@ -69,7 +69,20 @@ Total about **18–19 build days**, realistically 4–5 weeks including your tes
 | Anyone with access sees everyone's workload | Documented; optional guard to limit the page to chosen teams (a display rule, not access control) |
 | Rows not scheduled by dates | Counted and reported; optional fallback calculation |
 
-## 6. Decisions needed from you before Phase 0
+## 5a. Settings (everything configurable – confirmed)
+Nothing is hard-coded to your process. An administrator sets, once per project:
+1. **Epic date fields** – the start-date and target-date custom fields (any date field).
+2. **Hours sources (one or more grids)** – for each grid, for example *SDLC Timesheet* and *Resource Allocation*: its **data field**, and its **column mapping** (resource, start, end, effort, allocation, optional review status). Several grids can feed the same heatmap; hours are added per person and month. A **Detect from a sample Epic** helper lists the keys found in that Epic's rows to pick from.
+3. **Excluded statuses (optional)** – off by default. If a grid has a review status column, the administrator may list the values to leave out of the hours (for example Rejected). Approval status is otherwise not used by the planner.
+4. **Capacity** – which Azure DevOps teams' capacity to read, and the default period (for example current year, current quarter, last 12 months).
+5. **Access** – who may open the planner: all project members (default) or chosen teams (a display guard, not access control).
+6. **Colour bands** – the thresholds (default 50 / 85 / 100 %) and the colour mode; **saved views** and which extra Epic fields appear as filters.
+These live in the planner's own extension data with an audit-style change history and a backup/restore, as in Grid & Rules.
+
+## 6. Decisions needed from you before Phase 0 (answered)
+All answered: configurable settings as above; first-load budget agreed (under 10 s first, under 2 s afterwards).
+
+## 6a. Original list of decisions
 1. Extension name and the Boards menu label (default: **Resource Planner**).
 2. **Reference names** of the Epic start-date and target-date custom fields, and of the grid data field.
 3. The grid's **column ids** (resource, start, end, allocation, review status) – or point me to one sample Epic and I will use the detect helper.
