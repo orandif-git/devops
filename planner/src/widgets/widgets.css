@@ -1,0 +1,13 @@
+.wg { padding: 10px 12px; font-size: 12px; overflow: hidden; }
+.wg-l { color: var(--fg2); font-size: 12px; }
+.wg-v { font-size: 30px; font-weight: 600; line-height: 1.3; }
+.wg-d { color: var(--fg2); margin-top: 4px; }
+.wg-bands { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; }
+.wg-t { width: 100%; border-collapse: collapse; margin-top: 6px; }
+.wg-t td { padding: 3px 4px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.wg-t .n { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg-t .r { text-align: right; white-space: nowrap; }
+.wg-m { width: 100%; border-collapse: separate; border-spacing: 2px; margin-top: 6px; table-layout: fixed; }
+.wg-m th { font-weight: 400; color: var(--fg2); text-align: center; }
+.wg-m th.n { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 28%; color: inherit; }
+.wg-m .cell { cursor: default; height: 22px; }
