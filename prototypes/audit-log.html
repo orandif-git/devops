@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audit log prototype</title>
+<style>
+:root{--bg:#fff;--fg:#1f2328;--fg2:#59636e;--line:#e3e6ea;--soft:#f6f8fa;--accent:#0f6cbd;--ok:#1a7f37;--okbg:#e6f4ea;--err:#b42318;--errbg:#fdecea;--chg:#7a4d00;--chgbg:#fff4d6}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1f;--fg:#e8e8ea;--fg2:#a0a4ab;--line:#33363c;--soft:#25272c;--accent:#4aa3f0;--ok:#4cc26a;--okbg:#17321f;--err:#f0716b;--errbg:#3a1e1c;--chg:#f0c36a;--chgbg:#3a2f14}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif;padding:20px 24px}
+.last{display:flex;gap:14px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:4px;background:var(--soft);margin-bottom:12px}
+.last b{font-weight:600}.muted{color:var(--fg2)}
+.bar{display:flex;gap:8px;align-items:center;margin:10px 0 12px;flex-wrap:wrap}
+.bar input[type=search]{width:290px;padding:5px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit}
+.btn{padding:4px 11px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:inherit;cursor:pointer}
+.btn:hover{background:var(--soft)}
+table{border-collapse:collapse;width:100%}
+thead th{position:sticky;top:0;background:var(--bg);text-align:left;font-weight:600;color:var(--fg2);font-size:12px;letter-spacing:.02em;padding:8px 10px;border-bottom:2px solid var(--line)}
+td{padding:8px 10px;vertical-align:top;border-bottom:1px solid var(--line)}
+tbody tr.first td{border-top:1px solid var(--line)}
+tbody tr.grp-end td{border-bottom:1px solid var(--line)}
+tbody tr:not(.grp-end) td.chg,tbody tr:not(.grp-end) td.val{border-bottom-style:dotted}
+.who{white-space:nowrap}.when{white-space:nowrap;font-variant-numeric:tabular-nums}
+.tag{display:inline-block;min-width:60px;text-align:center;font-size:11px;font-weight:600;padding:1px 8px;border-radius:9px;margin-right:8px}
+.tag.added{background:var(--okbg);color:var(--ok)}.tag.removed{background:var(--errbg);color:var(--err)}.tag.changed{background:var(--chgbg);color:var(--chg)}
+.path{color:var(--fg2)}.path b{color:var(--fg);font-weight:600}
+.val{max-width:260px;word-break:break-word}.none{color:var(--fg2)}
+.reason b{font-weight:600}.reason div+div{margin-top:3px;color:var(--fg2)}
+.area{display:inline-block;font-size:11px;color:var(--fg2);border:1px solid var(--line);border-radius:4px;padding:0 6px;margin-top:3px}
+.foot{margin-top:10px;color:var(--fg2)}
+</style></head><body>
+<div class="last"><span><b>Last change</b> · Aman S · 2026-10-13 20:27 UTC+05:30</span><span class="muted">Grid &amp; Rules configuration · “testing changes”</span></div>
+<div class="bar"><input type="search" placeholder="Search user, setting, value, reason…"><button class="btn">Export CSV</button><button class="btn">Refresh</button><button class="btn">Check storage</button><span class="muted">4 entries · 7 changes · times in Asia/Calcutta · kept 24 months</span></div>
+<table>
+<thead><tr><th style="width:150px">When</th><th style="width:90px">By</th><th>What changed</th><th style="width:210px">Before</th><th style="width:250px">After</th><th style="width:230px">Reason &amp; comments</th></tr></thead>
+<tbody>
+<tr class="first grp-end"><td class="when" rowspan="1">2026-10-13<br><span class="muted">20:27</span></td><td class="who">Aman S</td>
+ <td class="chg"><span class="tag added">Added</span><span class="path">Grid <b>SDLC Timesheet</b> › Column <b>test</b> (checkbox)</span></td><td class="val none">—</td><td class="val">Checkbox column “test”</td>
+ <td class="reason"><div><b>testing changes</b></div><div>testing changes</div><span class="area">Grid &amp; Rules configuration</span></td></tr>
+
+<tr class="first"><td class="when" rowspan="3">2026-10-13<br><span class="muted">19:53</span></td><td class="who" rowspan="3">Aman S</td>
+ <td class="chg"><span class="tag changed">Changed</span><span class="path">Grid <b>Resource Allocation</b> › Column <b>Phase</b> › name</span></td><td class="val">Phase</td><td class="val">Stage</td>
+ <td class="reason" rowspan="3"><div><b>Renamed after review</b></div><div>Ticket CHG-1042, approved by PMO</div><span class="area">Grid &amp; Rules configuration</span></td></tr>
+<tr><td class="chg"><span class="tag added">Added</span><span class="path">Grid <b>Resource Allocation</b> › Column <b>Phase</b> › dropdown value</span></td><td class="val none">—</td><td class="val">Test</td></tr>
+<tr class="grp-end"><td class="chg"><span class="tag removed">Removed</span><span class="path">Grid <b>Resource Allocation</b> › Column <b>Phase</b> › dropdown value</span></td><td class="val">Build</td><td class="val none">—</td></tr>
+
+<tr class="first grp-end"><td class="when">2026-10-13<br><span class="muted">19:41</span></td><td class="who">Aman S</td>
+ <td class="chg"><span class="tag added">Added</span><span class="path">Controls › <b>Comment-only access</b></span></td><td class="val none">not set</td>
+ <td class="val">On for Epic · team “Project E2E SDLC Automation Team” · stays editable: System.History</td>
+ <td class="reason"><div><b>test for control</b></div><div>test for control</div><span class="area">Grid &amp; Rules configuration</span></td></tr>
+
+<tr class="first"><td class="when" rowspan="2">2026-10-12<br><span class="muted">17:03</span></td><td class="who" rowspan="2">Ravi K</td>
+ <td class="chg"><span class="tag changed">Changed</span><span class="path">Capacity settings › <b>Source</b></span></td><td class="val">This extension’s register</td><td class="val">Azure DevOps team capacity</td>
+ <td class="reason" rowspan="2"><div><b>Moving to team capacity</b></div><div>Yearly iteration “Capacity 2026” created</div><span class="area">Capacity settings</span></td></tr>
+<tr class="grp-end"><td class="chg"><span class="tag added">Added</span><span class="path">Capacity settings › <b>Capacity teams</b></span></td><td class="val none">—</td><td class="val">Transformation Unit</td></tr>
+</tbody></table>
+<div class="foot">Prototype with sample data · the real page uses the same wording and shows the stored raw values under “Show technical detail”.</div>
+</body></html>
