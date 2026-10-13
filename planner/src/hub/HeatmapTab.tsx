@@ -1,12 +1,13 @@
 import * as React from "react";
 import { Band } from "../core/aggregate";
-import { buildPeople, cellOf, epicsInView, Filters, groupByTeam, heatmapCsv, monthSummary, noFilters, NO_TEAM, PersonRow, shortName } from "../core/model";
+import { buildPeople, cellOf, epicsInView, Filters, groupByTeam, heatmapCsv, monthSummary, PersonRow, shortName } from "../core/model";
 import { PlannerSettings, Thresholds } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { SavedQuery } from "../data/queries";
 import { LoadProgress } from "../data/epics";
 import { downloadFile } from "../../../src/shared/ado";
 import { EpicDialog } from "./EpicDialog";
+import { FilterBar } from "./FilterBar";
 
 const RAG: Record<Exclude<Band, "none">, { color: string; icon: string; label: string }> = {
   spare: { color: "#9ec5f4", icon: "", label: "Spare capacity" }, healthy: { color: "#0ca30c", icon: "✓", label: "Healthy" },
@@ -32,20 +33,12 @@ function paint(mode: "rag" | "shades", c: ReturnType<typeof cellOf>): { backgrou
   return { background: BLUES[i], color: i <= 2 ? "#184f95" : "#fff", text: "", label: RAG[c.band as Exclude<Band, "none">].label };
 }
 
-function MultiPick(p: { label: string; all: string[]; value: string[]; onChange(v: string[]): void }) {
-  return (
-    <details className="ms"><summary>{p.label}: {p.value.length ? `${p.value.length} selected` : "all"}</summary>
-      <div className="ms-list">{p.all.map(v => <label key={v}><input type="checkbox" checked={p.value.includes(v)} onChange={e => p.onChange(e.target.checked ? [...p.value, v] : p.value.filter(x => x !== v))} /> {v || "(empty)"}</label>)}
-        {p.value.length > 0 && <button className="btn" onClick={() => p.onChange([])}>Clear</button>}</div></details>
-  );
-}
-
 /** The utilization heatmap: people by month, banded by how much of their available hours is booked. */
 export function HeatmapTab(p: {
   project: { id: string; name: string }; settings: PlannerSettings; loaded?: Loaded; months: string[]; busy: boolean; progress?: LoadProgress; error: string;
-  queries: SavedQuery[]; queryId: string; onQuery(id: string): void; onReload(force: boolean): void;
+  queries: SavedQuery[]; queryId: string; onQuery(id: string): void; onReload(force: boolean): void; filters: Filters; onFilters(f: Filters): void;
 }) {
-  const [filters, setFilters] = React.useState<Filters>(noFilters());
+  const filters = p.filters;
   const [mode, setMode] = React.useState(p.settings.colourMode);
   const [th, setTh] = React.useState<Thresholds>(p.settings.thresholds);
   const [popover, setPopover] = React.useState(false);
@@ -63,11 +56,7 @@ export function HeatmapTab(p: {
   const groups = React.useMemo(() => groupByTeam(people), [people]);
   const summary = React.useMemo(() => monthSummary(people, focus, th), [people, focus, th]);
   const epicById = React.useMemo(() => new Map((L?.epics ?? []).map(e => [e.id, e])), [L]);
-  const teams = React.useMemo(() => Array.from(new Set((L ? buildPeople(L.bookings, L.epics, L.avail, p.months, { ...noFilters(), showIdle: true }) : []).map(x => x.team))).sort((a, b) => (a === NO_TEAM ? 1 : 0) - (b === NO_TEAM ? 1 : 0) || a.localeCompare(b)), [L, p.months]);
-  const states = React.useMemo(() => Array.from(new Set((L?.epics ?? []).map(e => e.state))).sort(), [L]);
-  const extraValues = (f: string) => Array.from(new Set((L?.epics ?? []).map(e => e.extra[f] ?? ""))).sort();
   const inView = React.useMemo(() => (L ? epicsInView(L.epics, filters).size : 0), [L, filters]);
-  const set = (patch: Partial<Filters>) => setFilters(f => ({ ...f, ...patch }));
   const selected = sel ? people.find(x => x.key === sel.person) : undefined;
 
   const exportCsv = () => downloadFile(`resource-utilization-${p.months[0]}-${p.months[p.months.length - 1]}.csv`, "﻿" + heatmapCsv(people, p.months, th), "text/csv");
@@ -100,14 +89,7 @@ export function HeatmapTab(p: {
 
   return (
     <div>
-      <div className="toolbar filters">
-        <label>Epics from <select value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>
-        <label>Team <select value={filters.team} onChange={e => set({ team: e.target.value })}><option value="">All teams</option>{teams.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
-        <MultiPick label="State" all={states} value={filters.states} onChange={v => set({ states: v })} />
-        {p.settings.extraFilterFields.map(f => <MultiPick key={f} label={f.split(".").pop() ?? f} all={extraValues(f)} value={filters.extra[f] ?? []} onChange={v => set({ extra: { ...filters.extra, [f]: v } })} />)}
-        <input type="search" placeholder="Find a person…" value={filters.search} onChange={e => set({ search: e.target.value })} style={{ width: 150 }} />
-        <label><input type="checkbox" checked={filters.showIdle} onChange={e => set({ showIdle: e.target.checked })} /> people without hours</label>
-      </div>
+      <FilterBar settings={p.settings} loaded={L} months={p.months} filters={filters} onFilters={p.onFilters} queries={p.queries} queryId={p.queryId} onQuery={p.onQuery} />
       <div className="toolbar filters">
         <label>Colour <select value={mode} onChange={e => setMode(e.target.value as "rag" | "shades")}><option value="rag">Traffic light</option><option value="shades">Shades</option></select></label>
         <span style={{ position: "relative" }}><button className="btn" onClick={() => setPopover(!popover)}>Thresholds…</button>

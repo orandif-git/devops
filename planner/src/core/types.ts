@@ -69,4 +69,19 @@ export interface Booking {
   estimated?: boolean;
 }
 
+/** One grid row as a piece of work: who, on which Epic, from when to when, how much. Used by the resource timeline. */
+export interface Task {
+  epicId: number;
+  sourceId: string;
+  person: string;
+  personName: string;
+  /** "YYYY-MM-DD" */
+  start: string;
+  end: string;
+  effort?: number;
+  allocation?: number;
+  label?: string;
+  estimated?: boolean;
+}
+
 export interface ParseStats { rows: number; counted: number; excluded: number; noPerson: number; unscheduled: number; estimated: number; errored: number; unreadable: boolean }

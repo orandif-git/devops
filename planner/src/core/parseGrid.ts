@@ -1,6 +1,6 @@
 import { extractJson } from "../../../src/core/gridModel";
 import { keyNorm } from "../../../src/core/keys";
-import { Booking, GridSource, ParseStats } from "./types";
+import { Booking, GridSource, ParseStats, Task } from "./types";
 
 const MONTH = /^\d{4}-\d{2}$/;
 const num = (v: unknown): number | undefined => { const n = typeof v === "number" ? v : parseFloat(String(v ?? "").replace(",", ".")); return Number.isFinite(n) ? n : undefined; };
@@ -26,15 +26,16 @@ export function spreadEffort(start: string, end: string, effort: number): Record
 }
 
 /** Read one Epic's grid text into bookings (hours per person and month). Rows in an excluded status are left out. */
-export function parseSource(raw: string | undefined | null, src: GridSource, epicId: number, estimateUnscheduled = true): { bookings: Booking[]; stats: ParseStats } {
+export function parseSource(raw: string | undefined | null, src: GridSource, epicId: number, estimateUnscheduled = true): { bookings: Booking[]; tasks: Task[]; stats: ParseStats } {
   const stats: ParseStats = { rows: 0, counted: 0, excluded: 0, noPerson: 0, unscheduled: 0, estimated: 0, errored: 0, unreadable: false };
   const bookings: Booking[] = [];
+  const tasks: Task[] = [];
   const text = String(raw ?? "").trim();
-  if (!text) return { bookings, stats };
+  if (!text) return { bookings, tasks, stats };
   let data: unknown;
-  try { data = extractJson(text); } catch { stats.unreadable = true; return { bookings, stats }; }
+  try { data = extractJson(text); } catch { stats.unreadable = true; return { bookings, tasks, stats }; }
   const rows = Array.isArray(data) ? data : Array.isArray((data as { rows?: unknown })?.rows) ? (data as { rows: unknown[] }).rows : null;
-  if (!rows) { stats.unreadable = true; return { bookings, stats }; }
+  if (!rows) { stats.unreadable = true; return { bookings, tasks, stats }; }
   const excluded = new Set(src.excludedStatuses.map(s => s.trim().toLowerCase()).filter(Boolean));
   for (const r of rows) {
     if (!r || typeof r !== "object") continue;
@@ -62,9 +63,18 @@ export function parseSource(raw: string | undefined | null, src: GridSource, epi
       bookings.push({ epicId, sourceId: src.id, person, personName: name, month, hours, ...(estimated ? { estimated: true } : {}) });
       any = true;
     }
-    if (any) { stats.counted++; if (estimated) stats.estimated++; } else stats.unscheduled++;
+    if (any) {
+      stats.counted++; if (estimated) stats.estimated++;
+      // the row as a piece of work: its own dates when it has them, otherwise from the first to the last month with hours
+      const ms = Object.keys(months).filter(m => MONTH.test(m) && (num(months![m]) ?? 0) > 0).sort();
+      const iso = (v: unknown) => { const t = day(v); return t === undefined ? "" : new Date(t).toISOString().slice(0, 10); };
+      let start = src.columns.start ? iso(row[src.columns.start]) : "", end = src.columns.end ? iso(row[src.columns.end]) : "";
+      if (!start || !end || end < start) { start = `${ms[0]}-01`; end = new Date(Date.UTC(+ms[ms.length - 1].slice(0, 4), +ms[ms.length - 1].slice(5), 0)).toISOString().slice(0, 10); }
+      tasks.push({ epicId, sourceId: src.id, person, personName: name, start, end, effort: src.columns.effort ? num(row[src.columns.effort]) : undefined,
+        allocation: src.columns.allocation ? num(row[src.columns.allocation]) : undefined, label: src.columns.task ? String(row[src.columns.task] ?? "").trim() || undefined : undefined, ...(estimated ? { estimated: true } : {}) });
+    } else stats.unscheduled++;
   }
-  return { bookings, stats };
+  return { bookings, tasks, stats };
 }
 
 export const sumStats = (list: ParseStats[]): ParseStats => list.reduce((a, s) => ({

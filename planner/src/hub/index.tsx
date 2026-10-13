@@ -7,6 +7,11 @@ import { getProject, init } from "../../../src/shared/ado";
 import { restGet, restPost } from "../rest";
 import { DataTab } from "./DataTab";
 import { HeatmapTab } from "./HeatmapTab";
+import { GanttTab } from "./GanttTab";
+import { TimelineTab } from "./TimelineTab";
+import { FilterBar, PeriodBar } from "./FilterBar";
+import { Filters, noFilters } from "../core/model";
+import { Period } from "../core/types";
 import { monthsOfPeriod } from "../core/period";
 import { LoadProgress } from "../data/epics";
 import { Loaded, loadAll } from "../data/loadAll";
@@ -67,7 +72,9 @@ function Checks(p: { projectId: string; projectName: string }) {
 }
 
 function App(p: { projectId: string; projectName: string }) {
-  const [tab, setTab] = React.useState<"heatmap" | "data" | "settings" | "checks">("settings");
+  const [tab, setTab] = React.useState<"heatmap" | "timeline" | "gantt" | "data" | "settings" | "checks">("settings");
+  const [filters, setFilters] = React.useState<Filters>(noFilters());
+  const [period, setPeriod] = React.useState<Period>();
   const [loaded, setLoaded] = React.useState<Loaded>();
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState<LoadProgress>();
@@ -82,7 +89,8 @@ function App(p: { projectId: string; projectName: string }) {
   React.useEffect(() => { loadSettings(p.projectId).then(r => { setSaved(r.settings); setCur(r.settings); etag.current = r.etag; if (!validateSettings(r.settings).length) setTab("heatmap"); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const valid = !!saved && !validateSettings(saved).length;
-  const months = React.useMemo(() => (saved ? monthsOfPeriod(saved.period) : []), [saved]);
+  const activePeriod = period ?? saved?.period ?? { kind: "year" as const };
+  const months = React.useMemo(() => monthsOfPeriod(activePeriod), [activePeriod]);
   const reload = React.useCallback(async (force: boolean, qid = queryId) => {
     if (!saved) return;
     setLoading(true); setLoadErr("");
@@ -90,7 +98,7 @@ function App(p: { projectId: string; projectName: string }) {
     catch (e) { setLoadErr((e as Error).message); } finally { setLoading(false); setProgress(undefined); }
   }, [saved, queryId, p.projectId, p.projectName]);
   // the first time the heatmap opens with complete settings, load the data
-  React.useEffect(() => { if (tab === "heatmap" && valid && !loaded && !loading && !loadErr) void reload(false); }, [tab, valid]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if ((tab === "heatmap" || tab === "timeline" || tab === "gantt") && valid && !loaded && !loading && !loadErr) void reload(false); }, [tab, valid]);   // eslint-disable-line react-hooks/exhaustive-deps
   const save = async () => {
     if (!cur) return;
     setBusy(true);
@@ -101,13 +109,21 @@ function App(p: { projectId: string; projectName: string }) {
   return (
     <div style={{ padding: "16px 22px", maxWidth: 1100 }}>
       <h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2>
-      <div className="muted" style={{ marginBottom: 8 }}>Work in progress · phase 2: the utilization heatmap. The timeline and Gantt come next.</div>
+      <div className="muted" style={{ marginBottom: 8 }}>Work in progress · phase 3: heatmap, resource timeline and Epic Gantt.</div>
       <div className="tabs" role="tablist" style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--line)", margin: "8px 0 12px" }}>
-        {([["heatmap", "Heatmap"], ["data", "Data check"], ["settings", "Settings"], ["checks", "Connection"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
+        {([["heatmap", "Heatmap"], ["timeline", "Resource timeline"], ["gantt", "Epic Gantt"], ["data", "Data check"], ["settings", "Settings"], ["checks", "Connection"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
           style={{ background: "none", border: 0, borderBottom: "2px solid " + (tab === k ? "var(--accent)" : "transparent"), padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 600 : 400, color: "inherit" }}>{l}</button>)}
       </div>
+      {cur && (tab === "heatmap" || tab === "timeline" || tab === "gantt") && valid && <PeriodBar period={activePeriod} onChange={setPeriod} />}
       {!cur ? <div className="muted">{msg || "Loading…"}</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} projectName={p.projectName} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
-        : tab === "heatmap" ? (valid ? <HeatmapTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} /> : <div className="err">Complete the settings first (Settings tab).</div>)
+        : tab === "heatmap" ? (valid ? <HeatmapTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} filters={filters} onFilters={setFilters} /> : <div className="err">Complete the settings first (Settings tab).</div>)
+        : tab === "timeline" || tab === "gantt" ? (valid ? (
+          <div>
+            {!loaded ? <div className="toolbar"><button className="btn primary" disabled={loading} onClick={() => void reload(false)}>{loading ? "Loading…" : "Load the planner"}</button>{progress && <span className="muted">Reading Epics ({progress.done}/{progress.total})</span>}</div>
+              : <FilterBar settings={saved!} loaded={loaded} months={months} filters={filters} onFilters={setFilters} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} idleLabel={tab === "timeline" ? "people without tasks" : "people without hours"} />}
+            {loadErr && <div className="err" role="alert">{loadErr}</div>}
+            {loaded && (tab === "timeline" ? <TimelineTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} filters={filters} /> : <GanttTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} filters={filters} />)}
+          </div>) : <div className="err">Complete the settings first (Settings tab).</div>)
         : tab === "data" ? <DataTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} valid={valid} loaded={loaded} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} />
         : <Checks projectId={p.projectId} projectName={p.projectName} />}
     </div>
