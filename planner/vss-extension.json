@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "resource-planner",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "name": "Resource Planner & Heatmap",
   "publisher": "amanullah-ado",
   "public": true,
@@ -74,7 +74,7 @@
       "description": "Share of available hours that is booked this month, with the number of people in each colour band.",
       "targets": [
         "ms.vss-dashboards-web.widget-catalog",
-        "amanullah-ado.resource-planner.widgets-config"
+        ".widgets-config"
       ],
       "properties": {
         "name": "Utilization (Resource Planner)",
@@ -103,7 +103,7 @@
       "description": "The people booked above their available hours this month, most overloaded first.",
       "targets": [
         "ms.vss-dashboards-web.widget-catalog",
-        "amanullah-ado.resource-planner.widgets-config"
+        ".widgets-config"
       ],
       "properties": {
         "name": "Over capacity (Resource Planner)",
@@ -136,7 +136,7 @@
       "description": "Utilization per team for the next six months as a small traffic-light map.",
       "targets": [
         "ms.vss-dashboards-web.widget-catalog",
-        "amanullah-ado.resource-planner.widgets-config"
+        ".widgets-config"
       ],
       "properties": {
         "name": "Team utilization (Resource Planner)",

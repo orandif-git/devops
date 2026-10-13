@@ -76,7 +76,7 @@ describe("widget manifest", () => {
     const config = m.contributions.find((c: { type: string }) => c.type === "ms.vss-dashboards-web.widget-configuration");
     for (const w of widgets) {
       expect(w.targets).toContain("ms.vss-dashboards-web.widget-catalog");
-      expect(w.targets).toContain(`amanullah-ado.resource-planner.${config.id}`);
+      expect(w.targets).toContain(`.${config.id}`);   // relative id: resolves to this extension, also the -dev copy
       expect(existsSync(resolve(__dirname, "../planner", w.properties.previewImageUrl))).toBe(true);
       expect(existsSync(resolve(__dirname, "../planner", w.properties.catalogIconUrl))).toBe(true);
     }
