@@ -76,7 +76,7 @@ table.tv{width:100%;border-collapse:collapse;font-size:12px}table.tv th,table.tv
   <label>State <select><option>New, Active, On hold</option></select></label>
   <label>Period <select><option>Jan – Dec 2026</option></select></label>
   <label>Count rows <select><option>Not rejected</option><option>Approved only</option><option>All</option></select></label>
-  <label>Colour <select id="mode"><option value="shades">Shades</option><option value="rag">Traffic light</option></select></label><span style="position:relative"><button class="btn" id="thr">Thresholds…</button><div class="pop" id="pop"></div></span>
+  <label>Colour <select id="mode"><option value="shades">Shades</option><option value="red">Red shades</option><option value="rag">Traffic light</option></select></label><span style="position:relative"><button class="btn" id="thr">Thresholds…</button><div class="pop" id="pop"></div></span>
   <button class="btn" id="tv">Table view</button>
 </div>
 <div class="src">Hours from the <b>Resource Allocation</b> grid of each Epic · available capacity from <b>Azure DevOps team capacity</b> · last refreshed 2 min ago (212 Epics read, 14 changed)</div>
@@ -101,9 +101,11 @@ const hideTip=()=>tip.style.display="none";
 const rampFor=v=>v<=.10?"--q100":v<=.25?"--q150":v<=.40?"--q200":v<=.55?"--q300":v<=.70?"--q400":v<=.85?"--q500":v<=1?"--q600":"--q700";
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
 let selected=null,table=false,mode=new URLSearchParams(location.search).get('mode')||'shades';const TH={a:50,b:85,c:100};
+const REDRAMP=["#fde4e2","#fbcfcc","#f8b6b1","#f28f89","#e86861","#d4443f","#b32c28"];const OVERHATCH="repeating-linear-gradient(45deg,#7a1613 0 4px,#4d0e0c 4px 8px)";
+const redFor=v=>v<=.10?0:v<=.25?1:v<=.40?2:v<=.55?3:v<=.70?4:v<=.85?5:6;
 const RAG=[["Spare capacity (under A %)","#9ec5f4","","Light"],["Healthy (A to B %)","#0ca30c","✓","Healthy"],["Nearly full (B to C %)","#fab219","▲","Nearly full"],["Over capacity (above C %)","#d03b3b","!","Over"]];
 function ragIdx(v){const x=v*100;return x<TH.a?0:x<=TH.b?1:x<=TH.c?2:3}
-function paint(c,v){if(mode==='rag'){const i=ragIdx(v);c.style.background=RAG[i][1];c.textContent=RAG[i][2];c.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';c.dataset.state=RAG[i][3]}else{c.style.background=`var(${v>1?'--critical':rampFor(v)})`;if(v>1){c.textContent='!';c.title='Over capacity'}else if(v<=.25){c.style.color='var(--q700)'}}}
+function paint(c,v){if(mode==='red'){if(v>1){c.style.background=OVERHATCH;c.textContent='!';c.style.color='#fff';c.dataset.state='Over'}else{const i=redFor(v);c.style.background=REDRAMP[i];c.style.color=i<=2?'#7a1613':'#fff'}}else if(mode==='rag'){const i=ragIdx(v);c.style.background=RAG[i][1];c.textContent=RAG[i][2];c.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';c.dataset.state=RAG[i][3]}else{c.style.background=`var(${v>1?'--critical':rampFor(v)})`;if(v>1){c.textContent='!';c.title='Over capacity'}else if(v<=.25){c.style.color='var(--q700)'}}}
 function epicDialog(e){const md=document.getElementById('md');md.replaceChildren();const ppl=[['Maya R.',62],['Omar K.',48],['Lena V.',40]];const rel=[['Feature','3015','Address validation service','Active'],['Feature','3016','Bulk address clean-up','New'],['User Story','3102','Update customer letters template','Active'],['Initiative','2100','Customer data quality (parent)','Active']];
  md.append(el('h3','',e[0]+' · '+e[1]),el('div','meta',e[3]+' · '+e[2]+' · Start '+e[4][1]+' '+MONTHS[e[4][0]]+' · Target '+e[5][1]+' '+MONTHS[e[5][0]-1]));
  md.append(el('h4','','People and hours (from the Resource Allocation grid)'));let t=el('table');let h=el('tr');['Person','Hours'].forEach(x=>h.append(el('th','',x)));t.appendChild(h);ppl.forEach(r=>{const tr=el('tr');tr.append(el('td','',r[0]),el('td','',r[1]+' h'));t.appendChild(tr)});md.appendChild(t);
@@ -131,8 +133,8 @@ function heat(){
         c.addEventListener("pointermove",e=>showTip(e,Math.round(v*100)+"% · "+p.name,info()));c.addEventListener("pointerleave",hideTip);c.addEventListener("focus",e=>{const r=c.getBoundingClientRect();showTip({clientX:r.left,clientY:r.bottom-30},Math.round(v*100)+"% · "+p.name,info())});c.addEventListener("blur",hideTip);
         c.addEventListener("click",()=>{selected={p,i};render()});g.appendChild(c)})});
     card.appendChild(g);
-    const lg=el("div","legend");if(mode==='rag'){RAG.forEach((r,i)=>{const sp=el('span','over');const ic=el('i','',r[2]);ic.style.background=r[1];ic.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';sp.append(ic,r[0].replace('A',TH.a).replace('B',TH.b).replace('C',TH.c));lg.appendChild(sp)});card.appendChild(lg)}else{const rp=el("span");rp.style.display="inline-flex";rp.style.gap="8px";rp.style.alignItems="center";rp.append("0 %");const r=el("span","ramp");["--q100","--q150","--q200","--q300","--q400","--q500","--q600"].forEach(k=>{const i=el("i");i.style.background=`var(${k})`;r.appendChild(i)});rp.append(r,"100 % of available hours");
-    const ov=el("span","over");const ic=el("i","","!");ov.append(ic,"Over capacity (above 100 %)");lg.append(rp,ov);card.appendChild(lg)}}
+    const lg=el("div","legend");if(mode==='rag'){RAG.forEach((r,i)=>{const sp=el('span','over');const ic=el('i','',r[2]);ic.style.background=r[1];ic.style.color=i===2?'#0b0b0b':i===0?'var(--q700)':'#fff';sp.append(ic,r[0].replace('A',TH.a).replace('B',TH.b).replace('C',TH.c));lg.appendChild(sp)});card.appendChild(lg)}else{const rp=el("span");rp.style.display="inline-flex";rp.style.gap="8px";rp.style.alignItems="center";rp.append("0 %");const r=el("span","ramp");(mode==='red'?REDRAMP:["--q100","--q150","--q200","--q300","--q400","--q500","--q600"].map(k=>`var(${k})`)).forEach(k=>{const i=el("i");i.style.background=k;r.appendChild(i)});rp.append(r,"100 % of available hours");
+    const ov=el("span","over");const ic=el("i","","!");if(mode==='red')ic.style.background=OVERHATCH;ov.append(ic,"Over capacity (above 100 %)");lg.append(rp,ov);card.appendChild(lg)}}
   lay.appendChild(card);
   const side=el("div","card panel");
   if(!selected){side.append(el("h3","","Select a cell"),el("div","meta","The Epics and hours behind a person’s month appear here, with a link to each Epic."))}
