@@ -4,7 +4,7 @@ import { DEFAULT_ALLOWED, DEFAULT_MESSAGE } from "../core/commentOnly";
 import { getProject } from "../shared/ado";
 import { listTeams, TeamRef } from "../shared/capacityStore";
 import { PeopleList, TeamChips } from "./GridsTab";
-import { Ctx, activate } from "./ui";
+import { Ctx, Section, activate } from "./ui";
 
 const EMPTY: CommentOnlyConfig = { enabled: false, workItemTypes: [], teams: [], people: [], allowedFields: [...DEFAULT_ALLOWED] };
 
@@ -18,6 +18,7 @@ export function CommentOnlyTab(p: { value?: CommentOnlyConfig; onChange(v: Comme
   React.useEffect(() => { getProject().then(pr => { setProjectId(pr.id); return listTeams(pr.id); }).then(setTeams).catch(() => undefined); }, []);
   return (
     <div>
+      <Section id="commentonly" no={1} title="Comment-only access" help="Selected people or teams can only add comments on the work item form." status={v.enabled ? "ok" : "off"} open={v.enabled}>
       <div className="card">
         <label><input type="checkbox" checked={v.enabled} onChange={e => set({ enabled: e.target.checked })} /> <b>Restrict selected people and teams to comments only</b> on the work item form</label>
         <div className="help">For them, a change to any field except the discussion is undone at once and a message is shown. This works on the work item form only. Edits made from a board card, a backlog, a query, Excel or the REST API are not covered. It is a guard against editing, not access control. Team membership counts direct members only (a person who is only in a group inside the team may not be recognised): add the person to the team, or list them below. If the team cannot be read, the user is treated as not restricted.</div>
@@ -45,6 +46,7 @@ export function CommentOnlyTab(p: { value?: CommentOnlyConfig; onChange(v: Comme
           <div className="help">The Smart Grid on those work items becomes read-only for restricted users, and rules and calculations do not write to the work item for them.</div>
         </>
       )}
+      </Section>
     </div>
   );
 }
