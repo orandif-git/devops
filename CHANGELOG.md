@@ -1,5 +1,8 @@
 # Changelog
 
+## Resource Planner & Heatmap (separate extension, `planner/`)
+- Heatmap, resource timeline, Epic Gantt, three dashboard widgets (utilization, over capacity, team map), Diagnostics tab, keyboard-accessible tabs, Marketplace page. Read-only (`vso.work`, `vso.project`). Pilot checklist: `docs/planner-pilot-checklist.md`.
+
 ## 2.2.0 (next)
 **Reliability**
 - Capacity records and live allocations now use short, fixed-length ids. Long ids were seen to be mistaken for each other on Azure DevOps (each new audit entry replaced the previous one). Older records are still read, de-duplicated, and can be moved with **Diagnostics → Move to short ids**.
