@@ -32,6 +32,14 @@ npm run package:all          # both extensions
 ```
 Plan: `docs/resource-planner-build-plan.md`.
 
+## NFR Risk Assessment grid (weighted questionnaire)
+`scripts/merge-nfr-assessment.js` adds a weighted yes/no questionnaire to a project configuration: 25 questions in six categories with weights, a rating (Low / Moderate / Moderate High / High, with colour) on every row of each category, and an overall score, rating and IFRM action written to Epic fields.
+1. Hub › JSON tab: copy the whole box into `current.json`. (Also download a backup first.)
+2. `node scripts/merge-nfr-assessment.js current.json merged.json --rating-field Custom.YourRating --score-field Custom.YourScore --action-field Custom.YourAction`
+3. Open `merged.json`, copy it into the JSON tab, press **Apply**, check the Grids and Calculations tabs, then **Save**.
+Only the grid named `NFR Risk Assessment` (its columns; its data field and other settings are kept), the `NFR question weights` mapping and the calculations `nfr-score-pct`, `nfr-rating` and `nfr-action` are added or replaced. Questions, weights, scoring answers, limits and field names are at the top of `scripts/nfr-template.js`.
+The group functions `GROUPTOTAL`, `GROUPAVG`, `GROUPMAX`, `GROUPMIN` and `GROUPCOUNT` (`GROUPTOTAL([score], [category])`) are available in every calculated column.
+
 ## Examples
 - `examples/sdlc-timesheet.json` – timesheet with a month per row.
 - `examples/sdlc-timesheet-scheduled.json` – the same project scheduled by start date + effort + allocation %, with a preset and a contractor override.

@@ -153,7 +153,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
           <div className="card">
             <div className="row">
               <label className="field" style={{ flex: 1 }}><span>Default value</span><input value={c.defaultValue === undefined ? "" : String(c.defaultValue)} onChange={e => set({ defaultValue: e.target.value === "" ? undefined : e.target.value })} /></label>
-              <label className="field" style={{ flex: 2 }}><span>{c.type === "calculated" ? "Formula – use column ids, e.g. hours / capacity * 100, TOTAL(hours), IF(x > 100, \"Yes\", \"No\")" : "Formula (makes column computed)"}</span><input placeholder="[qty] * [price]" value={c.formula ?? ""} onChange={e => set({ formula: e.target.value || undefined })} /></label>
+              <label className="field" style={{ flex: 2 }}><span>{c.type === "calculated" ? "Formula – use column ids, e.g. hours / capacity * 100, TOTAL(hours), GROUPTOTAL(score, category), IF(x > 100, \"Yes\", \"No\")" : "Formula (makes column computed)"}</span><input placeholder="[qty] * [price]" value={c.formula ?? ""} onChange={e => set({ formula: e.target.value || undefined })} /></label>
               {c.type === "number" && <>
                 <label className="field" style={{ width: 80 }}><span>Min</span><input type="number" value={c.min ?? ""} onChange={e => set({ min: e.target.value === "" ? undefined : +e.target.value })} /></label>
                 <label className="field" style={{ width: 80 }}><span>Max</span><input type="number" value={c.max ?? ""} onChange={e => set({ max: e.target.value === "" ? undefined : +e.target.value })} /></label>

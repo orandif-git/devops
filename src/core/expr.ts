@@ -1,7 +1,8 @@
 /**
  * Tiny, safe formula evaluator (no eval / Function).
  * Supports: numbers, "strings", [column] refs, + - * / % , comparisons, parentheses,
- * unary minus, and functions IF, ROUND, MIN, MAX, ABS, FLOOR, CEIL, AND, OR, NOT, CONCAT, SUM.
+ * unary minus, and functions IF, ROUND, MIN, MAX, ABS, FLOOR, CEIL, AND, OR, NOT, CONCAT, SUM,
+ * TOTAL/COLAVG/COLMAX/COLMIN/COLCOUNT (whole grid column) and GROUPTOTAL/GROUPAVG/GROUPMAX/GROUPMIN/GROUPCOUNT (rows sharing this row's group value).
  */
 type Val = number | string | boolean;
 type Tok = { t: "num" | "str" | "ref" | "id" | "op" | "end"; v: string; raw?: string };
@@ -11,6 +12,8 @@ export class EvalAbort extends Error {}
 
 /** Functions that aggregate a whole grid column, e.g. `[hours] / TOTAL([hours]) * 100`. */
 export const COLUMN_FUNCS = ["TOTAL", "COLAVG", "COLMAX", "COLMIN", "COLCOUNT"];
+/** Functions that aggregate a column over the rows that share this row's value in a group column, e.g. `GROUPTOTAL([score], [category])`. */
+export const GROUP_FUNCS = ["GROUPTOTAL", "GROUPAVG", "GROUPMAX", "GROUPMIN", "GROUPCOUNT"];
 
 export interface EvalOptions {
   /** throw EvalAbort on division by zero instead of returning 0 */
@@ -132,6 +135,16 @@ export function evaluate(src: string, resolve: RefResolver, opts: EvalOptions = 
         eat(")");
         return res(`@${t.v}:${col.t === "id" ? col.raw ?? col.v : col.v}`);
       }
+      if (GROUP_FUNCS.includes(t.v)) {                            // GROUPTOTAL([col], [groupCol]): aggregate over the rows with the same group value as this row
+        eat("(");
+        const col = eat();
+        if (col.t !== "ref" && col.t !== "id") throw new Error(`${t.v} expects a column name`);
+        eat(",");
+        const grp = eat();
+        if (grp.t !== "ref" && grp.t !== "id") throw new Error(`${t.v} expects the group column as its second argument`);
+        eat(")");
+        return res(`@${t.v}:${col.t === "id" ? col.raw ?? col.v : col.v}:${grp.t === "id" ? grp.raw ?? grp.v : grp.v}`);
+      }
       eat("(");
       if (t.v === "IF") {                                         // only the branch that is taken can fail the formula
         const cond = truthy(parseComparison());
@@ -191,4 +204,4 @@ export function extractRefs(src: string): string[] {
   return Array.from(out);
 }
 
-export const FUNCTION_NAMES = [...COLUMN_FUNCS, "IF", "ROUND", "MIN", "MAX", "SUM", "ABS", "FLOOR", "CEIL", "AND", "OR", "NOT", "CONCAT", "TRUE", "FALSE"];
+export const FUNCTION_NAMES = [...COLUMN_FUNCS, ...GROUP_FUNCS, "IF", "ROUND", "MIN", "MAX", "SUM", "ABS", "FLOOR", "CEIL", "AND", "OR", "NOT", "CONCAT", "TRUE", "FALSE"];

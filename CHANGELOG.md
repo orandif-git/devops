@@ -12,6 +12,7 @@
 - New **Diagnostics** tab: storage, id length limit, version check, permissions, teams/members/fields/capacity reads, settings consistency; results can be copied.
 
 **Features**
+- Grid formulas can total a column per group: `GROUPTOTAL`, `GROUPAVG`, `GROUPMAX`, `GROUPMIN`, `GROUPCOUNT` (for example `GROUPTOTAL(score, category)` = the score of the rows with this row's category). Used by the new weighted NFR Risk Assessment template (`scripts/merge-nfr-assessment.js`).
 - Audit log of settings changes with a mandatory reason and comments, shown as a clean plain-language table; export to CSV; retention with export before clearing.
 - Backup and restore of all settings in selectable parts (replace or add missing only), with a safety backup and audit entry.
 - **Controls now take any number of rules.** Each rule has its own people/teams, work item types, message and an on/off switch, and works as *Comments only* or *Lock specific fields* (for example Group 2 cannot edit two Epic fields, Group 3 three other fields). When a person is in several groups the stricter result applies. Your existing comment-only setting becomes “Rule 1” automatically; backups made before this still restore.

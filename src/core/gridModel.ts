@@ -1,5 +1,5 @@
 import { isDateFormat } from "./dateFormat";
-import { COLUMN_FUNCS, evaluate, EvalAbort } from "./expr";
+import { COLUMN_FUNCS, evaluate, EvalAbort, GROUP_FUNCS } from "./expr";
 import { applySchedule } from "./schedule";
 import { parseNumber } from "./number";
 import { applyTeamFrom } from "./teamBook";
@@ -181,9 +181,16 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
       try {
         const val = evaluate(c.formula!, name => {
           if (name[0] === "@") {                                   // TOTAL([col]) & co.
-            const [fn, colName] = name.slice(1).split(":");
+            const [fn, colName, groupName] = name.slice(1).split(":");
             const col = cfg.columns.find(x => x.id === colName || x.name === colName);
             if (!col) throw new EvalAbort(`unknown column '${colName}'`);
+            if (GROUP_FUNCS.includes(fn)) {                         // GROUPTOTAL([col], [group]): only the rows with this row's group value
+              const grp = cfg.columns.find(x => x.id === groupName || x.name === groupName);
+              if (!grp) throw new EvalAbort(`unknown column '${groupName}'`);
+              const key = String(row[grp.id] ?? "").trim().toLowerCase();
+              if (!key) throw new EvalAbort(`'${grp.name}' is empty`);
+              return columnAggregate(fn, scope.filter(r => String(r[grp.id] ?? "").trim().toLowerCase() === key).map(r => r[col.id]));
+            }
             return columnAggregate(fn, scope.map(r => r[col.id]));
           }
           const ref = cfg.columns.find(x => x.id === name || x.name === name);
@@ -214,15 +221,15 @@ export function recompute(row: GridRow, cfg: GridConfig, rows?: GridRow[]): Grid
 }
 
 function columnAggregate(fn: string, values: unknown[]): number {
-  const map: Record<string, Aggregate> = { TOTAL: "sum", COLAVG: "avg", COLMAX: "max", COLMIN: "min", COLCOUNT: "count" };
-  return COLUMN_FUNCS.includes(fn) ? aggregate(values, map[fn]) : 0;
+  const map: Record<string, Aggregate> = { TOTAL: "sum", COLAVG: "avg", COLMAX: "max", COLMIN: "min", COLCOUNT: "count", GROUPTOTAL: "sum", GROUPAVG: "avg", GROUPMAX: "max", GROUPMIN: "min", GROUPCOUNT: "count" };
+  return COLUMN_FUNCS.includes(fn) || GROUP_FUNCS.includes(fn) ? aggregate(values, map[fn]) : 0;
 }
 
 /** Recompute every row (formulas can use whole-column functions, so rows depend on each other). Returns new row objects. */
 export function recomputeAll(rows: GridRow[], cfg: GridConfig): GridRow[] {
   if (!cfg.columns.some(c => c.formula || c.lookup || c.dependsOn || c.statusBands || c.teamFrom) && !cfg.schedule && !cfg.review) return rows;
   let out = rows.map(r => ({ ...r }));
-  const usesColumnFuncs = cfg.columns.some(c => c.formula && COLUMN_FUNCS.some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
+  const usesColumnFuncs = cfg.columns.some(c => c.formula && [...COLUMN_FUNCS, ...GROUP_FUNCS].some(f => new RegExp(`\\b${f}\\s*\\(`, "i").test(c.formula!)));
   for (let pass = 0; pass < (usesColumnFuncs ? 2 : 1); pass++) { out = out.map(r => recompute({ ...r }, cfg, out)); }
   return out;
 }
