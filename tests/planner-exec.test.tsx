@@ -124,3 +124,14 @@ describe("Executive dashboard page", () => {
     expect(h.querySelectorAll("tr.ex-row")).toHaveLength(8);
   });
 });
+
+import { ago } from "../planner/src/exec/ago";
+describe("refreshed label", () => {
+  it("reads naturally", () => {
+    const now = Date.parse("2026-10-14T12:00:00Z");
+    expect(ago(now - 20_000, now)).toBe("just now");
+    expect(ago(now - 5 * 60_000, now)).toBe("5 min ago");
+    expect(ago(now - 3 * 3600_000, now)).toBe("3 h ago");
+    expect(ago(now - 30 * 3600_000, now)).toMatch(/\d/);
+  });
+});

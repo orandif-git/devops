@@ -11,6 +11,9 @@ import { Loaded, loadAll } from "../data/loadAll";
 import { listSavedQueries, SavedQuery } from "../data/queries";
 import { loadSettings } from "../data/settingsStore";
 import { ExecDashboard } from "./ExecDashboard";
+import { ago } from "./ago";
+
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
 
 function App(p: { projectId: string; projectName: string }) {
   const [settings, setSettings] = React.useState<PlannerSettings>();
@@ -29,11 +32,22 @@ function App(p: { projectId: string; projectName: string }) {
   React.useEffect(() => { loadSettings(p.projectId).then(r => { setSettings(r.settings); if (!validateExec(r.settings).length) void reload(false, "", r.settings); }).catch(e => setError("Could not load the settings: " + e.message)); }, [p.projectId]);   // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const problems = settings ? validateExec(settings) : [];
+  // keep the figures current: a light refresh (changed Epics only) every 10 minutes while the page is open and visible; the label re-reads the clock every 30 s
+  const [, tick] = React.useReducer((n: number) => n + 1, 0);
+  React.useEffect(() => { const t = window.setInterval(tick, 30000); return () => window.clearInterval(t); }, []);
+  const busyRef = React.useRef(busy); busyRef.current = busy;
+  React.useEffect(() => {
+    if (!settings || problems.length) return;
+    const t = window.setInterval(() => { if (!document.hidden && !busyRef.current) void reload(false); }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(t);
+  }, [settings, reload, problems.length]);   // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div style={{ padding: "16px 22px", maxWidth: 1500 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
         <h2 style={{ margin: 0 }}>Executive Dashboard</h2>
-        <span className="muted">{loaded ? `As of ${new Date(loaded.at).toLocaleString()} · ${loaded.epics.length} Epics read in ${(loaded.load.ms / 1000).toFixed(1)} s` : "Epics, status and go-live risk at a glance. Read-only."}</span>
+        {loaded ? <span className="muted" title={`Read from Azure DevOps at ${new Date(loaded.at).toLocaleString()} · ${loaded.epics.length} Epics in ${(loaded.load.ms / 1000).toFixed(1)} s. Refreshes by itself every 10 minutes.`} role="status">
+          <span style={{ color: busy ? "#fab219" : "#0ca30c" }} aria-hidden="true">●</span> {busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(loaded.at))}</span>
+          : <span className="muted">Epics, status and go-live risk at a glance. Read-only.</span>}
       </div>
       {!settings ? <div className="muted" style={{ marginTop: 12 }}>{error || "Loading…"}</div>
         : problems.length ? <div className="card" style={{ marginTop: 12 }}><b>The Executive Dashboard is not set up yet.</b><ul className="err">{problems.map(e => <li key={e}>{e}</li>)}</ul>
