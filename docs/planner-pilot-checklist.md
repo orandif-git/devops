@@ -27,6 +27,9 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Ask: “How many <category value> projects are at risk?”, “<value> RAG”, “What is late?” update the chips, tiles and list; every number matches the list.
 - [ ] Clicking an Epic opens the detail panel with the reasons; “Open the Epic details” opens the Epic dialog.
 - [ ] Epics without a go-live date or progress value show as Not assessed with the reason, not as green.
+- [ ] Settings › Executive dashboard › Questions: add a query (for example Category = a value AND Status = At risk). Its name appears as a chip under Ask; clicking it filters the list and the sentence matches the rows. Typing its name does the same.
+- [ ] A Teams query (Utilization % >= 85, month current) and a People query (Utilization % > 100) list the same people/teams and percentages as the heatmap for that month.
+- [ ] A query using grid fields (Hours booked in the month, Tasks ticked done %) returns the Epics you expect; Or/And rows behave as written (And binds tighter than Or).
 
 ## 3. Heatmap
 - [ ] Three people hand-checked: booked hours and available hours equal the grid and team capacity. Band colours, symbols (✓ ▲ !) and thresholds follow Settings.

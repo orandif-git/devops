@@ -135,3 +135,115 @@ describe("refreshed label", () => {
     expect(ago(now - 30 * 3600_000, now)).toMatch(/\d/);
   });
 });
+
+import { catalog, describeResult, matches, runQuery, test as condTest, validateQueries } from "../planner/src/core/execQuery";
+import { findQuery } from "../planner/src/core/ask";
+import { ExecQueries } from "../planner/src/hub/ExecQueries";
+import { ExecQuery } from "../planner/src/core/types";
+
+const Q = (name: string, show: ExecQuery["show"], conditions: ExecQuery["conditions"], month = "current"): ExecQuery => ({ id: name, name, show, conditions, month });
+const C = (field: string, op: ExecQuery["conditions"][number]["op"], value = "", join: "and" | "or" = "and") => ({ field, op, value, join });
+const inputFor = (extra: Partial<Parameters<typeof runQuery>[1]> = {}) => {
+  const people = { records: [{ key: "ann", name: "Ann A <ann>" }, { key: "bob", name: "Bob B <bob>" }, { key: "cy", name: "Cy C <cy>" }], hours: (k: string, m: string) => (m === "2026-10" ? 100 : null), team: (k: string) => (k === "cy" ? "Team B" : "Team A") };
+  const bookings = [
+    { epicId: 1, sourceId: "g", person: "ann", personName: "Ann A <ann>", month: "2026-10", hours: 120 }, { epicId: 2, sourceId: "g", person: "ann", personName: "Ann A <ann>", month: "2026-10", hours: 10 },
+    { epicId: 2, sourceId: "g", person: "bob", personName: "Bob B <bob>", month: "2026-10", hours: 40 }, { epicId: 2, sourceId: "g", person: "cy", personName: "Cy C <cy>", month: "2026-10", hours: 90 },
+  ];
+  const exec = buildExec({ epics, gridDone: {}, bookings, avail: people, settings, today: TODAY }).rows;
+  return { settings, exec, bookings, avail: people, today: TODAY, ...extra };
+};
+
+describe("query conditions", () => {
+  const T = (v: string | number | undefined, op: ExecQuery["conditions"][number]["op"], value: string, type: "text" | "number" | "date" | "choice" = "text") => condTest(v, C("f", op, value), type, Date.UTC(2026, 9, 14));
+  it("compares text, choices, numbers and dates", () => {
+    expect(T("Software upgrade", "contains", "upgrade")).toBe(true); expect(T("Security", "in", "Data, security")).toBe(true); expect(T("At risk", "<>", "Done", "choice")).toBe(true);
+    expect(T(85, ">=", "85", "number")).toBe(true); expect(T(84.9, ">=", "85", "number")).toBe(false); expect(T(5, "<", "x", "number")).toBe(false);
+    expect(T("2026-09-30", "<", "today", "date")).toBe(true); expect(T("2026-09-30", ">=", "today-30", "date")).toBe(true); expect(T("2026-12-01", "<=", "today+30", "date")).toBe(false);
+    expect(T(undefined, "empty", "")).toBe(true); expect(T("", "notEmpty", "")).toBe(false); expect(T(undefined, "<>", "x")).toBe(true); expect(T(undefined, "=", "x")).toBe(false);
+  });
+  it("binds And tighter than Or", () => {
+    const row: Record<string, string> = { a: "1", b: "2", c: "3" };
+    const get = (f: string) => row[f];
+    const ty = () => "text" as const;
+    expect(matches([C("a", "=", "1"), C("b", "=", "9", "and"), C("c", "=", "3", "or")], get, ty, 0)).toBe(true);     // (a=1 and b=9) or c=3
+    expect(matches([C("a", "=", "1"), C("b", "=", "9", "and"), C("c", "=", "9", "or")], get, ty, 0)).toBe(false);
+    expect(matches([], get, ty, 0)).toBe(true);
+  });
+});
+
+describe("running queries", () => {
+  it("Epics: filters on category, status, hours from the grids and counts", () => {
+    const r = runQuery(Q("Regulatory at risk", "epics", [C("Custom.Type", "=", "Regulatory"), C("status", "=", "At risk")]), inputFor());
+    expect(r.rows.map(x => x.values.title)).toEqual(["Basel IV"]);
+    const busy = runQuery(Q("Booked in Oct", "epics", [C("hoursMonth", ">", "100")]), inputFor());
+    expect(busy.rows.map(x => x.values.title)).toEqual(["Basel IV", "GDPR"]);                  // 120 h and 140 h booked in October
+    expect(describeResult(r)).toBe("Regulatory at risk: 1 Epic (Basel IV).");
+  });
+  it("Teams: utilization of the month from bookings and capacity, highest first", () => {
+    const r = runQuery(Q("Teams highly utilized", "teams", [C("utilization", ">=", "85")], "2026-10"), inputFor());
+    expect(r.rows.map(x => [x.values.team, x.values.utilization])).toEqual([["Team B", 90], ["Team A", 85]]);
+    expect(describeResult(r)).toMatch(/^Teams highly utilized: 2 teams \(2026-10: Team B 90%, Team A 85%\)\.$/);
+  });
+  it("People: who is over capacity in the month", () => {
+    const r = runQuery(Q("People over capacity", "people", [C("utilization", ">", "100")]), inputFor());
+    expect(r.rows.map(x => x.values.name)).toEqual(["Ann A"]);
+    expect(r.rows[0].values).toMatchObject({ booked: 130, available: 100, utilization: 130, free: 0, band: "Over capacity", epicsCount: 2 });
+    expect(runQuery(Q("Not in team A", "people", [C("team", "<>", "Team A")]), inputFor()).rows.map(x => x.values.name)).toEqual(["Cy C"]);
+  });
+  it("a month setting reads the capacity of that month", () => {
+    expect(runQuery(Q("Next month", "teams", [], "next"), inputFor()).month).toBe("2026-11");
+  });
+  it("is validated like a query editor would", () => {
+    const bad = normalizeSettings({ ...settings, executive: { ...settings.executive, queries: [
+      Q("", "epics", []), Q("A", "epics", [C("nope", "=", "x")]), Q("a", "teams", [C("utilization", "contains", "x")]), Q("B", "people", [C("utilization", ">", "abc")]), Q("C", "epics", [C("goLive", "<", "yesterday")]), Q("D", "epics", [C("state", "=", "")]),
+    ] } });
+    expect(validateQueries(bad).length).toBe(7);
+    expect(validateQueries(normalizeSettings({ ...settings, executive: { ...settings.executive, queries: [Q("Ok", "teams", [C("utilization", ">=", "85"), C("team", "in", "A, B", "or")])] } }))).toEqual([]);
+    expect(catalog("epics", settings).some(f => f.key === "Custom.Type" && f.label === "Type")).toBe(true);
+  });
+  it("finds a configured query from typed words", () => {
+    const qs = [Q("Late", "epics", []), Q("Software upgrades at risk", "epics", [])];
+    expect(findQuery("what is late?", qs)?.name).toBe("Late");
+    expect(findQuery("show software upgrades at risk please", qs)?.name).toBe("Software upgrades at risk");
+    expect(findQuery("banana", qs)).toBeUndefined();
+  });
+});
+
+describe("queries on the dashboard and in the settings", () => {
+  const withQueries = normalizeSettings({ ...settings, executive: { ...settings.executive, queries: [Q("Regulatory red", "epics", [C("Custom.Type", "=", "Regulatory"), C("status", "=", "At risk")]), Q("Teams hot", "teams", [C("utilization", ">=", "85")])] } });
+  const data = { epics, bookings: [{ epicId: 1, sourceId: "g", person: "ann", personName: "Ann A <ann>", month: new Date().toISOString().slice(0, 7), hours: 95 }], gridDone: {}, avail: { records: [{ key: "ann", name: "Ann A <ann>" }], hours: () => 100, team: () => "Team A" }, at: "", load: { ms: 1 } } as never;
+  const mount = () => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={withQueries} loaded={data} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+  it("shows each query as a chip; an Epics query filters the list, a Teams query shows a table", () => {
+    const h = mount();
+    const chips = Array.from(h.querySelectorAll(".ex-sugg .chip"));
+    expect(chips.map(c => c.textContent)).toEqual(["Regulatory red", "Teams hot"]);
+    act(() => { Simulate.click(chips[0]); });
+    expect(h.querySelectorAll("tr.ex-row")).toHaveLength(1); expect(h.querySelector(".ex-chips")!.textContent).toContain("Query: Regulatory red");
+    expect(h.querySelector(".ex-answer")!.textContent).toContain("Regulatory red: 1 Epic");
+    act(() => { Simulate.click(chips[1]); });
+    expect(h.querySelector(".ex-result")!.textContent).toContain("Team A"); expect(h.querySelector(".ex-result")!.textContent).toContain("95%");
+    const input = h.querySelector('input[aria-label="Ask the dashboard"]') as HTMLInputElement;
+    act(() => { input.value = "regulatory red"; Simulate.change(input); });
+    act(() => { Simulate.submit(h.querySelector("form")!); });
+    expect(h.querySelector(".ex-result")).toBeNull(); expect(h.querySelectorAll("tr.ex-row")).toHaveLength(1);
+  });
+  it("the editor adds a query, a condition, changes its field and operator, and offers example queries", () => {
+    const hostEl = document.createElement("div"); document.body.appendChild(hostEl);
+    let s = settings;
+    const render = () => ReactDOM.render(<ExecQueries s={s} onChange={n => { s = n; render(); }} />, hostEl);
+    act(() => { render(); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "Add example queries")!); });
+    expect(s.executive.queries.map(q => q.name)).toEqual(["At risk", "Late", "Teams highly utilized", "People over capacity"]);
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a query")!); });
+    expect(s.executive.queries).toHaveLength(5);
+    const card = () => hostEl.querySelectorAll(".card")[4] as HTMLElement;
+    act(() => { Simulate.click(Array.from(card().querySelectorAll("button")).find(b => b.textContent === "+ Add a condition")!); });
+    const sel = (label: string) => card().querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement;
+    act(() => { sel("Field").value = "status"; Simulate.change(sel("Field")); });
+    expect(s.executive.queries[4].conditions[0]).toMatchObject({ field: "status", op: "=" });
+    act(() => { const v = card().querySelector('select[aria-label="Value"]') as HTMLSelectElement; v.value = "At risk"; Simulate.change(v); });
+    expect(s.executive.queries[4].conditions[0].value).toBe("At risk");
+    act(() => { sel("Operator").value = "notEmpty"; Simulate.change(sel("Operator")); });
+    expect(card().querySelector('select[aria-label="Value"]')).toBeNull();
+  });
+});

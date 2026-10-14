@@ -1,9 +1,22 @@
-import { defaultExec, defaultSettings, ExecSettings, GridSource, PlannerSettings, ProgressSource, TeamRef } from "./types";
+import { validateQueries } from "./execQuery";
+import { defaultExec, defaultSettings, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
 
 const FIELD = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const team = (t: unknown): TeamRef | undefined => (t && typeof t === "object" && typeof (t as TeamRef).id === "string" ? { id: (t as TeamRef).id, name: str((t as TeamRef).name) } : undefined);
 const list = (v: unknown, fb: string[] = []) => (Array.isArray(v) ? Array.from(new Set(v.map(str).filter(Boolean))) : fb);
+
+const OPS: QueryOp[] = ["=", "<>", ">", ">=", "<", "<=", "contains", "in", "empty", "notEmpty"];
+export function normalizeQueries(raw: unknown): ExecQuery[] {
+  return (Array.isArray(raw) ? raw : []).filter(q => q && typeof q === "object").map((q, i) => {
+    const x = q as Record<string, unknown>;
+    const conditions: QueryCondition[] = (Array.isArray(x.conditions) ? x.conditions : []).filter(c => c && typeof c === "object").map(c => {
+      const y = c as Record<string, unknown>;
+      return { field: str(y.field), op: (OPS.includes(str(y.op) as QueryOp) ? str(y.op) : "=") as QueryOp, value: typeof y.value === "string" ? y.value.trim() : y.value === undefined || y.value === null ? "" : String(y.value), join: (y.join === "or" ? "or" : "and") as "and" | "or" };
+    });
+    return { id: str(x.id) || `q${i + 1}`, name: str(x.name), show: (["epics", "people", "teams"].includes(str(x.show)) ? str(x.show) : "epics") as ExecQuery["show"], conditions, month: /^(current|next|\d{4}-\d{2})$/.test(str(x.month)) ? str(x.month) : "current" };
+  });
+}
 
 export function normalizeExec(raw: unknown): ExecSettings {
   const d = defaultExec();
@@ -18,7 +31,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
     doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
     slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
-    minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100),
+    minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries),
   };
 }
 
@@ -89,5 +102,6 @@ export function validateExec(s: PlannerSettings): string[] {
   });
   if (x.slipAmberDays >= x.slipRedDays) e.push("Days late: the attention limit must be below the at-risk limit.");
   if (x.gapAmberPts >= x.gapRedPts) e.push("Progress gap: the attention limit must be below the at-risk limit.");
+  e.push(...validateQueries(s));
   return e;
 }

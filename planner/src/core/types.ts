@@ -51,6 +51,20 @@ export interface ProgressSource {
   sourceId?: string;
 }
 
+export type QueryOp = "=" | "<>" | ">" | ">=" | "<" | "<=" | "contains" | "in" | "empty" | "notEmpty";
+export type QueryShow = "epics" | "people" | "teams";
+/** One row of a query, like a row in the Azure DevOps query editor. `join` links it to the row above (the first row's join is ignored); And binds tighter than Or. */
+export interface QueryCondition { field: string; op: QueryOp; value: string; join: "and" | "or" }
+/** A named question for the Executive Dashboard: it becomes a chip under the Ask box. */
+export interface ExecQuery {
+  id: string;
+  name: string;
+  show: QueryShow;
+  conditions: QueryCondition[];
+  /** the month the grid and capacity fields are read for: "current", "next" or "YYYY-MM" */
+  month: string;
+}
+
 export interface ExecSettings {
   /** Epic fields that classify an Epic (for example Project type, Regulatory); each can be filtered and asked about */
   categoryFields: string[];
@@ -72,12 +86,14 @@ export interface ExecSettings {
   minElapsedPct: number;
   /** an Epic counts as likely to deliver at this confidence (%) or more */
   likelyPct: number;
+  /** named queries shown as chips under the Ask box */
+  queries: ExecQuery[];
 }
 
 export const defaultExec = (): ExecSettings => ({
   categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
-  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60,
+  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [],
 });
 
 export const defaultSettings = (): PlannerSettings => ({

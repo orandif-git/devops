@@ -1,5 +1,7 @@
 import * as React from "react";
-import { answer, interpret, matchesDims } from "../core/ask";
+import { answer, findQuery, interpret, matchesDims } from "../core/ask";
+import { describeResult, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
+import { ExecQuery } from "../core/types";
 import { buildExec, dayText, dimFields, dimLabel, ExecEpic, ExecStatus, likely, NO_VALUE, STATUS_NAME, STATUS_ORDER } from "../core/executive";
 import { monthsOfPeriod } from "../core/period";
 import { PlannerSettings } from "../core/types";
@@ -11,7 +13,7 @@ const SYM: Record<ExecStatus, string> = { green: "✓", amber: "▲", red: "!", 
 const Sw = ({ s }: { s: ExecStatus }) => <i className={"ex-sw " + s} aria-hidden="true">{SYM[s]}</i>;
 const PAGE = 100;
 
-interface Filters { dims: Record<string, string[]>; statuses: ExecStatus[]; late: boolean; hold: boolean; search: string }
+interface Filters { dims: Record<string, string[]>; statuses: ExecStatus[]; late: boolean; hold: boolean; search: string; /** only these Epics (the result of a query) */ ids?: number[]; idsName?: string }
 const none = (): Filters => ({ dims: {}, statuses: [], late: false, hold: false, search: "" });
 const toggle = <T,>(a: T[], v: T) => (a.includes(v) ? a.filter(x => x !== v) : [...a, v]);
 
@@ -28,13 +30,15 @@ export function ExecDashboard(p: {
   const [text, setText] = React.useState("");
   const [said, setSaid] = React.useState<{ q: string; a: string }>();
   const [limit, setLimit] = React.useState(PAGE);
+  const [run, setRun] = React.useState<QueryResult>();
   const fields = dimFields(p.settings);
   React.useEffect(() => { if (!fields.includes(group)) setGroup(fields[0]); }, [fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings }) : undefined), [L, p.settings]);
   const rows = built?.rows ?? [];
   const vocab = React.useMemo(() => Object.fromEntries(fields.map(k => [k, Array.from(new Set(rows.map(r => r.dims[k]))).filter(v => v !== NO_VALUE).sort()])), [rows, fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const base = (r: ExecEpic) => matchesDims(r, f.dims) && (!f.late || r.late) && (!f.hold || r.hold) && (!f.search || r.epic.title.toLowerCase().includes(f.search.toLowerCase()) || String(r.epic.id) === f.search.trim());
+  const idSet = React.useMemo(() => (f.ids ? new Set(f.ids) : undefined), [f.ids]);
+  const base = (r: ExecEpic) => (!idSet || idSet.has(r.epic.id)) && matchesDims(r, f.dims) && (!f.late || r.late) && (!f.hold || r.hold) && (!f.search || r.epic.title.toLowerCase().includes(f.search.toLowerCase()) || String(r.epic.id) === f.search.trim());
   const B = rows.filter(base);                                                   // for the tiles: everything but the status filter
   const V = B.filter(r => !f.statuses.length || f.statuses.includes(r.status));
   const cnt = (list: ExecEpic[], s: ExecStatus) => list.filter(r => r.status === s).length;
@@ -44,20 +48,32 @@ export function ExecDashboard(p: {
   const chosen = rows.find(r => r.epic.id === sel);
   const months = React.useMemo(() => monthsOfPeriod({ kind: "year" }), []);
 
+  const runNamed = (x: ExecQuery, asked?: string) => {
+    if (!L || !built) return;
+    const res = runQuery(x, { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone });
+    setSel(undefined); setLimit(PAGE);
+    if (x.show === "epics") { setRun(undefined); setF({ ...none(), ids: res.rows.map(r => r.epicId!), idsName: x.name }); } else { setRun(res); setF(none()); }
+    setSaid({ q: asked ?? x.name, a: describeResult(res) });
+  };
   const ask = (q: string) => {
     const t = q.trim(); if (!t) return;
+    const named = findQuery(t, x.queries);
+    if (named) { runNamed(named, t); return; }
+    setRun(undefined);
     const Q = interpret(t, vocab);
     if (!Q.recognised) { setSaid({ q: t, a: "I could not map that to the data. Try a category value with a status, for example “" + (Object.values(vocab).flat()[0] ?? "Regulatory") + " projects that are red”, “what is late?” or “RAG split”." }); return; }
     setF({ dims: Q.dims, statuses: Q.split ? [] : Q.statuses, late: Q.late, hold: Q.hold, search: "" }); setSel(undefined); setLimit(PAGE);
     setSaid({ q: t, a: answer(Q, rows) });
   };
   const first = Object.values(vocab).flat();
-  const suggestions = [first[0] && `Which ${first[0]} projects are red?`, first[1] && `How many ${first[1]} projects are at risk?`, first[0] && `${first[0]} RAG`, "What is late?", "Show everything on hold"].filter(Boolean) as string[];
+  const queryChips = x.queries.filter(q => q.name.trim());
+  const suggestions = queryChips.length ? [] : [first[0] && `Which ${first[0]} projects are red?`, first[1] && `How many ${first[1]} projects are at risk?`, first[0] && `${first[0]} RAG`, "What is late?", "Show everything on hold"].filter(Boolean) as string[];
   const chips: { label: string; clear(): void }[] = [
     ...Object.entries(f.dims).flatMap(([k, vals]) => vals.map(v => ({ label: `${dimLabel(k)}: ${v}`, clear: () => setF({ ...f, dims: { ...f.dims, [k]: vals.filter(y => y !== v) } }) }))),
     ...f.statuses.map(s => ({ label: "Status: " + STATUS_NAME[s], clear: () => setF({ ...f, statuses: f.statuses.filter(y => y !== s) }) })),
     ...(f.late ? [{ label: "Late", clear: () => setF({ ...f, late: false }) }] : []), ...(f.hold ? [{ label: "On hold", clear: () => setF({ ...f, hold: false }) }] : []),
     ...(f.search ? [{ label: "Search: " + f.search, clear: () => setF({ ...f, search: "" }) }] : []),
+    ...(f.ids ? [{ label: "Query: " + (f.idsName ?? ""), clear: () => setF({ ...f, ids: undefined, idsName: undefined }) }] : []),
   ];
 
   if (!L) return (
@@ -81,17 +97,22 @@ export function ExecDashboard(p: {
     <div className="ex">
       <form className="ex-ask" role="search" onSubmit={e => { e.preventDefault(); ask(text); }}>
         <div style={{ display: "flex", gap: 8 }}>
-          <input aria-label="Ask the dashboard" placeholder={`Ask the dashboard, e.g. “${suggestions[1] ?? "What is late?"}”`} value={text} onChange={e => setText(e.target.value)} autoComplete="off" />
+          <input aria-label="Ask the dashboard" placeholder={`Ask the dashboard, e.g. “${queryChips[0]?.name ?? suggestions[1] ?? "What is late?"}”`} value={text} onChange={e => setText(e.target.value)} autoComplete="off" />
           <button className="btn primary" type="submit">Ask</button>
           {p.toolbar}
         </div>
-        <div className="ex-sugg"><span className="muted">Try</span>{suggestions.map(s => <button type="button" key={s} className="chip" onClick={() => { setText(s); ask(s); }}>{s}</button>)}</div>
+        <div className="ex-sugg"><span className="muted">{queryChips.length ? "Questions" : "Try"}</span>{queryChips.map(q => <button type="button" key={q.id} className="chip" title={q.conditions.map((c, i) => `${i ? c.join.toUpperCase() + " " : ""}${c.field} ${OP_LABEL[c.op]} ${c.value}`).join(" ")} onClick={() => { setText(q.name); runNamed(q); }}>{q.name}</button>)}{suggestions.map(s => <button type="button" key={s} className="chip" onClick={() => { setText(s); ask(s); }}>{s}</button>)}</div>
         {said && <div className="ex-answer" role="status" aria-live="polite"><div className="muted">You asked: “{said.q}”</div>{said.a}</div>}
       </form>
-      {chips.length > 0 && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}<button className="lk" onClick={() => { setF(none()); setSaid(undefined); }}>Clear all</button></div>}
+      {chips.length > 0 && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}<button className="lk" onClick={() => { setF(none()); setSaid(undefined); setRun(undefined); }}>Clear all</button></div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive > 0 && `${built.noGoLive} Epic(s) have no go-live date. `}{built.noProgress > 0 && `${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only. `}{built.ignored > 0 && `${built.ignored} left out by state.`}</div>}
 
+      {run && <div className="card ex-result" role="region" aria-label={run.query.name}>
+        <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.query.show === "people" ? "people" : "teams"} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}>Close</button></h3>
+        {!run.rows.length ? <div className="muted">Nothing matches.</div> : <div className="ex-scroll" style={{ maxHeight: 360 }}><table><thead><tr>{(run.query.show === "people" ? ["name", "team", "booked", "available", "utilization", "free", "band", "epicsCount"] : ["team", "peopleCount", "booked", "available", "utilization", "free", "overCount", "epicsCount"]).map(k => <th key={k}>{run.columns.find(c => c.key === k)?.label}</th>)}</tr></thead>
+          <tbody>{run.rows.map(r => <tr key={r.key}>{(run.query.show === "people" ? ["name", "team", "booked", "available", "utilization", "free", "band", "epicsCount"] : ["team", "peopleCount", "booked", "available", "utilization", "free", "overCount", "epicsCount"]).map(k => <td key={k}>{r.values[k] === undefined ? "–" : k === "utilization" ? r.values[k] + "%" : String(r.values[k])}</td>)}</tr>)}</tbody></table></div>}
+      </div>}
       <div className="ex-strip">
         <div className="ex-tile static"><div className="l">Portfolio</div><div className="v">{B.length}</div><div className="d">{cnt(B, "idle")} not started · {cnt(B, "unknown")} not assessed</div></div>
         {(["green", "amber", "red", "done"] as ExecStatus[]).map(tile)}

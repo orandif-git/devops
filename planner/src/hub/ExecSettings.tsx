@@ -6,6 +6,7 @@ import { FieldInfo } from "../data/fields";
 import { sampleGrid } from "../data/sample";
 import { ColumnGuess } from "../core/detect";
 import { FieldPick } from "./SettingsTab";
+import { ExecQueries } from "./ExecQueries";
 
 const KINDS: [ProgressSource["kind"], string][] = [["percentField", "A percent-complete field"], ["ratioFields", "Completed ÷ total (two number fields)"], ["gridDone", "Ticked rows of a grid"]];
 const csv = (s: string) => s.split(",").map(x => x.trim()).filter(Boolean);
@@ -86,6 +87,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
         {num("slipAmberDays", "Forecast days late: attention")}{num("slipRedDays", "Forecast days late: at risk")}{num("gapAmberPts", "Progress behind time (points): attention", 200)}{num("gapRedPts", "Progress behind time (points): at risk", 200)}
         {num("minElapsedPct", "Forecast only after % of time used", 200)}{num("likelyPct", "Likely to deliver at confidence %", 200)}
       </div>
+      <ExecQueries s={s} onChange={p.onChange} />
     </div>
   );
 }

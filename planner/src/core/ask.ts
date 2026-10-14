@@ -1,4 +1,5 @@
 import { ExecEpic, ExecStatus, STATUS_NAME, STATUS_ORDER } from "./executive";
+import { ExecQuery } from "./types";
 
 /** What a typed question asks for: filters, and whether it wants a count or the RAG split. No AI: words are matched against the statuses and the values actually found in the Epics' category fields. */
 export interface Question {
@@ -68,4 +69,15 @@ export function answer(q: Question, rows: ExecEpic[]): string {
   const worst = hits.slice().sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.slip - a.slip)[0];
   if (q.counting) return `${hits.length} ${noun(hits.length)}${what ? ` ${hits.length === 1 ? "is" : "are"} ${what}` : " in total"}${hits.length ? `: ${hits.slice(0, 5).map(r => r.epic.title).join(", ")}${hits.length > 5 ? ` … and ${hits.length - 5} more` : ""}.` : "."}`;
   return `Showing ${hits.length} ${noun(hits.length)}${what ? ` that ${hits.length === 1 ? "is" : "are"} ${what}` : ""}${worst ? `. Biggest concern: ${worst.epic.title} (${worst.reasons[0] ?? ""}).` : "."}`;
+}
+
+/** A configured query whose name the question contains (every word of the name, or a start of it); the longest name wins. */
+export function findQuery(text: string, queries: ExecQuery[]): ExecQuery | undefined {
+  const q = words(text).filter(w => !STOP.has(w));
+  let best: ExecQuery | undefined, bestN = 0;
+  for (const x of queries) {
+    const n = words(x.name).filter(w => !STOP.has(w)).length;
+    if (n && mentions(q, x.name) && n > bestN) { best = x; bestN = n; }
+  }
+  return best;
 }
