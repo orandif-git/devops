@@ -1,6 +1,6 @@
 {
   "name": "workitem-grid-rules",
-  "version": "2.1.0",
+  "version": "2.2.2",
   "private": true,
   "description": "Azure DevOps extension: smart grid control, conditional rules engine, dependent dropdowns and visual rule builder",
   "scripts": {
@@ -8,13 +8,12 @@
     "build:dev": "webpack --mode development",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "bump": "node scripts/bump-version.js",
-    "package": "npm run bump && npm run build && tfx extension create --manifest-globs vss-extension.json --output-path out",
-    "package:dev": "npm run build:dev && tfx extension create --manifest-globs vss-extension.json --overrides-file vss-extension.dev.json --output-path out",
+    "package": "node scripts/package.js main",
+    "package:dev": "node scripts/package.js main --dev",
     "build:planner": "webpack --config planner/webpack.config.js --mode production",
     "build:planner:dev": "webpack --config planner/webpack.config.js --mode development",
-    "package:planner": "node scripts/bump-version.js planner/vss-extension.json && npm run build:planner && tfx extension create --manifest-globs planner/vss-extension.json --output-path out",
-    "package:planner:dev": "npm run build:planner:dev && tfx extension create --manifest-globs planner/vss-extension.json --overrides-file planner/vss-extension.dev.json --output-path out",
+    "package:planner": "node scripts/package.js planner",
+    "package:planner:dev": "node scripts/package.js planner --dev",
     "package:all": "npm run package && npm run package:planner"
   },
   "dependencies": {

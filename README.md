@@ -26,7 +26,7 @@ Publish: upload the `.vsix` at https://marketplace.visualstudio.com/manage/publi
 A separate extension (id `resource-planner`) with its own manifest (`planner/vss-extension.json`), build (`planner/webpack.config.js`) and `.vsix`. It reuses logic from `src/core` by import, so each package bundles its own copy.
 ```
 npm run build:planner        # -> planner/dist
-npm run package:planner      # bumps the planner version, builds, -> out/amanullah-ado.resource-planner-<version>.vsix
+npm run package:planner      # builds with the next version number, -> out/amanullah-ado.resource-planner-<version>.vsix
 npm run package:planner:dev  # private dev copy (planner/vss-extension.dev.json)
 npm run package:all          # both extensions
 ```
@@ -38,6 +38,6 @@ Plan: `docs/resource-planner-build-plan.md`.
 
 ## Release
 1. `npm test` and `npm run typecheck`.
-2. `npm run package` (bumps the patch version), upload the `.vsix`.
+2. `npm run package`, upload the `.vsix`. Every package gets a higher patch number than the last one built on this machine; the number is kept in `.build/versions.json` (ignored by git), so building never changes a tracked file. To start a new minor or major version, edit `version` in the manifest and commit it: the next package continues one patch above it. On a new machine the counter starts at the manifest version, so commit the manifest version after a release if you build somewhere else.
 3. Run `docs/pilot-test-checklist.md` on a test project (Server 2020 and Services).
 4. Update `CHANGELOG.md` and the Marketplace page (`overview.md`).

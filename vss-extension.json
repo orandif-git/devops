@@ -1,7 +1,7 @@
 {
   "manifestVersion": 1,
   "id": "workitem-grid-rules",
-  "version": "2.1.0",
+  "version": "2.2.2",
   "name": "Work Item Grid & Rules",
   "publisher": "amanullah-ado",
   "public": true,
