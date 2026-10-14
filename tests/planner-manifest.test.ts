@@ -23,6 +23,9 @@ describe("extension manifests", () => {
     expect(hub.targets).toEqual(["ms.vss-work-web.work-hub-group"]);
     expect(hub.properties.uri).toBe("dist/hub/index.html");
     expect(m.files.find((f: { path: string }) => f.path === "dist").packagePath).toBe("dist");
+    const exec = m.contributions.find((c: { id: string }) => c.id === "exec-hub");          // the Executive Dashboard is its own menu item in the same extension
+    expect(exec.targets).toEqual(["ms.vss-work-web.work-hub-group"]);
+    expect(exec.properties).toMatchObject({ name: "Executive Dashboard", uri: "dist/exec/index.html" });
   });
   it("the two extensions have different ids", () => {
     expect(read("planner/vss-extension.json").id).not.toBe(read("vss-extension.json").id);

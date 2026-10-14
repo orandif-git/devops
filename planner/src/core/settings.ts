@@ -1,8 +1,27 @@
-import { defaultSettings, GridSource, PlannerSettings, TeamRef } from "./types";
+import { defaultExec, defaultSettings, ExecSettings, GridSource, PlannerSettings, ProgressSource, TeamRef } from "./types";
 
 const FIELD = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const team = (t: unknown): TeamRef | undefined => (t && typeof t === "object" && typeof (t as TeamRef).id === "string" ? { id: (t as TeamRef).id, name: str((t as TeamRef).name) } : undefined);
+const list = (v: unknown, fb: string[] = []) => (Array.isArray(v) ? Array.from(new Set(v.map(str).filter(Boolean))) : fb);
+
+export function normalizeExec(raw: unknown): ExecSettings {
+  const d = defaultExec();
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fb);
+  const kinds = ["percentField", "ratioFields", "gridDone"];
+  const progress: ProgressSource[] = (Array.isArray(r.progress) ? r.progress : []).filter(x => x && typeof x === "object").map((x, i) => {
+    const p = x as Record<string, unknown>;
+    return { id: str(p.id) || `pg${i + 1}`, kind: (kinds.includes(str(p.kind)) ? str(p.kind) : "percentField") as ProgressSource["kind"], field: str(p.field) || undefined, doneField: str(p.doneField) || undefined, totalField: str(p.totalField) || undefined, sourceId: str(p.sourceId) || undefined };
+  });
+  return {
+    categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
+    doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
+    slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
+    minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100),
+  };
+}
+
 const teams = (v: unknown) => (Array.isArray(v) ? v.map(team).filter((x): x is TeamRef => !!x) : []);
 
 /** Fill in everything a stored, older or hand-edited value may leave out. */
@@ -17,7 +36,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
     const x = s as Record<string, unknown>; const c = (x.columns && typeof x.columns === "object" ? x.columns : {}) as Record<string, unknown>;
     const opt = (k: string) => (str(c[k]) || undefined);
     return { id: str(x.id) || `src${i + 1}`, name: str(x.name), dataField: str(x.dataField),
-      columns: { resource: str(c.resource), start: opt("start"), end: opt("end"), effort: opt("effort"), allocation: opt("allocation"), status: opt("status"), task: opt("task") },
+      columns: { resource: str(c.resource), start: opt("start"), end: opt("end"), effort: opt("effort"), allocation: opt("allocation"), status: opt("status"), task: opt("task"), done: opt("done") },
       excludedStatuses: (Array.isArray(x.excludedStatuses) ? x.excludedStatuses : []).map(str).filter(Boolean) };
   });
   return {
@@ -29,6 +48,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
     thresholds: { spare: num(th.spare, d.thresholds.spare), healthy: num(th.healthy, d.thresholds.healthy), full: num(th.full, d.thresholds.full) },
     colourMode: r.colourMode === "shades" ? "shades" : "rag", accessTeams: teams(r.accessTeams),
     extraFilterFields: (Array.isArray(r.extraFilterFields) ? r.extraFilterFields : []).map(str).filter(Boolean),
+    executive: normalizeExec(r.executive),
   };
 }
 
@@ -49,5 +69,25 @@ export function validateSettings(s: PlannerSettings): string[] {
   if (!(t.spare > 0 && t.spare < t.healthy && t.healthy <= t.full && t.full <= 300)) e.push("Thresholds must increase: spare below healthy, healthy up to full (for example 50 / 85 / 100).");
   if (s.period.kind === "custom" && !(/^\d{4}-\d{2}/.test(s.period.from ?? "") && /^\d{4}-\d{2}/.test(s.period.to ?? ""))) e.push("A custom period needs a first and last month (YYYY-MM).");
   for (const f of s.extraFilterFields) if (!FIELD.test(f)) e.push(`Extra filter '${f}' is not a field reference name.`);
+  return e;
+}
+
+/** Problems with the Executive Dashboard settings. The planner itself works without them; the dashboard needs a go-live date, and progress sources must be complete. */
+export function validateExec(s: PlannerSettings): string[] {
+  const e: string[] = [];
+  const x = s.executive;
+  if (!(x.goLiveField || s.epicTargetField)) e.push("Choose the go-live date field (or set the Epic target-date field).");
+  for (const f of [x.goLiveField, ...x.categoryFields]) if (f && !FIELD.test(f)) e.push(`'${f}' is not a field reference name.`);
+  x.progress.forEach((p, i) => {
+    const w = `Progress source ${i + 1}`;
+    if (p.kind === "percentField" && !p.field) e.push(`${w}: choose the percent-complete field.`);
+    if (p.kind === "ratioFields" && !(p.doneField && p.totalField)) e.push(`${w}: choose the completed and the total field.`);
+    if (p.kind === "gridDone") {
+      const src = s.sources.find(g => g.id === p.sourceId);
+      if (!src) e.push(`${w}: choose a grid.`); else if (!src.columns.done) e.push(`${w}: choose the done (tick box) column of “${src.name || src.id}”.`);
+    }
+  });
+  if (x.slipAmberDays >= x.slipRedDays) e.push("Days late: the attention limit must be below the at-risk limit.");
+  if (x.gapAmberPts >= x.gapRedPts) e.push("Progress gap: the attention limit must be below the at-risk limit.");
   return e;
 }

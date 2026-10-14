@@ -7,7 +7,7 @@ export interface GridSource {
   name: string;
   /** reference name of the long-text field that holds the grid's rows (JSON) */
   dataField: string;
-  columns: { resource: string; start?: string; end?: string; effort?: string; allocation?: string; status?: string; task?: string };
+  columns: { resource: string; start?: string; end?: string; effort?: string; allocation?: string; status?: string; task?: string; /** checkbox column: is this piece of work done (used by the Executive Dashboard) */ done?: string };
   /** values of the status column whose rows are left out of the hours (optional; empty = none) */
   excludedStatuses: string[];
 }
@@ -34,11 +34,55 @@ export interface PlannerSettings {
   accessTeams: TeamRef[];
   /** extra Epic fields offered as filters */
   extraFilterFields: string[];
+  /** the Executive Dashboard */
+  executive: ExecSettings;
 }
+
+/** Where an Epic's progress (0–100 %) comes from. Sources are tried in order; the first one that has a value for the Epic is used. */
+export interface ProgressSource {
+  id: string;
+  kind: "percentField" | "ratioFields" | "gridDone";
+  /** percentField: a number field holding the percent complete (0–100) */
+  field?: string;
+  /** ratioFields: completed ÷ total (for example Completed Work ÷ Original Estimate) */
+  doneField?: string;
+  totalField?: string;
+  /** gridDone: the share of grid rows ticked done, weighted by the effort column when every row has one */
+  sourceId?: string;
+}
+
+export interface ExecSettings {
+  /** Epic fields that classify an Epic (for example Project type, Regulatory); each can be filtered and asked about */
+  categoryFields: string[];
+  /** the go-live date field (empty = the Epic target-date field) */
+  goLiveField: string;
+  progress: ProgressSource[];
+  doneStates: string[];
+  holdStates: string[];
+  notStartedStates: string[];
+  /** Epics in these states are left out (for example Removed) */
+  ignoreStates: string[];
+  /** forecast later than go-live by more than this many days = needs attention / at risk */
+  slipAmberDays: number;
+  slipRedDays: number;
+  /** progress behind the share of time used by more than this many percentage points = needs attention / at risk */
+  gapAmberPts: number;
+  gapRedPts: number;
+  /** forecasts need at least this share (%) of the time used */
+  minElapsedPct: number;
+  /** an Epic counts as likely to deliver at this confidence (%) or more */
+  likelyPct: number;
+}
+
+export const defaultExec = (): ExecSettings => ({
+  categoryFields: [], goLiveField: "", progress: [],
+  doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
+  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60,
+});
 
 export const defaultSettings = (): PlannerSettings => ({
   version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
-  period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", accessTeams: [], extraFilterFields: [],
+  period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 
 /** What the planner keeps of one Epic. `grids` holds the raw text of each source's data field. */

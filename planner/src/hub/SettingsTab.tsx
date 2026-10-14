@@ -6,6 +6,7 @@ import { validateSettings } from "../core/settings";
 import { GridSource, PlannerSettings } from "../core/types";
 import { FieldInfo, hasField, listTypeFields } from "../data/fields";
 import { GridSample, sampleGrid } from "../data/sample";
+import { ExecSettings } from "./ExecSettings";
 
 const SLOTS: [Slot, string, boolean][] = [["resource", "Resource (person)", true], ["start", "Start date", false], ["end", "End date", false], ["effort", "Effort (hours)", false], ["allocation", "Allocation %", false], ["status", "Review status", false], ["task", "Task / activity", false]];
 
@@ -20,7 +21,7 @@ function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): vo
 }
 
 /** A field picked from a list (falls back to typing when the list could not be read). */
-function FieldPick(p: { label: string; value: string; fields: FieldInfo[]; accept(f: FieldInfo): boolean; placeholder?: string; onChange(v: string): void; flex?: number }) {
+export function FieldPick(p: { label: string; value: string; fields: FieldInfo[]; accept(f: FieldInfo): boolean; placeholder?: string; onChange(v: string): void; flex?: number }) {
   const known = p.fields.length > 0;
   const options = p.fields.filter(f => p.accept(f) || (f.type === "" && !isDateType(f.type)));
   const missing = p.value && !hasField(p.fields, p.value);
@@ -159,6 +160,8 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
         <label className="field" style={{ width: 180 }}><span>Colours</span>
           <select value={s.colourMode} onChange={e => set({ colourMode: e.target.value as "rag" | "shades" })}><option value="rag">Traffic light</option><option value="shades">Shades</option></select></label>
       </div>
+
+      <ExecSettings s={s} fields={fields} project={p.projectName} onChange={p.onChange} />
 
       <h3>Access and filters</h3>
       <div className="help">Teams allowed to open the planner (none = every project member). This is a display rule, not access control.</div>

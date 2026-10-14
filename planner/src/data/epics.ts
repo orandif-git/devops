@@ -15,8 +15,15 @@ const BATCH = 200;
 const CONCURRENCY = 3;
 const text = (v: unknown): string => (v && typeof v === "object" ? String((v as { displayName?: string }).displayName ?? "") : v === null || v === undefined ? "" : String(v));
 
+/** Epic fields kept in `extra`: the filter fields plus what the Executive Dashboard reads (categories, go-live date, progress fields). */
+export function extraFields(s: PlannerSettings): string[] {
+  const x = s.executive;
+  const f = [...s.extraFilterFields, ...x.categoryFields, x.goLiveField, ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
+  return Array.from(new Set(f.filter((v): v is string => !!v)));
+}
+
 export function fieldList(s: PlannerSettings): string[] {
-  const f = ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.AreaPath", "System.IterationPath", "System.ChangedDate", s.epicStartField, s.epicTargetField, ...s.sources.map(g => g.dataField), ...s.extraFilterFields];
+  const f = ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.AreaPath", "System.IterationPath", "System.ChangedDate", s.epicStartField, s.epicTargetField, ...s.sources.map(g => g.dataField), ...extraFields(s)];
   return Array.from(new Set(f.filter(Boolean)));
 }
 
@@ -25,7 +32,7 @@ const toEpic = (w: BatchItem, s: PlannerSettings): EpicRecord => {
   const grids: Record<string, string> = {};
   for (const src of s.sources) { const v = g(src.dataField); if (typeof v === "string" && v.trim()) grids[src.id] = v; }
   const extra: Record<string, string> = {};
-  for (const f of s.extraFilterFields) extra[f] = text(g(f));
+  for (const f of extraFields(s)) extra[f] = text(g(f));
   const d = (k: string) => (k && g(k) ? String(g(k)).slice(0, 10) : undefined);
   return { id: w.id, title: text(g("System.Title")), state: text(g("System.State")), type: text(g("System.WorkItemType")), areaPath: text(g("System.AreaPath")), iterationPath: text(g("System.IterationPath")),
     changed: text(g("System.ChangedDate")), start: d(s.epicStartField), target: d(s.epicTargetField), grids, extra };

@@ -1,5 +1,6 @@
 import { aggregate } from "../core/aggregate";
 import { parseSource, sumStats } from "../core/parseGrid";
+import { GridDone, gridDoneOf } from "../core/progress";
 import { monthsOfPeriod } from "../core/period";
 import { Booking, EpicRecord, ParseStats, PlannerSettings, Task } from "../core/types";
 import { Availability, loadAvailability } from "./capacity";
@@ -10,6 +11,8 @@ export interface Loaded {
   epics: EpicRecord[];
   bookings: Booking[];
   tasks: Task[];
+  /** per Epic and grid: how much of the work is ticked done (only for grids with a done column) */
+  gridDone: Record<number, Record<string, GridDone | undefined>>;
   stats: ParseStats;
   perSource: { name: string; epics: number; rows: number }[];
   avail: Availability;
@@ -24,15 +27,17 @@ export async function loadAll(project: { id: string; name: string }, s: PlannerS
   const perStats: ParseStats[] = [];
   const bookings: Booking[] = [];
   const tasks: Task[] = [];
+  const gridDone: Loaded["gridDone"] = {};
   const perSource = s.sources.map(g => ({ name: g.name || g.id, epics: 0, rows: 0 }));
   for (const e of load.epics) s.sources.forEach((g, i) => {
     const raw = e.grids[g.id];
     if (!raw) return;
     const r = parseSource(raw, g, e.id, s.estimateUnscheduled);
+    if (g.columns.done) { const d = gridDoneOf(raw, g); if (d) (gridDone[e.id] ??= {})[g.id] = d; }
     perStats.push(r.stats); bookings.push(...r.bookings); tasks.push(...r.tasks); perSource[i].epics++; perSource[i].rows += r.stats.rows;
   });
   const avail = await loadAvailability(s.capacityTeams, opts.force);
-  return { load, epics: load.epics, bookings, tasks, stats: sumStats(perStats), perSource, avail, ms: Date.now() - t0, at: new Date().toISOString() };
+  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, ms: Date.now() - t0, at: new Date().toISOString() };
 }
 
 export const monthsFor = (s: PlannerSettings) => monthsOfPeriod(s.period);

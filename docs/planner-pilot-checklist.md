@@ -20,6 +20,14 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Clicking a cell or a person opens the detail panel (capacity vs booked, year trend, Epics); Esc closes it; an Epic opens its dialog.
 - [ ] Heatmap / Timeline / Epic Gantt switch keeps the filters. Refresh and CSV work.
 
+## 2c. Executive Dashboard
+- [ ] Settings › Executive dashboard: choose category fields, the go-live date field, one or more progress sources (percent field, completed ÷ total, or ticked rows of a grid with its done column), states and limits. No red "to fix" lines remain.
+- [ ] Boards › **Executive Dashboard** opens and lists every Epic (Epics in the left-out states are not shown). Tiles add up to the portfolio count.
+- [ ] Three Epics hand-checked: status, forecast finish, go-live date and progress match the Epic's fields (and the ticked rows of its grid when that source is used).
+- [ ] Ask: “How many <category value> projects are at risk?”, “<value> RAG”, “What is late?” update the chips, tiles and list; every number matches the list.
+- [ ] Clicking an Epic opens the detail panel with the reasons; “Open the Epic details” opens the Epic dialog.
+- [ ] Epics without a go-live date or progress value show as Not assessed with the reason, not as green.
+
 ## 3. Heatmap
 - [ ] Three people hand-checked: booked hours and available hours equal the grid and team capacity. Band colours, symbols (✓ ▲ !) and thresholds follow Settings.
 - [ ] Click a cell: side panel lists Epics and hours; click an Epic: dialog with related items; **Open the Epic form** opens the form.

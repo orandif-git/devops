@@ -1,11 +1,11 @@
 {
   "manifestVersion": 1,
   "id": "resource-planner",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "name": "Resource Planner & Heatmap",
   "publisher": "amanullah-ado",
   "public": true,
-  "description": "See who works on which Epic and how each person's capacity is used: a utilization heatmap, resource timeline, Epic Gantt and dashboard widgets for Azure Boards.",
+  "description": "See who works on which Epic and how capacity is used, and what is on track: heatmap, timeline, Gantt, dashboard widgets and an executive dashboard for Azure Boards.",
   "categories": [
     "Azure Boards"
   ],
@@ -66,6 +66,19 @@
         "name": "Resource Planner",
         "order": 60,
         "uri": "dist/hub/index.html"
+      }
+    },
+    {
+      "id": "exec-hub",
+      "type": "ms.vss-web.hub",
+      "description": "Executive dashboard: every Epic with status, go-live risk and questions answered from the data.",
+      "targets": [
+        "ms.vss-work-web.work-hub-group"
+      ],
+      "properties": {
+        "name": "Executive Dashboard",
+        "order": 61,
+        "uri": "dist/exec/index.html"
       }
     },
     {
