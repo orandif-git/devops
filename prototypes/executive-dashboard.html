@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Executive Dashboard prototype</title>
+<style>
+:root{color-scheme:light;--surface:#fff;--page:#f6f6f4;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e8e7e1;--axis:#c9c8bf;--ring:rgba(11,11,11,.10);--hover:rgba(11,11,11,.06);--accent:#2a78d6;--accent-fg:#fff;
+ --green:#0ca30c;--amber:#fab219;--amber-t:#0b0b0b;--red:#d03b3b;--idle:#8fa3bd;--done:#5b6b7f;--shadow:0 8px 28px rgba(0,0,0,.18)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--surface:#1c1c1b;--page:#101010;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8d8b83;--grid:#2c2c2a;--axis:#42413d;--ring:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--accent:#5aa0f0;--accent-fg:#06121f;--done:#9fb0c4;--shadow:0 8px 28px rgba(0,0,0,.6)}}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select,input{font:inherit;color:inherit}
+.app{max-width:1500px;margin:0 auto;padding:14px 22px 30px}
+.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}.top h1{font-size:20px;margin:0}.top .sub{color:var(--ink2);font-size:12px}
+.ask{margin:12px 0 8px;background:var(--surface);border:1px solid var(--axis);border-radius:12px;padding:10px 12px}
+.ask form{display:flex;gap:8px}.ask input{flex:1;height:36px;border:1px solid var(--axis);border-radius:18px;padding:0 16px;background:var(--page);outline:0}.ask input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.btn{height:36px;border:0;border-radius:18px;background:var(--accent);color:var(--accent-fg);padding:0 18px;font-weight:600;cursor:pointer}
+.sugg{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center}.sugg span.k{color:var(--muted);font-size:12px}
+.sg{border:1px solid var(--ring);background:var(--hover);border-radius:14px;height:26px;padding:0 11px;cursor:pointer;font-size:12px}.sg:hover{background:var(--ring)}
+.answer{margin-top:10px;padding:10px 14px;border-radius:10px;background:var(--hover);border:1px solid var(--ring);display:none}.answer.on{display:block}.answer b{font-weight:650}.answer .q{color:var(--ink2);font-size:12px;margin-bottom:2px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:8px 0;min-height:24px}
+.chip{display:inline-flex;gap:6px;align-items:center;height:24px;padding:0 4px 0 10px;border-radius:12px;background:var(--hover);border:1px solid var(--ring);font-size:12px}
+.chip button{border:0;background:none;cursor:pointer;width:18px;height:18px;border-radius:9px;line-height:16px;color:var(--ink2)}.chip button:hover{background:var(--ring)}
+.chips .lk{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12px}
+.strip{display:grid;grid-template-columns:1.1fr repeat(4,1fr) 1.5fr;gap:10px;margin-bottom:10px}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:8px 14px;text-align:left;cursor:default}
+button.tile{cursor:pointer}button.tile:hover{background:var(--hover)}button.tile.on{outline:2px solid var(--ink)}button.tile.dim{opacity:.5}
+.tile .l{color:var(--ink2);font-size:12px;display:flex;gap:6px;align-items:center}.tile .v{font-size:26px;font-weight:650;line-height:1.15}.tile .d{font-size:12px;color:var(--ink2)}
+.sw{display:inline-flex;width:18px;height:18px;border-radius:5px;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex:none}
+.sw.green{background:var(--green);color:#fff}.sw.amber{background:var(--amber);color:var(--amber-t)}.sw.red{background:var(--red);color:#fff}.sw.idle{background:var(--idle);color:#0d1b2e}.sw.done{background:var(--done);color:#fff}
+.gauge{height:10px;border-radius:5px;background:var(--grid);margin:6px 0 2px;overflow:hidden;display:flex}.gauge i{display:block;height:100%}
+.brief{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:10px 14px;min-width:0}
+.card h3{margin:0 0 6px;font-size:13px;display:flex;gap:8px;align-items:center}.card ul{margin:0;padding:0;list-style:none}.card li{padding:4px 0;border-top:1px solid var(--grid)}.card li:first-child{border-top:0}
+.card a{color:var(--accent);cursor:pointer;text-decoration:none}.card a:hover{text-decoration:underline}.muted{color:var(--ink2)}.small{font-size:12px}
+.main{display:grid;grid-template-columns:240px 1fr;gap:10px;align-items:start}.main.withpanel{grid-template-columns:240px 1fr 330px}
+.cat{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 6px;border-radius:6px;cursor:pointer}.cat:hover,.cat.on{background:var(--hover)}.cat.on{outline:2px solid var(--ink)}
+.cat .n{display:flex;justify-content:space-between;gap:6px}.stack{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--grid);margin-top:4px}.stack i{display:block;height:100%}
+table{width:100%;border-collapse:collapse}th{position:sticky;top:0;background:var(--surface);text-align:left;color:var(--ink2);font-weight:600;padding:5px 8px;border-bottom:2px solid var(--axis);font-size:12px;z-index:2;white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:middle}tr.row{cursor:pointer}tr.row:hover,tr.row.sel{background:var(--hover)}
+.scroll{max-height:640px;overflow:auto}
+.pill{display:inline-flex;gap:6px;align-items:center;height:22px;padding:0 9px 0 3px;border-radius:11px;font-size:12px;font-weight:600;border:1px solid var(--ring);white-space:nowrap}
+.prog{position:relative;width:150px;height:10px;border-radius:5px;background:var(--grid)}.prog i{position:absolute;left:0;top:0;bottom:0;border-radius:5px}.prog u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+.reason{color:var(--ink2);font-size:12px;max-width:340px}
+.conf{font-weight:650;white-space:nowrap}
+.panel{position:sticky;top:10px}.panel h3{margin:0;font-size:15px}.panel .x{float:right;border:0;background:none;cursor:pointer;font-size:16px;width:26px;height:26px;border-radius:4px;color:var(--ink2)}.panel .x:hover{background:var(--hover)}
+.panel dl{display:grid;grid-template-columns:110px 1fr;gap:4px 8px;margin:10px 0}.panel dt{color:var(--ink2)}.panel dd{margin:0}
+.panel ul{margin:6px 0 0;padding-left:18px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink2);font-size:12px;margin-top:10px;align-items:center}.legend span{display:inline-flex;gap:6px;align-items:center}
+.note{color:var(--muted);font-size:12px;margin-top:10px}
+@media (max-width:1100px){.strip{grid-template-columns:repeat(3,1fr)}.brief{grid-template-columns:1fr}.main,.main.withpanel{grid-template-columns:1fr}.panel{position:static}}
+</style></head><body>
+<div class="app">
+  <div class="top"><h1>Executive Dashboard</h1><span class="sub" id="sub"></span></div>
+
+  <div class="ask" role="search">
+    <form id="askf"><input id="q" aria-label="Ask the dashboard" placeholder="Ask the dashboard, e.g. “How many software upgrade projects are at risk?”" autocomplete="off"><button class="btn">Ask</button></form>
+    <div class="sugg"><span class="k">Try</span>
+      <button class="sg">Which regulatory projects are red?</button><button class="sg">How many software upgrade projects are at risk?</button><button class="sg">Reg RAG</button><button class="sg">What is late?</button><button class="sg">Security projects needing attention</button><button class="sg">Show everything on hold</button></div>
+    <div class="answer" id="answer" role="status" aria-live="polite"></div>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div class="strip" id="strip"></div>
+  <div class="brief" id="brief"></div>
+  <div class="main" id="main">
+    <div class="card" id="cats"></div>
+    <div class="card" style="padding:0"><div class="scroll" id="list"></div></div>
+    <div class="card panel" id="panel" style="display:none"></div>
+  </div>
+  <div class="legend"><span><i class="sw green">✓</i>On track</span><span><i class="sw amber">▲</i>Needs attention</span><span><i class="sw red">!</i>At risk</span><span><i class="sw idle">○</i>Not started</span><span><i class="sw done">●</i>Done</span>
+    <span>Bar = progress · black tick = share of time elapsed</span></div>
+  <div class="note">Prototype with sample data as of 14 Oct 2026. Status rules are computed from dates, progress, state and capacity; the thresholds will be configurable. The “Ask” box here is a built-in matcher (no AI); every number comes from the data.</div>
+</div>
+<script>
+const TODAY=new Date("2026-10-14T00:00:00Z").getTime(),D=864e5,fmt=t=>new Date(t).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
+const R={slipAmber:7,slipRed:30,gapAmber:10,gapRed:25,minElapsed:.25};
+const RAW=[
+["Basel IV reporting","Regulatory","Risk & Credit","Active","2026-02-02","2026-12-18",62,2],["AML transaction monitoring","Regulatory","Risk & Credit","Active","2026-03-02","2027-01-29",55,0],["GDPR data retention","Regulatory","Data","Active","2026-01-12","2026-11-27",88,0],["FATCA/CRS update","Regulatory","Data","Done","2026-01-05","2026-09-25",100,0],["PSD3 readiness","Regulatory","Payments","New","2026-11-02","2027-06-30",0,0],["Sanctions screening upgrade","Regulatory","Payments","Active","2026-05-04","2026-12-11",70,0],["Regulatory capital reporting","Regulatory","Risk & Credit","Hold","2026-04-06","2026-12-04",35,0],
+["ERP v12 upgrade","Software upgrade","Platform","Active","2026-03-09","2026-11-20",80,1],["Core banking patch 9.4","Software upgrade","Platform","Active","2026-08-03","2026-11-13",70,0],["CRM platform upgrade","Software upgrade","Mobile","Active","2026-04-20","2026-10-30",85,0],["Database 19c migration","Software upgrade","Data","Done","2026-01-26","2026-08-28",100,0],["Mobile SDK 5 upgrade","Software upgrade","Mobile","Active","2026-06-01","2027-01-15",40,1],["Middleware 8 upgrade","Software upgrade","Platform","Active","2026-02-16","2026-09-30",90,0],["Windows 11 rollout","Software upgrade","Platform","Active","2026-07-06","2026-12-18",66,0],
+["Digital onboarding","Customer experience","Mobile","Active","2026-05-11","2026-12-18",72,0],["Loyalty app revamp","Customer experience","Mobile","Active","2026-06-15","2027-02-26",30,1],["Self-service portal","Customer experience","Payments","Active","2026-03-23","2026-12-04",78,0],["Chatbot v2","Customer experience","Mobile","New","2026-12-01","2027-04-30",0,0],["Branch queue system","Customer experience","Platform","Hold","2026-04-13","2026-11-06",45,0],
+["Cloud landing zone","Infrastructure","Platform","Active","2026-02-23","2026-11-27",92,0],["Network refresh","Infrastructure","Platform","Active","2026-05-18","2027-01-29",58,0],["DR failover test","Infrastructure","Platform","Active","2026-09-07","2026-12-11",35,0],["Observability platform","Infrastructure","Platform","Hold","2026-05-04","2026-12-11",40,0],["Data centre exit","Infrastructure","Platform","Active","2026-01-19","2027-03-26",48,3],
+["Zero trust rollout","Security","Security","Active","2026-03-30","2027-01-22",64,0],["PAM implementation","Security","Security","Active","2026-06-08","2026-12-18",68,0],["SOC automation","Security","Security","Active","2026-08-17","2027-03-12",28,0],["Vulnerability management","Security","Security","Done","2026-02-02","2026-09-18",100,0],
+["Data lake migration","Data & Analytics","Data","Active","2026-04-06","2027-01-29",62,0],["Reporting warehouse","Data & Analytics","Data","Active","2026-07-06","2026-12-18",70,0],["ML credit scoring","Data & Analytics","Risk & Credit","Active","2026-03-16","2026-12-11",74,0]];
+const t=s=>new Date(s+"T00:00:00Z").getTime();
+const E=RAW.map((r,i)=>{const e={id:1100+i*7,title:r[0],cat:r[1],team:r[2],state:r[3],start:t(r[4]),target:t(r[5]),pct:r[6],over:r[7]};
+  const dur=e.target-e.start,el=Math.max(0,TODAY-e.start),elapsed=Math.min(1.5,el/dur);e.elapsed=elapsed;const reasons=[];let status,conf=null,slip=0;
+  if(e.state==="Done"){status="done";conf=100}
+  else if(e.state==="New"||e.start>TODAY){status="idle"}
+  else{
+    const prog=e.pct/100,gap=Math.round((elapsed-prog)*100);
+    if(prog>0&&elapsed>=R.minElapsed){const fe=e.start+el/prog;e.forecast=fe;slip=Math.round((fe-e.target)/D)}
+    else if(prog>0){e.forecast=e.start+dur*(el/dur/prog);slip=0}
+    const late=TODAY>e.target;let score=0;
+    if(late){score=2;reasons.push(`Past its go-live date by ${Math.round((TODAY-e.target)/D)} days and not done`);e.late=true}
+    if(e.state==="Hold"){score=Math.max(score,1);reasons.push("On hold");}
+    if(!late&&slip>R.slipRed){score=2;reasons.push(`Forecast finish ${fmt(e.forecast)} is ${slip} days after go-live`)}
+    else if(!late&&slip>R.slipAmber){score=Math.max(score,1);reasons.push(`Forecast finish ${fmt(e.forecast)} is ${slip} days after go-live`)}
+    if(!late&&gap>R.gapRed){score=2;reasons.push(`Progress ${e.pct}% against ${Math.round(elapsed*100)}% of the time used`)}
+    else if(!late&&gap>R.gapAmber){score=Math.max(score,1);reasons.push(`Progress ${e.pct}% against ${Math.round(elapsed*100)}% of the time used`)}
+    if(e.over>0){score=Math.max(score,1);reasons.push(`${e.over} ${e.over>1?"people are":"person is"} booked over capacity on this Epic`)}
+    status=score===2?"red":score===1?"amber":"green";
+    conf=late?4:Math.max(5,Math.min(99,Math.round(97-Math.max(0,slip)*.45-Math.max(0,gap)*.4-e.over*6-(e.state==="Hold"?20:0))));
+    if(status==="green")reasons.push(`Progress ${e.pct}% against ${Math.round(elapsed*100)}% of the time used`);
+  }
+  if(status==="idle")reasons.push(`Starts ${fmt(e.start)}`);if(status==="done")reasons.push("Delivered");
+  Object.assign(e,{status,conf,slip,reasons});return e});
+const CATS=[...new Set(E.map(e=>e.cat))],ORDER={red:0,amber:1,green:2,idle:3,done:4},NAME={green:"On track",amber:"Needs attention",red:"At risk",idle:"Not started",done:"Done"},SYM={green:"✓",amber:"▲",red:"!",idle:"○",done:"●"};
+const S={cats:[],statuses:[],late:false,hold:false,team:"",search:"",sel:null,answer:null};
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sw=s=>`<i class="sw ${s}" aria-hidden="true">${SYM[s]}</i>`;
+const view=(ignoreStatus)=>E.filter(e=>(!S.cats.length||S.cats.includes(e.cat))&&(ignoreStatus||!S.statuses.length||S.statuses.includes(e.status))&&(!S.late||e.late)&&(!S.hold||e.state==="Hold")&&(!S.team||e.team===S.team)&&(!S.search||e.title.toLowerCase().includes(S.search)));
+const cnt=(l,s)=>l.filter(e=>e.status===s).length;
+function render(){const V=view(),B=view(true),active=B.filter(e=>["green","amber","red"].includes(e.status));
+  const likely=active.filter(e=>e.conf>=60).length;
+  $("sub").textContent=`As of ${fmt(TODAY)} · ${E.length} Epics in the project · showing ${V.length}`;
+  const tile=(s,l)=>`<button class="tile${S.statuses.includes(s)?" on":S.statuses.length?" dim":""}" data-s="${s}" aria-pressed="${S.statuses.includes(s)}"><div class="l">${sw(s)}${l}</div><div class="v">${cnt(B,s)}</div><div class="d">${B.length?Math.round(cnt(B,s)/B.length*100):0}% of Epics</div></button>`;
+  $("strip").innerHTML=`<div class="tile"><div class="l">Portfolio</div><div class="v">${B.length}</div><div class="d">Epics in view</div></div>${tile("green","On track")}${tile("amber","Needs attention")}${tile("red","At risk")}${tile("done","Done")}
+   <div class="tile"><div class="l">Likely to deliver by go-live</div><div class="v">${likely} of ${active.length}</div><div class="gauge" aria-hidden="true"><i style="width:${active.length?likely/active.length*100:0}%;background:var(--green)"></i></div><div class="d">active Epics with confidence ≥ 60%</div></div>`;
+  $("strip").querySelectorAll("button").forEach(b=>b.onclick=()=>{toggle(S.statuses,b.dataset.s);render()});
+  // chips
+  const chips=[...S.cats.map(c=>["Category: "+c,()=>S.cats=S.cats.filter(x=>x!==c)]),...S.statuses.map(s=>["Status: "+NAME[s],()=>S.statuses=S.statuses.filter(x=>x!==s)]),...(S.late?[["Late",()=>S.late=false]]:[]),...(S.hold?[["State: On hold",()=>S.hold=false]]:[]),...(S.team?[["Team: "+S.team,()=>S.team=""]]:[]),...(S.search?[["Search: "+S.search,()=>S.search=""]]:[])];
+  $("chips").innerHTML=chips.map((c,i)=>`<span class="chip">${esc(c[0])}<button data-i="${i}" aria-label="Remove filter ${esc(c[0])}">×</button></span>`).join("")+(chips.length?'<button class="lk" id="clr">Clear all</button>':"");
+  $("chips").querySelectorAll(".chip button").forEach(b=>b.onclick=()=>{chips[+b.dataset.i][1]();S.answer=null;render()});if($("clr"))$("clr").onclick=()=>{S.cats=[];S.statuses=[];S.late=false;S.hold=false;S.team="";S.search="";S.answer=null;render()};
+  // brief
+  const li=(e,extra)=>`<li><a data-e="${e.id}">${esc(e.title)}</a> <span class="muted small">· ${esc(e.cat)}${extra?" · "+esc(extra):""}</span></li>`;
+  const good=B.filter(e=>e.status==="green").sort((a,b)=>b.pct-a.pct).slice(0,4),warn=B.filter(e=>e.status==="amber").sort((a,b)=>b.slip-a.slip).slice(0,4),bad=B.filter(e=>e.status==="red").sort((a,b)=>(b.late?1e4:0)+b.slip-(a.late?1e4:0)-a.slip).slice(0,4);
+  const worstCat=CATS.map(c=>[c,B.filter(e=>e.cat===c&&e.status==="red").length]).sort((a,b)=>b[1]-a[1])[0];
+  $("brief").innerHTML=`<div class="card"><h3>${sw("green")}Progressing well</h3><div class="small muted" style="margin-bottom:4px">${cnt(B,"green")} on track, ${cnt(B,"done")} delivered.</div><ul>${good.map(e=>li(e,e.pct+"% done")).join("")||'<li class="muted">None in this view.</li>'}</ul></div>
+   <div class="card"><h3>${sw("amber")}Needs attention</h3><div class="small muted" style="margin-bottom:4px">${cnt(B,"amber")} could slip without action.</div><ul>${warn.map(e=>li(e,e.reasons[0])).join("")||'<li class="muted">None in this view.</li>'}</ul></div>
+   <div class="card"><h3>${sw("red")}Go-live risk</h3><div class="small muted" style="margin-bottom:4px">${cnt(B,"red")} will probably miss their go-live date${worstCat&&worstCat[1]?`; most in ${worstCat[0]} (${worstCat[1]})`:""}.</div><ul>${bad.map(e=>li(e,e.reasons[0])).join("")||'<li class="muted">None in this view.</li>'}</ul></div>`;
+  $("brief").querySelectorAll("a").forEach(a=>a.onclick=()=>{S.sel=+a.dataset.e;render()});
+  // categories
+  $("cats").innerHTML=`<h3>By category</h3>`+CATS.map(c=>{const l=E.filter(e=>e.cat===c&&(!S.team||e.team===S.team)),seg=s=>`<i style="width:${l.length?cnt(l,s)/l.length*100:0}%;background:var(--${s==="idle"||s==="done"?s:s})"></i>`;
+    return `<button class="cat${S.cats.includes(c)?" on":""}" data-c="${esc(c)}" aria-pressed="${S.cats.includes(c)}"><span class="n"><span>${esc(c)}</span><span class="muted">${l.length}</span></span><span class="stack" aria-hidden="true">${["red","amber","green","idle","done"].map(seg).join("")}</span>
+    <span class="small muted">${cnt(l,"red")} at risk · ${cnt(l,"amber")} attention · ${cnt(l,"green")} on track</span></button>`}).join("");
+  $("cats").querySelectorAll(".cat").forEach(b=>b.onclick=()=>{toggle(S.cats,b.dataset.c);S.answer=null;render()});
+  // list
+  const rows=V.slice().sort((a,b)=>ORDER[a.status]-ORDER[b.status]||b.slip-a.slip||a.title.localeCompare(b.title));
+  $("list").innerHTML=rows.length?`<table><thead><tr><th>Status</th><th>Epic</th><th>Category</th><th>Progress vs time</th><th>Go-live</th><th>Forecast</th><th>Confidence</th><th>Why</th></tr></thead><tbody>${rows.map(e=>`<tr class="row${S.sel===e.id?" sel":""}" tabindex="0" data-e="${e.id}">
+    <td><span class="pill">${sw(e.status)}${NAME[e.status]}</span></td><td><b>${esc(e.title)}</b><div class="small muted">${e.id} · ${esc(e.team)}</div></td><td>${esc(e.cat)}</td>
+    <td>${e.status==="idle"?'<span class="muted">–</span>':`<div class="prog" role="img" aria-label="${e.pct}% done, ${Math.round(e.elapsed*100)}% of time used"><i style="width:${e.pct}%;background:var(--${e.status==="done"?"done":e.status})"></i><u style="left:${Math.min(100,e.elapsed*100)}%"></u></div>`}</td>
+    <td>${fmt(e.target)}</td><td>${e.forecast&&e.status!=="done"?fmt(e.forecast):"–"}</td><td class="conf">${e.conf===null?"–":e.conf+"%"}</td><td class="reason">${esc(e.reasons[0]||"")}</td></tr>`).join("")}</tbody></table>`:'<div class="muted" style="padding:20px">No Epics match. Clear a filter or ask a different question.</div>';
+  $("list").querySelectorAll("tr.row").forEach(r=>{r.onclick=()=>{S.sel=+r.dataset.e;render()};r.onkeydown=ev=>{if(ev.key==="Enter"){S.sel=+r.dataset.e;render()}}});
+  show();
+  // panel
+  const e=E.find(x=>x.id===S.sel),pn=$("panel"),mn=$("main");
+  if(!e){pn.style.display="none";mn.classList.remove("withpanel")}else{pn.style.display="";mn.classList.add("withpanel");
+    pn.innerHTML=`<button class="x" aria-label="Close" id="x">×</button><h3>${esc(e.title)}</h3><div class="small muted">Epic ${e.id} · ${esc(e.cat)} · ${esc(e.team)}</div><div style="margin:8px 0"><span class="pill">${sw(e.status)}${NAME[e.status]}</span></div>
+    <dl><dt>Start</dt><dd>${fmt(e.start)}</dd><dt>Go-live</dt><dd>${fmt(e.target)}</dd><dt>Forecast</dt><dd>${e.forecast&&e.status!=="done"?fmt(e.forecast)+(e.slip>0?` (${e.slip} days late)`:""):"–"}</dd><dt>Progress</dt><dd>${e.pct}% (time used ${Math.round(Math.min(e.elapsed,1.5)*100)}%)</dd><dt>Confidence</dt><dd>${e.conf===null?"–":e.conf+"% of delivering by go-live"}</dd></dl>
+    <b>Why this status</b><ul>${e.reasons.map(r=>`<li>${esc(r)}</li>`).join("")}</ul><p class="small"><a href="#" onclick="return false">Open the Epic form ↗</a></p>`;
+    $("x").onclick=()=>{S.sel=null;render()}}
+}
+const toggle=(a,v)=>{const i=a.indexOf(v);i<0?a.push(v):a.splice(i,1)};
+// ---- built-in question matcher (no AI): turns a question into filters, then answers from the data
+const CATW={"Regulatory":/\breg(ulatory|ulation|s)?\b|compliance/,"Software upgrade":/software|upgrade|patch|migration/,"Customer experience":/customer|\bcx\b|experience|digital/,"Infrastructure":/infra|network|cloud|data cent/,"Security":/secur|\binfosec\b/,"Data & Analytics":/\bdata\b|analytic|\bml\b/};
+const STW=[["red",/\bred\b|at risk|risky|\bmiss|off.?track|trouble/],["amber",/amber|attention|watch|concern|slipp/],["green",/green|on.?track|going well|progressing|healthy/],["done",/\bdone\b|complete|deliver(ed)?\b|finished/],["idle",/not started|upcoming|yet to start|future/]];
+function ask(q){const x=q.toLowerCase().trim();if(!x)return;
+  const f={cats:[],statuses:[],late:false,team:"",hold:false};
+  for(const [c,re] of Object.entries(CATW))if(re.test(x))f.cats.push(c);
+  if(f.cats.includes("Data & Analytics")&&f.cats.includes("Software upgrade")&&/migration/.test(x)&&!/data (lake|analytic)/.test(x))f.cats=f.cats.filter(c=>c!=="Data & Analytics");
+  if(f.cats.length>1&&/\bdata\b/.test(x)&&!/analytic|\bml\b/.test(x))f.cats=f.cats.filter(c=>c!=="Data & Analytics");
+  for(const [s,re] of STW)if(re.test(x))f.statuses.push(s);
+  if(/\blate\b|overdue|past (the )?(go.?live|target)/.test(x))f.late=true;
+  const hold=/on hold|paused|\bhold\b/.test(x);
+  const wantRag=/\brag\b|breakdown|split|summary|status of/.test(x)&&!f.statuses.length;
+  const recognised=f.cats.length||f.statuses.length||f.late||hold||wantRag||/how many|everything|all|status|overall|portfolio/.test(x);
+  const counting=/how many|count|number of/.test(x);
+  if(!recognised){S.answer={q,html:"I couldn’t map that to the data. Try a category (regulatory, software upgrade, security…) with a status (red, amber, green, late, on hold), or “Reg RAG”."};render();show();return}
+  S.cats=f.cats;S.statuses=f.statuses;S.late=f.late;S.hold=hold;S.team="";S.search="";S.sel=null;
+  const base=E.filter(e=>!f.cats.length||f.cats.includes(e.cat));
+  const label=n=>(f.cats.length?f.cats.join(" + ")+" ":"")+(n===1?"Epic":"Epics");
+  const hit=base.filter(e=>(!f.statuses.length||f.statuses.includes(e.status))&&(!f.late||e.late)&&(!hold||e.state==="Hold"));
+  const what=[f.statuses.map(s=>NAME[s].toLowerCase()).join(" or "),f.late?"late":"",hold?"on hold":""].filter(Boolean).join(", ");
+  const worst=hit.slice().sort((a,b)=>ORDER[a.status]-ORDER[b.status]||b.slip-a.slip)[0];
+  let html;
+  if(wantRag)html=`<b>${esc(label(base.length))}</b>: ${["red","amber","green","idle","done"].map(s=>`${cnt(base,s)} ${NAME[s].toLowerCase()}`).join(", ")} (${base.length} in total).`;
+  else if(counting)html=`<b>${hit.length}</b> ${esc(label(hit.length))}${what?` ${hit.length===1?"is":"are"} ${esc(what)}`:" in total"}${hit.length?`: ${hit.slice(0,5).map(e=>esc(e.title)).join(", ")}${hit.length>5?"…":""}.`:"."}`;
+  else html=`Showing <b>${hit.length}</b> ${esc(label(hit.length))}${what?` that ${hit.length===1?"is":"are"} ${esc(what)}`:""}${worst?`. Biggest concern: <b>${esc(worst.title)}</b> (${esc(worst.reasons[0]||"")}).`:"."}`;
+  S.answer={q,html};render();show()}
+function show(){const a=$("answer");if(!S.answer){a.classList.remove("on");return}a.classList.add("on");a.innerHTML=`<div class="q">You asked: “${esc(S.answer.q)}”</div>${S.answer.html}`}
+</script>
+<script>
+document.getElementById("askf").onsubmit=ev=>{ev.preventDefault();ask(document.getElementById("q").value)};
+document.querySelectorAll(".sg").forEach(b=>b.onclick=()=>{document.getElementById("q").value=b.textContent;ask(b.textContent)});
+render();
+</script>
+</body></html>
