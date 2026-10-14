@@ -11,7 +11,7 @@ The extension adds **guards inside its own pages and the work item form**. It is
 
 | Feature | What protects it |
 |---|---|
-| Settings and capacity pages (project administrators only) | Checked by the extension's pages |
+| Settings and capacity register (project administrators only) | Checked by the extension's pages |
 | Comment-only access | Guard on the work item form only; add process rules per field to enforce |
 | Approvals, normal mode | Checked by the extension; anyone who can edit the work item could change the stored status |
 | **Approvals, secure mode** | **Enforced by Azure DevOps** through a process-rule-protected field |

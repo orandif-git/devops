@@ -3,7 +3,7 @@
 ## Resource Planner & Heatmap (separate extension, `planner/`)
 - Resource Planner **Settings are for project administrators only**, and **Access teams** now works: when teams are chosen, only their members and project administrators can open the Planner, the Executive Dashboard and the dashboard widgets (a display guard; Azure DevOps still trims the Epics each person can read).
 - New one-screen **Planner** tab (default): compact filter bar with removable chips and a filters drawer, KPI strip with clickable bands, Heatmap / Timeline / Epic Gantt switch, collapsible teams, linked month highlight, detail panel (Esc closes). The separate Heatmap, Resource timeline and Epic Gantt tabs remain.
-- New **Executive Dashboard** page (Boards › Executive Dashboard) in the same extension: every Epic with status (on track / needs attention / at risk / not started / not assessed / done), reasons, forecast finish, delivery confidence, a brief, category breakdown and an “Ask the dashboard” box that turns a question into filters (no AI; numbers come from the data). Category fields, go-live date, progress sources (percent field, completed ÷ total, ticked grid rows), states and limits are set in Settings › Executive dashboard.
+- New **Executive** tab in the Resource Planner (off until “Enable the Executive Dashboard” is ticked in Settings; no separate menu item): every Epic with status (on track / needs attention / at risk / not started / not assessed / done), reasons, forecast finish, delivery confidence, a brief, category breakdown and an “Ask the dashboard” box that turns a question into filters (no AI; numbers come from the data). Category fields, go-live date, progress sources (percent field, completed ÷ total, ticked grid rows), states and limits are set in Settings › Executive dashboard.
 - Heatmap, resource timeline, Epic Gantt, three dashboard widgets (utilization, over capacity, team map), Diagnostics tab, keyboard-accessible tabs, Marketplace page. Read-only (`vso.work`, `vso.project`). Pilot checklist: `docs/planner-pilot-checklist.md`.
 
 ## 2.2.0 (next)
@@ -13,6 +13,8 @@
 - New **Diagnostics** tab: storage, id length limit, version check, permissions, teams/members/fields/capacity reads, settings consistency; results can be copied.
 
 **Features**
+- The Boards **Capacity** page is gone: the capacity register editor and the utilization overview are shown in the hub's **Capacity** tab, and only when the capacity register is the capacity source (nothing to maintain when capacity comes from Azure DevOps team capacity).
+- **Fix (Server 2020):** the audit log failed with “localeCompare is not a function” because stored date-like text came back as Date objects; documents are now turned back into text.
 - Grid formulas can total a column per group: `GROUPTOTAL`, `GROUPAVG`, `GROUPMAX`, `GROUPMIN`, `GROUPCOUNT` (for example `GROUPTOTAL(score, category)` = the score of the rows with this row's category). Used by the new weighted NFR Risk Assessment template (`scripts/merge-nfr-assessment.js`).
 - Audit log of settings changes with a mandatory reason and comments, shown as a clean plain-language table; export to CSV; retention with export before clearing.
 - Backup and restore of all settings in selectable parts (replace or add missing only), with a safety backup and audit entry.

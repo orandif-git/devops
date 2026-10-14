@@ -144,11 +144,13 @@ export function CapacityTab(p: { projectId: string }) {
 
       <div className="help">Only project administrators can change capacity settings and the register.</div>
 
-      <h3>Utilization overview (all Epics)</h3>
-      <Overview load={load} key={"ov" + version} />
-      <h3>{fromTeams ? "People and capacity read from Azure DevOps" : "Capacity register"}</h3>
-      <CapacityEditor api={api} canEdit={!fromTeams} projectId={p.projectId} actor={SDK.getUser().displayName} key={"ed" + version}
-        reason={fromTeams ? "Read-only: capacity comes from Azure DevOps team capacity (Boards → Sprints → Capacity). Change it there." : "Only project administrators can edit the register."} />
+      {fromTeams ? <div className="help">Capacity is read from Azure DevOps team capacity, so there is no register to maintain here. The Resource Planner shows utilization by person and month.</div> : <>
+        <h3>Utilization overview (all Epics)</h3>
+        <Overview load={load} key={"ov" + version} />
+        <h3>Capacity register</h3>
+        <CapacityEditor api={api} canEdit projectId={p.projectId} actor={SDK.getUser().displayName} key={"ed" + version}
+          reason="Only project administrators can edit the register." />
+      </>}
     </div>
   );
 }

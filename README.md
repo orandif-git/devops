@@ -8,7 +8,7 @@ Publisher `amanullah-ado` · id `workitem-grid-rules`. See [overview.md](overvie
 - `src/dropdown` – **Smart Dropdown** form control (filters options by parent field).
 - `src/observer` – invisible **rules observer** (set value / require / restrict / block save, dependent validation, Area Path hints).
 - `src/hub` – project settings hub: visual rule builder, dependent dropdown, grid, mapping, calculation and capacity editors, read-only fields page, JSON editor, live validation (`validate.ts`).
-- `src/capacity` – the Boards **Capacity** page (register editor + utilization overview).
+- `src/capacity` – the capacity register editor and utilization overview, shown inside the hub's **Capacity** tab (only when the capacity register is the capacity source).
 - `src/readonly` – **Read-only Value** form control for calculated fields.
 - `src/shared` – id helpers (`ids.ts`), settings storage with version check (`configStore.ts`), audit/backup/diagnostics stores,  SDK/REST helpers (team and permission calls use an explicit older api-version so Azure DevOps Server 2020 accepts them), config storage (extension data service, one document per project), Excel/CSV.
 

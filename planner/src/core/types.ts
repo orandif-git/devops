@@ -78,6 +78,8 @@ export interface ExecFormula {
 }
 
 export interface ExecSettings {
+  /** show the Executive Dashboard tab in the Resource Planner (off by default) */
+  enabled: boolean;
   /** Epic fields that classify an Epic (for example Project type, Regulatory); each can be filtered and asked about */
   categoryFields: string[];
   /** the go-live date field (empty = the Epic target-date field) */
@@ -105,7 +107,7 @@ export interface ExecSettings {
 }
 
 export const defaultExec = (): ExecSettings => ({
-  categoryFields: [], goLiveField: "", progress: [],
+  enabled: false, categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
 });

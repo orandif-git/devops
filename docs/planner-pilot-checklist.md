@@ -21,8 +21,9 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Heatmap / Timeline / Epic Gantt switch keeps the filters. Refresh and CSV work.
 
 ## 2c. Executive Dashboard
+- [ ] Settings › Executive dashboard: the box **Enable the Executive Dashboard** is off by default; with it off there is no “Executive” tab. Tick it, Save: the tab appears (there is no separate Boards menu item) and the settings below the box become visible.
 - [ ] Settings › Executive dashboard: choose category fields, the go-live date field, one or more progress sources (percent field, completed ÷ total, or ticked rows of a grid with its done column), states and limits. No red "to fix" lines remain.
-- [ ] Boards › **Executive Dashboard** opens and lists every Epic (Epics in the left-out states are not shown). Tiles add up to the portfolio count.
+- [ ] The **Executive** tab opens and lists every Epic (Epics in the left-out states are not shown). Tiles add up to the portfolio count.
 - [ ] Three Epics hand-checked: status, forecast finish, go-live date and progress match the Epic's fields (and the ticked rows of its grid when that source is used).
 - [ ] Ask: “How many <category value> projects are at risk?”, “<value> RAG”, “What is late?” update the chips, tiles and list; every number matches the list.
 - [ ] Clicking an Epic opens the detail panel with the reasons; “Open the Epic details” opens the Epic dialog.

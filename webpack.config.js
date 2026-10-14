@@ -1,7 +1,7 @@
 const path = require("path");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
-const pages = ["grid", "dropdown", "observer", "hub", "capacity", "readonly"];
+const pages = ["grid", "dropdown", "observer", "hub", "readonly"];
 
 module.exports = (env, argv) => ({
   entry: Object.fromEntries(pages.map(p => [p, `./src/${p}/index.${p === "observer" ? "ts" : "tsx"}`])),

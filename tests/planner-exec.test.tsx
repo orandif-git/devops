@@ -6,6 +6,8 @@ import { act, Simulate } from "react-dom/test-utils";
 vi.mock("../src/shared/ado", () => ({ downloadFile: () => undefined, getProject: () => Promise.resolve({ id: "P", name: "Proj" }) }));
 vi.mock("../planner/src/data/related", () => ({ loadRelated: () => Promise.resolve({ parent: undefined, children: [], related: [] }) }));
 vi.mock("../planner/src/data/open", () => ({ openWorkItem: () => undefined }));
+vi.mock("../src/shared/capacityStore", () => ({ listTeams: () => Promise.resolve([]) }));
+vi.mock("../planner/src/rest", () => ({ restGet: () => Promise.resolve({ value: [] }), restPost: () => Promise.resolve({ value: [] }) }));
 import { answer, interpret, mentions } from "../planner/src/core/ask";
 import { buildExec } from "../planner/src/core/executive";
 import { gridDoneOf, progressOf } from "../planner/src/core/progress";
@@ -329,5 +331,26 @@ describe("calculated fields in the editor and on the dashboard", () => {
     expect(firstRow()).toEqual(["FATCA", "100%", "50"]);
     act(() => { Simulate.click(h.querySelectorAll(".ex-result th button")[1]); });         // again: lowest first
     expect(firstRow()[1]).toBe("62%");
+  });
+});
+
+import { ExecSettings as ExecSettingsView } from "../planner/src/hub/ExecSettings";
+import { ExecPage } from "../planner/src/exec/ExecPage";
+
+describe("enabling the Executive Dashboard", () => {
+  it("is off by default; the checkbox reveals the settings and the queries", () => {
+    expect(normalizeSettings({}).executive.enabled).toBe(false);
+    const hostEl = document.createElement("div"); document.body.appendChild(hostEl);
+    let s = normalizeSettings({});
+    const render = () => ReactDOM.render(<ExecSettingsView s={s} fields={[]} project="Proj" onChange={n => { s = n; render(); }} />, hostEl);
+    act(() => { render(); });
+    expect(hostEl.textContent).toContain("Enable the Executive Dashboard"); expect(hostEl.textContent).not.toContain("Questions (queries)");
+    act(() => { Simulate.change(hostEl.querySelector('input[type="checkbox"]')!, { target: { checked: true } } as never); });
+    expect(s.executive.enabled).toBe(true); expect(hostEl.textContent).toContain("Questions (queries)");
+  });
+  it("the tab explains what is missing when the settings are incomplete", () => {
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecPage project={{ id: "P", name: "Proj" }} settings={normalizeSettings({ executive: { enabled: true } })} busy={false} error="" queries={[]} queryId="" onQuery={() => undefined} onReload={() => undefined} />, h); });
+    expect(h.textContent).toContain("not set up yet"); expect(h.textContent).toContain("go-live date");
   });
 });

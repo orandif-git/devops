@@ -27,6 +27,7 @@ Run once on a **test project** on Azure DevOps Server 2020 (and once on Azure De
 - [ ] A month/date column with a **Show months / dates as** format displays and exports in that format.
 
 ## 4. Capacity and scheduling
+- [ ] Capacity source = **Azure DevOps team capacity**: Grid & Rules › Capacity shows the settings only (no register editor, no utilization overview), and there is no “Capacity” item in the Boards menu. Switch to **register** and Save: the utilization overview and the register editor appear in that tab.
 - [ ] Capacity source = team capacity: **Check what is read** lists the people; or register: add two people with similar names, both stay after reload.
 - [ ] Enter start date, effort and allocation %: the end date and monthly hours calculate; the derived capacity grid shows the person and team.
 - [ ] Default allocation % set to 0: a new row shows "Allocation % must be above 0" until filled.

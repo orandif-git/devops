@@ -76,7 +76,7 @@
           {
             "id": "GridName",
             "name": "Grid name",
-            "description": "Name of a grid defined in Project settings → Grid & Rules.",
+            "description": "Name of a grid defined in Project settings \u2192 Grid & Rules.",
             "type": "string",
             "validation": {
               "dataType": "String",
@@ -86,7 +86,7 @@
           {
             "id": "DataField",
             "name": "Data field",
-            "description": "Optional. Leave EMPTY to use the data field set for the grid in Project settings → Grid & Rules (recommended, so the grid and its calculations always read the same field).",
+            "description": "Optional. Leave EMPTY to use the data field set for the grid in Project settings \u2192 Grid & Rules (recommended, so the grid and its calculations always read the same field).",
             "type": "WorkItemField",
             "properties": {
               "workItemFieldTypes": [
@@ -203,19 +203,6 @@
         "name": "Grid & Rules",
         "order": 1,
         "uri": "dist/hub/index.html"
-      }
-    },
-    {
-      "id": "capacity-hub",
-      "type": "ms.vss-web.hub",
-      "description": "Central register of available hours per person and month, maintained once by resource managers.",
-      "targets": [
-        "ms.vss-work-web.work-hub-group"
-      ],
-      "properties": {
-        "name": "Capacity",
-        "order": 50,
-        "uri": "dist/capacity/index.html"
       }
     }
   ]

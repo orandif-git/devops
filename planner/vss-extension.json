@@ -69,19 +69,6 @@
       }
     },
     {
-      "id": "exec-hub",
-      "type": "ms.vss-web.hub",
-      "description": "Executive dashboard: every Epic with status, go-live risk and questions answered from the data.",
-      "targets": [
-        "ms.vss-work-web.work-hub-group"
-      ],
-      "properties": {
-        "name": "Executive Dashboard",
-        "order": 61,
-        "uri": "dist/exec/index.html"
-      }
-    },
-    {
       "id": "widget-tile",
       "type": "ms.vss-dashboards-web.widget",
       "description": "Share of available hours that is booked this month, with the number of people in each colour band.",
