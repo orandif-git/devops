@@ -5,6 +5,7 @@ import { WorkRestClient } from "azure-devops-extension-api/Work";
 import { WorkItemTrackingRestClient, WorkItemTypeFieldsExpandLevel } from "azure-devops-extension-api/WorkItemTracking";
 import { IWorkItemFormService, WorkItemTrackingServiceIds } from "azure-devops-extension-api/WorkItemTracking/WorkItemTrackingServices";
 import { withTimeout } from "./timeout";
+import { unrevive } from "./unrevive";
 
 export async function init(loadSucceeded = true): Promise<void> {
   await SDK.init({ loaded: false, applyTheme: true });
@@ -63,9 +64,18 @@ export async function getTeamMembersCompat(projectId: string, teamId: string, to
 }
 
 // ---------- extension data service ----------
+const READS = new Set(["getDocument", "getDocuments", "setDocument", "createDocument", "updateDocument", "getValue"]);
+/** The extension data manager. Documents it returns are passed through `unrevive`, so a date-like text is always text (Server 2020 returns it as a Date). */
 export async function dataManager() {
   const svc = await SDK.getService<IExtensionDataService>(CommonServiceIds.ExtensionDataService);
-  return svc.getExtensionDataManager(SDK.getExtensionContext().id, await SDK.getAccessToken());
+  const mgr = await svc.getExtensionDataManager(SDK.getExtensionContext().id, await SDK.getAccessToken());
+  return new Proxy(mgr, {
+    get(target, key) {
+      const v = Reflect.get(target, key, target);
+      if (typeof v !== "function") return v;
+      return (...args: unknown[]) => { const out = (v as (...a: unknown[]) => unknown).apply(target, args); return READS.has(String(key)) && out && typeof (out as Promise<unknown>).then === "function" ? (out as Promise<unknown>).then(unrevive) : out; };
+    },
+  });
 }
 
 // ---------- field helpers ----------

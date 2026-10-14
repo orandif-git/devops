@@ -78,7 +78,7 @@ export async function listAudit(projectId: string): Promise<AuditEntry[]> {
     if (d.kind === "month") for (const e of d.entries ?? []) byId.set(e.id, e);
     else if (d.kind === "entry" && d.entry) byId.set(d.entry.id, d.entry);       // written by an earlier version
   }
-  return Array.from(byId.values()).sort((a, b) => b.at.localeCompare(a.at));
+  return Array.from(byId.values()).map(e => ({ ...e, at: String(e.at ?? "") })).sort((a, b) => b.at.localeCompare(a.at));        // `at` is always text, even if the host returned a Date
 }
 
 export async function deleteAudit(projectId: string, ids: string[]): Promise<void> {
