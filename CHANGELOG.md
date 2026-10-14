@@ -13,6 +13,7 @@
 **Features**
 - Audit log of settings changes with a mandatory reason and comments, shown as a clean plain-language table; export to CSV; retention with export before clearing.
 - Backup and restore of all settings in selectable parts (replace or add missing only), with a safety backup and audit entry.
+- **Controls now take any number of rules.** Each rule has its own people/teams, work item types, message and an on/off switch, and works as *Comments only* or *Lock specific fields* (for example Group 2 cannot edit two Epic fields, Group 3 three other fields). When a person is in several groups the stricter result applies. Your existing comment-only setting becomes “Rule 1” automatically; backups made before this still restore.
 - Settings and capacity editing for project administrators only; new **Controls** tab with comment-only access on the work item form.
 - Per-column display format for months and dates; configurable default allocation %; team from Azure DevOps team/group membership with optional override.
 - Calculated Epic fields: Read-only Value control supports dates and yes/no; outputs corrected when the work item is opened.

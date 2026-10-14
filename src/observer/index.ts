@@ -1,12 +1,13 @@
 import * as SDK from "azure-devops-extension-sdk";
-import { Cascade, ProjectConfig, Rule } from "../core/types";
+import { Cascade, ControlRule, ProjectConfig, Rule } from "../core/types";
 import { calcApplies, calcRefs, evaluateCalculations } from "../core/calc";
 import { resolvedGrids } from "../core/sharedLookups";
 import { cascadeApplies, cascadeErrors, evaluateRules, hintedParent, ruleApplies } from "../core/rules";
 import { getFormService, getProject } from "../shared/ado";
 import { loadConfig } from "../shared/configStore";
-import { commentOnlyApplies, DEFAULT_MESSAGE, fieldsToRevert } from "../core/commentOnly";
-import { isCommentOnlyUser } from "../shared/commentOnlyAccess";
+import { revertsForRules } from "../core/commentOnly";
+import { writtenFields } from "../core/written";
+import { restrictedRules } from "../shared/commentOnlyAccess";
 
 /**
  * Rules observer: runs invisibly on every work item form.
@@ -32,43 +33,43 @@ const refsOf = (rules: Rule[], cascades: Cascade[]) => {
   return Array.from(s);
 };
 
-// ---- comment-only guard: selected users/teams may only add comments; any other field change is put back ----
-let guardP: Promise<{ restricted: boolean; allowed: string[]; message: string }> | undefined;
+// ---- controls guard: people restricted by a rule cannot change what the rule protects; any such change is put back ----
+interface Guard { rules: ControlRule[]; /** a comments-only rule applies: rules and calculations must not write for this user */ skipRun: boolean; /** fields the extension writes itself: never undone */ exempt: Set<string> }
+let guardP: Promise<Guard> | undefined;
 let snapshot: Record<string, unknown> | undefined;
 let reverting = false;
 let guardTimer: number | undefined;
 
-/** Decide (once per load) whether this user is restricted on this work item, and remember the field values as opened. */
-function prepareGuard(): Promise<{ restricted: boolean; allowed: string[]; message: string }> {
+/** Decide (once per load) which rules restrict this user on this work item, and remember the field values as opened. */
+function prepareGuard(): Promise<Guard> {
   return (async () => {
-    const none = { restricted: false, allowed: [] as string[], message: "" };
+    const none: Guard = { rules: [], skipRun: false, exempt: new Set() };
     try {
       if (!projectId) projectId = (await getProject()).id;
       if (!config) config = await loadConfig(projectId);
-      const co = config.commentOnly;
+      const rules = (config.controls ?? []).filter(r => r.enabled);
+      if (!rules.length) return none;
       const svc = await getFormService();
-      if (!co?.enabled) return none;
       if (await svc.isNew()) return none;
-      const type = String(await svc.getFieldValue("System.WorkItemType"));
-      if (!commentOnlyApplies(co, type)) return none;
-      if (!(await isCommentOnlyUser(projectId, co))) return none;
+      const mine = await restrictedRules(projectId, rules, String(await svc.getFieldValue("System.WorkItemType")));
+      if (!mine.length) return none;
       const refs = (await svc.getFields()).map(f => f.referenceName);
       snapshot = (await svc.getFieldValues(refs)) as Record<string, unknown>;
-      return { restricted: true, allowed: co.allowedFields, message: co.message || DEFAULT_MESSAGE };
-    } catch (e) { console.warn("[Grid & Rules] comment-only guard could not start:", (e as Error).message); return none; }
+      return { rules: mine, skipRun: mine.some(r => r.mode === "comments"), exempt: new Set(writtenFields(config).map(w => w.field.toLowerCase())) };
+    } catch (e) { console.warn("[Grid & Rules] controls guard could not start:", (e as Error).message); return none; }
   })();
 }
 
 async function guardChange(changed: Record<string, unknown>) {
   const g = await guardP;
-  if (!g?.restricted || !snapshot || reverting) return;
-  const back = fieldsToRevert(changed, snapshot, g.allowed);
+  if (!g?.rules.length || !snapshot || reverting) return;
+  const back = revertsForRules(changed, snapshot, g.rules, g.exempt);
   if (!back.length) return;
   const svc = await getFormService();
   reverting = true;
   try { for (const b of back) { try { await svc.setFieldValue(b.field, (b.value ?? "") as Object); } catch (e) { console.warn(`[Grid & Rules] could not undo ${b.field}:`, (e as Error).message); } } }
   finally { window.setTimeout(() => { reverting = false; }, 300); }
-  try { await svc.setError(g.message); window.clearTimeout(guardTimer); guardTimer = window.setTimeout(() => { svc.clearError().catch(() => undefined); }, 6000); } catch { /* message only */ }
+  try { await svc.setError(Array.from(new Set(back.map(b => b.message))).join(" ")); window.clearTimeout(guardTimer); guardTimer = window.setTimeout(() => { svc.clearError().catch(() => undefined); }, 6000); } catch { /* message only */ }
 }
 
 async function run(isLoad: boolean) {
@@ -80,7 +81,7 @@ async function run(isLoad: boolean) {
     const svc = await getFormService();
     const type = String(await svc.getFieldValue("System.WorkItemType"));
     if (!guardP) guardP = prepareGuard();
-    if ((await guardP).restricted) return;                 // comment-only users: no rules or calculations write to the work item
+    if ((await guardP).skipRun) return;                      // comments-only users: no rules or calculations write to the work item
     const rules = config.rules.filter(r => ruleApplies(r, type));
     const cascades = config.cascades.filter(c => cascadeApplies(c, type));
     const calcs = (config.calculations ?? []).filter(c => calcApplies(c, type));

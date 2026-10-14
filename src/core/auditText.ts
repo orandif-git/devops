@@ -5,7 +5,7 @@ export interface Human { kind: "added" | "removed" | "changed" | "reordered"; te
 
 const LABEL: Record<string, string> = {
   name: "name", type: "type", required: "required", defaultValue: "default value", options: "dropdown values", formula: "formula", total: "footer total", min: "minimum", max: "maximum",
-  readOnly: "read-only", title: "title", dataField: "data field", enabled: "enabled", workItemTypes: "work item types", teams: "teams", people: "people", allowedFields: "fields that stay editable",
+  readOnly: "read-only", title: "title", dataField: "data field", enabled: "enabled", workItemTypes: "work item types", teams: "teams", people: "people", allowedFields: "fields that stay editable", fields: "fields", mode: "mode",
   message: "message", resource: "resource column", start: "start column", end: "end column", effort: "effort column", allocation: "allocation column", defaultAllocation: "default allocation %",
   source: "source", capacityTeams: "capacity teams", defaultHours: "default hours per month", calendar: "calendar", workingDays: "working days", hoursPerDay: "hours per day", holidays: "holidays",
   displayFormat: "display format", teamFrom: "team from group", lookup: "auto-fill", derive: "derived from", overrides: "overrides", map: "mapping", fallback: "fallback", description: "description",
@@ -13,9 +13,9 @@ const LABEL: Record<string, string> = {
   statuses: "status wording", overall: "overall status", timeZone: "time zone", resetOnEdit: "reset on edit", lockApproved: "lock approved rows", noSelfApproval: "no self-approval", secure: "secure approvals", admins: "grid administrators",
   retentionMonths: "months kept", clearedOlderThanMonths: "entries cleared older than (months)", exported: "exported first",
 };
-const SINGULAR: Record<string, string> = { grids: "grid", columns: "column", rules: "rule", cascades: "dependent dropdown", calculations: "calculation", lookups: "mapping", totals: "total", presets: "preset", approvers: "approver rule", breakdowns: "group", inputs: "input", conditions: "condition" };
+const SINGULAR: Record<string, string> = { controls: "control rule", grids: "grid", columns: "column", rules: "rule", cascades: "dependent dropdown", calculations: "calculation", lookups: "mapping", totals: "total", presets: "preset", approvers: "approver rule", breakdowns: "group", inputs: "input", conditions: "condition" };
 const TYPE: Record<string, string> = { boolean: "checkbox", string: "text", number: "number", date: "date", dropdown: "dropdown", identity: "person", calculated: "calculated" };
-const ROOT: Record<string, string> = { commentOnly: "Controls › Comment-only access", capacityRegister: "Capacity register", config: "Settings", capacitySettings: "Capacity settings", restoredFrom: "Restored from" };
+const ROOT: Record<string, string> = { controls: "Controls", commentOnly: "Controls › Comment-only access", capacityRegister: "Capacity register", config: "Settings", capacitySettings: "Capacity settings", restoredFrom: "Restored from" };
 const CAPACITY_KEYS = new Set(["source", "capacityTeams", "defaultHours", "calendar"]);
 
 const words = (k: string) => LABEL[k] ?? (/^[a-z]+([A-Z][a-z0-9]*)+$/.test(k) ? k.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase() : k);   // camelCase setting names become words; names typed by people stay as typed

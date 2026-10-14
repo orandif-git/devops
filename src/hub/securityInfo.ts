@@ -16,7 +16,7 @@ export const SECURITY_ROWS: SecurityRow[] = [
   { feature: "Capacity register", level: "pages", what: "Only project administrators can edit the register and the capacity settings.",
     bypass: "The same API route as above.",
     harden: "Prefer Azure DevOps team capacity as the source: it is protected by Azure DevOps permissions (team administrators)." },
-  { feature: "Comment-only access", level: "guard", what: "Selected people or teams cannot change fields on the work item form: changes are undone at once.",
+  { feature: "Controls (comment-only and locked fields)", level: "guard", what: "Any number of rules: selected people or teams can only comment, or cannot change listed fields, on the work item form: such changes are undone at once.",
     bypass: "Board cards, backlogs, query results, Excel and the REST API do not go through the form.",
     harden: "For real enforcement add process rules: a rule with the condition “current user is a member of group …” and the action “Make read-only” on each field." },
   { feature: "Approvals (normal mode)", level: "pages", what: "Only chosen approvers see Approve / Reject, and approved rows lock.",

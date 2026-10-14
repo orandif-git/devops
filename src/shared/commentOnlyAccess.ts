@@ -1,37 +1,41 @@
 import * as SDK from "azure-devops-extension-sdk";
-import { isRestrictedUser } from "../core/commentOnly";
+import { isRestrictedUser, ruleApplies } from "../core/commentOnly";
 import { keyNorm } from "../core/keys";
-import { CommentOnlyConfig } from "../core/types";
-import { commentOnlyApplies } from "../core/commentOnly";
+import { ControlRule } from "../core/types";
 import { getFormService, getTeamMembersCompat, withTimeout } from "./ado";
 import { loadConfig } from "./configStore";
 
 /**
- * Is the current user restricted to comments? By name, or by direct membership of a restricted team.
- * If a team cannot be read it counts as "not a member" (the restriction is a form-level guard, not a lock), and the reason is logged.
+ * The enabled rules that apply to this work item type AND to the current user (by name, or by direct membership of a rule's team).
+ * Each team is read once even when several rules use it. A team that cannot be read counts as "not a member" (the restriction is a form-level guard, not a lock), and the reason is logged.
  */
-export async function isCommentOnlyUser(projectId: string, c: CommentOnlyConfig): Promise<boolean> {
+export async function restrictedRules(projectId: string, rules: ControlRule[], type: string): Promise<ControlRule[]> {
+  const applicable = rules.filter(r => ruleApplies(r, type));
+  if (!applicable.length) return [];
   const u = SDK.getUser();
   const keys = [u.name, u.displayName, u.id].map(keyNorm).filter(Boolean);
   const me = String(u.id ?? "").toLowerCase();
+  const member = new Map<string, boolean>();
   const teamIds: string[] = [];
-  for (const t of c.teams) {
-    try {
-      const members = await withTimeout(getTeamMembersCompat(projectId, t.id, 2000), "Loading team members");
-      if (members.some(m => m.identity?.id?.toLowerCase() === me)) teamIds.push(t.id);
-    } catch (e) { console.warn(`[Grid & Rules] comment-only: could not read team ${t.name}:`, (e as Error).message); }
+  for (const t of applicable.flatMap(r => r.teams)) {
+    if (!member.has(t.id)) {
+      try { member.set(t.id, (await withTimeout(getTeamMembersCompat(projectId, t.id, 2000), "Loading team members")).some(m => m.identity?.id?.toLowerCase() === me)); }
+      catch (e) { member.set(t.id, false); console.warn(`[Grid & Rules] controls: could not read team ${t.name}:`, (e as Error).message); }
+    }
+    if (member.get(t.id)) teamIds.push(t.id);
   }
-  return isRestrictedUser(c, { keys, teamIds });
+  return applicable.filter(r => isRestrictedUser(r, { keys, teamIds }));
 }
 
-/** For the controls on the form: is the person looking at this work item restricted to comments (so the control should be read-only)? */
-export async function commentOnlyHere(projectId: string): Promise<boolean> {
+/** For the Smart Grid on the form: must it be read-only for the person looking at this work item (comments-only rule, or a rule that locks the grid's data field)? */
+export async function gridLockedHere(projectId: string, gridField?: string): Promise<boolean> {
   try {
-    const co = (await loadConfig(projectId)).commentOnly;
-    if (!co?.enabled) return false;
+    const rules = (await loadConfig(projectId)).controls ?? [];
+    if (!rules.some(r => r.enabled)) return false;
     const svc = await getFormService();
     if (await svc.isNew()) return false;
-    if (!commentOnlyApplies(co, String(await svc.getFieldValue("System.WorkItemType")))) return false;
-    return await isCommentOnlyUser(projectId, co);
+    const mine = await restrictedRules(projectId, rules, String(await svc.getFieldValue("System.WorkItemType")));
+    const f = (gridField ?? "").toLowerCase();
+    return mine.some(r => r.mode === "comments" || (!!f && r.fields.some(x => x.toLowerCase() === f)));
   } catch { return false; }
 }

@@ -1,3 +1,4 @@
+import { writtenFields } from "../core/written";
 import { isNoLimit, validateConfig as validateGrid } from "../core/gridModel";
 import { checkFormula } from "../core/expr";
 import { ProjectConfig } from "../core/types";
@@ -38,12 +39,20 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
   const cfg: ProjectConfig = { ...raw, grids: resolvedGrids(raw) };
   const add = (level: Issue["level"], where: string, message: string) => out.push({ level, where, message });
 
-  const co = cfg.commentOnly;
-  if (co?.enabled) {
-    if (!co.teams.length && !co.people.length) add("error", "Comment-only access", "Choose at least one team or person, or switch it off");
-    for (const t of co.workItemTypes) if (cat.types.length && !cat.types.includes(t)) add("warn", "Comment-only access", `Work item type '${t}' does not exist in this project`);
-    for (const f of co.allowedFields) if (!/^[A-Za-z][\w.]*$/.test(f)) add("error", "Comment-only access", `'${f}' is not a field reference name`);
-  }
+  const writtenSet = new Set(writtenFields(cfg).map(w => w.field.toLowerCase()));
+  (cfg.controls ?? []).forEach((r, n) => {
+    const where = `Controls › ${r.name || `Rule ${n + 1}`}`;
+    if (!r.enabled) return;
+    if (!r.teams.length && !r.people.length) add("error", where, "Choose at least one team or person, or switch the rule off");
+    if (r.mode === "lock" && !r.fields.length) add("error", where, "Choose at least one field to lock, or switch the rule off");
+    for (const t of r.workItemTypes) if (cat.types.length && !cat.types.includes(t)) add("warn", where, `Work item type '${t}' does not exist in this project`);
+    for (const f of r.fields) {
+      if (!/^[A-Za-z][\w.]*$/.test(f)) add("error", where, `'${f}' is not a field reference name`);
+      else if (cat.all.size && !cat.all.has(f)) add("warn", where, `Field '${f}' does not exist in this organization`);
+      else if (r.mode === "lock" && writtenSet.has(f.toLowerCase())) add("warn", where, `'${f}' is filled by a calculation or a grid total, so it is not undone for restricted people. Use Read-only fields for it instead.`);
+    }
+    for (const o of (cfg.controls ?? []).slice(n + 1)) if (o.enabled && o.name === r.name) add("warn", where, `Another rule has the same name “${r.name}”`);
+  });
 
   const checkField = (where: string, ref: string, types: string[]) => {
     if (!ref) { add("error", where, "No field selected"); return undefined; }

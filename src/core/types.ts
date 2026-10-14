@@ -325,7 +325,9 @@ export interface ProjectConfig {
   cascades: Cascade[];
   grids: Record<string, GridConfig>;
   calculations: Calculation[];
-  /** selected users / teams may only add comments on the work item form: every other field change is undone */
+  /** who may not edit what on the work item form: any number of rules, each for its own people/teams, work item types and fields */
+  controls?: ControlRule[];
+  /** older single comment-only rule; read once and converted to a rule in `controls` */
   commentOnly?: CommentOnlyConfig;
 }
 
@@ -338,6 +340,23 @@ export interface CommentOnlyConfig {
   people: string[];
   /** fields that stay editable (reference names); the discussion is always allowed */
   allowedFields: string[];
+  message?: string;
+}
+
+export type ControlMode = "comments" | "lock";
+/** One control rule. "comments": the people can only add comments (every other field change is undone) except the `fields` listed. "lock": the people cannot change the `fields` listed; everything else stays editable. */
+export interface ControlRule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  mode: ControlMode;
+  /** work item types the rule applies to (empty = all) */
+  workItemTypes: string[];
+  teams: { id: string; name: string }[];
+  /** "Name <sign-in>" */
+  people: string[];
+  /** comments mode: fields that stay editable; lock mode: fields that cannot be edited (reference names) */
+  fields: string[];
   message?: string;
 }
 

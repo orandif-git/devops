@@ -1,4 +1,4 @@
-import { commentOnlyHere } from "../shared/commentOnlyAccess";
+import { gridLockedHere } from "../shared/commentOnlyAccess";
 import { staleOutputs } from "../core/written";
 import * as React from "react";
 import * as ReactDOM from "react-dom";
@@ -64,7 +64,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [rows, setRows] = React.useState<GridRow[]>([]);
   const [ready, setReady] = React.useState(false);
   const [commentOnly, setCommentOnly] = React.useState(false);
-  const commentOnlyP = React.useMemo(() => commentOnlyHere(props.projectId).then(r => { setCommentOnly(r); return r; }), [props.projectId]);
+  const commentOnlyP = React.useMemo(() => gridLockedHere(props.projectId, cfg.dataField).then(r => { setCommentOnly(r); return r; }), [props.projectId, cfg.dataField]);
   const [status, setStatus] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [warn, setWarn] = React.useState(props.notice ?? "");

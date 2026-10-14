@@ -1,3 +1,4 @@
+import { readControls } from "./commentOnly";
 import { AuditEntry } from "./audit";
 import { CapacityRecord } from "./capacity";
 import { normalizeProject } from "./normalize";
@@ -10,7 +11,7 @@ export const SECTIONS = [
   { id: "cascades", label: "Dependent dropdowns" },
   { id: "calculations", label: "Calculations" },
   { id: "lookups", label: "Mappings" },
-  { id: "controls", label: "Controls (comment-only access)" },
+  { id: "controls", label: "Controls (who may not edit what)" },
   { id: "capacitySettings", label: "Capacity settings (source, teams, calendar, holidays)" },
   { id: "capacityRegister", label: "Capacity register (hours per person and month)" },
   { id: "audit", label: "Audit log" },
@@ -33,7 +34,7 @@ export interface BackupFile {
   project: { id: string; name: string };
   sections: {
     grids?: ProjectConfig["grids"]; rules?: ProjectConfig["rules"]; cascades?: ProjectConfig["cascades"]; calculations?: ProjectConfig["calculations"];
-    lookups?: ProjectConfig["lookups"]; controls?: NonNullable<ProjectConfig["commentOnly"]>;
+    lookups?: ProjectConfig["lookups"]; controls?: NonNullable<ProjectConfig["controls"]>;
     capacitySettings?: Record<string, unknown>; capacityRegister?: CapacityRecord[]; audit?: AuditEntry[];
   };
 }
@@ -48,7 +49,7 @@ export function buildBackup(p: { project: { id: string; name: string }; user: { 
   if (on("cascades")) s.cascades = c.cascades;
   if (on("calculations")) s.calculations = c.calculations ?? [];
   if (on("lookups")) s.lookups = c.lookups ?? {};
-  if (on("controls") && c.commentOnly) s.controls = c.commentOnly;
+  if (on("controls") && c.controls) s.controls = c.controls;
   if (on("capacitySettings")) s.capacitySettings = p.current.capacitySettings;
   if (on("capacityRegister")) s.capacityRegister = p.current.register;
   if (on("audit")) s.audit = p.current.audit;
@@ -71,7 +72,12 @@ export function parseBackup(text: string): { file?: BackupFile; error?: string }
   const bad = (id: string) => ({ error: `The “${id}” part of the backup is damaged.` });
   for (const id of ["grids", "lookups"] as const) if (s[id] !== undefined && (!isObj(s[id]) || !safeKeys(s[id] as Record<string, unknown>))) return bad(id);
   for (const id of ["rules", "cascades", "calculations", "capacityRegister", "audit"] as const) if (s[id] !== undefined && !Array.isArray(s[id])) return bad(id);
-  for (const id of ["controls", "capacitySettings"] as const) if (s[id] !== undefined && !isObj(s[id])) return bad(id);
+  if (s.capacitySettings !== undefined && !isObj(s.capacitySettings)) return bad("capacitySettings");
+  if (s.controls !== undefined) {                       // older backups hold one comment-only rule as an object
+    if (isObj(s.controls)) s.controls = readControls({ commentOnly: s.controls }) ?? [];
+    else if (!Array.isArray(s.controls) || s.controls.some(x => !isObj(x))) return bad("controls");
+    else s.controls = readControls({ controls: s.controls }) ?? [];
+  }
   for (const g of Object.values((s.grids as Record<string, unknown>) ?? {})) if (!isObj(g) || !Array.isArray(g.columns)) return bad("grids");
   for (const r of (s.capacityRegister as unknown[]) ?? []) if (!isObj(r) || typeof r.key !== "string" || typeof r.name !== "string" || !isObj(r.overrides ?? {})) return bad("capacityRegister");
   for (const e of (s.audit as unknown[]) ?? []) if (!isObj(e) || typeof e.id !== "string" || typeof e.at !== "string" || !Array.isArray(e.changes)) return bad("audit");
@@ -86,7 +92,7 @@ export function parseBackup(text: string): { file?: BackupFile; error?: string }
 }
 
 export const presentSections = (f: BackupFile) => SECTION_IDS.filter(id => f.sections[id] !== undefined);
-export const countOf = (f: BackupFile, id: SectionId): number => { const v = f.sections[id] as unknown; return Array.isArray(v) ? v.length : isObj(v) ? (id === "controls" || id === "capacitySettings" ? 1 : Object.keys(v).length) : 0; };
+export const countOf = (f: BackupFile, id: SectionId): number => { const v = f.sections[id] as unknown; return Array.isArray(v) ? v.length : isObj(v) ? (id === "capacitySettings" ? 1 : Object.keys(v).length) : 0; };
 
 // ---------------- restore ----------------
 
@@ -138,7 +144,7 @@ export function planRestore(current: Current, file: BackupFile, modes: Partial<R
     if (m === "merge" && cur === undefined) next = inc;
     return { next, stats: { id, mode: m, added: m !== "skip" && cur === undefined && inc !== undefined ? 1 : 0, changed: m === "replace" && cur !== undefined && diff ? 1 : 0, removed: 0, kept: m === "merge" && cur !== undefined ? 1 : 0 } };
   };
-  if (mode("controls") !== "skip") { const r = single("controls", cfg.commentOnly, s.controls); cfg.commentOnly = r.next; plan.sections.push(r.stats); }
+  if (mode("controls") !== "skip") { const r = keyed("controls", cfg.controls ?? [], s.controls ?? [], idOf); cfg.controls = r.next as ProjectConfig["controls"]; plan.sections.push(r.stats); }
   if (mode("capacitySettings") !== "skip") { const r = single("capacitySettings", Object.keys(current.capacitySettings).length ? current.capacitySettings : undefined, s.capacitySettings); plan.capacitySettings = r.next; plan.sections.push(r.stats); }
 
   if (mode("capacityRegister") !== "skip") {

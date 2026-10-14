@@ -28,7 +28,7 @@ export function BackupTab(p: { projectId: string; projectName: string; dirty: bo
   React.useEffect(() => {
     readCurrent(p.projectId).then(c => setCounts({
       grids: Object.keys(c.config.grids).length, rules: c.config.rules.length, cascades: c.config.cascades.length, calculations: (c.config.calculations ?? []).length,
-      lookups: Object.keys(c.config.lookups ?? {}).length, controls: c.config.commentOnly ? 1 : 0, capacitySettings: 1, capacityRegister: c.register.length, audit: c.audit.length,
+      lookups: Object.keys(c.config.lookups ?? {}).length, controls: (c.config.controls ?? []).length, capacitySettings: 1, capacityRegister: c.register.length, audit: c.audit.length,
     })).catch(() => undefined);
     listTeams(p.projectId).then(t => setTeamIds(new Set(t.map(x => x.id)))).catch(() => undefined);
   }, [p.projectId]);
@@ -91,7 +91,7 @@ export function BackupTab(p: { projectId: string; projectName: string; dirty: bo
         {SECTIONS.map(s => (
           <label key={s.id} style={{ display: "block", margin: "3px 0" }}>
             <input type="checkbox" checked={include[s.id]} onChange={e => setInclude({ ...include, [s.id]: e.target.checked })} /> {s.label}
-            {counts[s.id] !== undefined && <span className="muted"> – {s.id === "capacitySettings" || s.id === "controls" ? (counts[s.id] ? "set" : "not set") : `${counts[s.id]} now`}</span>}
+            {counts[s.id] !== undefined && <span className="muted"> – {s.id === "capacitySettings" ? (counts[s.id] ? "set" : "not set") : `${counts[s.id]} now`}</span>}
           </label>
         ))}
         <div className="toolbar"><button className="btn primary" disabled={busy || !Object.values(include).some(Boolean)} onClick={backup}>Download backup</button></div>
@@ -115,7 +115,7 @@ export function BackupTab(p: { projectId: string; projectName: string; dirty: bo
                 {presentSections(file).map(id => (
                   <tr key={id}>
                     <td>{SECTIONS.find(s => s.id === id)!.label}</td>
-                    <td>{id === "capacitySettings" || id === "controls" ? "included" : countOf(file, id)}</td>
+                    <td>{id === "capacitySettings" ? "included" : countOf(file, id)}</td>
                     <td>
                       <select value={modes[id] ?? "skip"} onChange={e => setModes({ ...modes, [id]: e.target.value as Mode })}>
                         <option value="skip">{MODE_LABEL.skip}</option>

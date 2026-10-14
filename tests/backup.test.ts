@@ -66,10 +66,20 @@ describe("restore plan", () => {
 
 describe("restore warnings", () => {
   it("warns about another project and teams that do not exist here", () => {
-    const f = make({ ...current(), config: { ...current().config, commentOnly: { enabled: true, workItemTypes: [], teams: [{ id: "t9", name: "Gone Team" }], people: [], allowedFields: [] } } });
+    const f = make({ ...current(), config: { ...current().config, controls: [{ id: "r1", name: "R", enabled: true, mode: "comments" as const, workItemTypes: [], teams: [{ id: "t9", name: "Gone Team" }], people: [], fields: [] }] } });
     const w = restoreWarnings(f, { projectId: "OTHER", projectName: "Other", teamIds: new Set(["t1"]) });
     expect(w.join("|")).toMatch(/made in project “Proj”/);
     expect(w.join("|")).toMatch(/Gone Team/);
     expect(restoreWarnings(f, { projectId: "P", projectName: "Proj", teamIds: new Set(["t9"]) })).toEqual([]);
+  });
+});
+
+describe("controls in a backup", () => {
+  it("converts an older single comment-only rule into a rule and keeps new rule lists", () => {
+    const base = { format: "wig-backup", formatVersion: 1, extensionVersion: "x", createdAt: "", createdBy: {}, project: {} };
+    const old = parseBackup(JSON.stringify({ ...base, format: make(current()).format, sections: { controls: { enabled: true, workItemTypes: ["Epic"], teams: [], people: ["A <a>"], allowedFields: ["System.History"] } } }));
+    expect(old.file!.sections.controls).toMatchObject([{ name: "Comment-only access", mode: "comments", enabled: true, people: ["A <a>"], workItemTypes: ["Epic"] }]);
+    const bad = parseBackup(JSON.stringify({ ...base, format: make(current()).format, sections: { controls: [1] } }));
+    expect(bad.error).toMatch(/controls/);
   });
 });
