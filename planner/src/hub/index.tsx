@@ -22,6 +22,7 @@ import { validateSettings } from "../core/settings";
 import { diagnose, diagText } from "../core/diagnostics";
 import { PlannerSettings } from "../core/types";
 import { loadSettings, saveSettings, SettingsConflictError } from "../data/settingsStore";
+import { Access, checkAccess, NO_ACCESS } from "../data/access";
 
 interface Check { title: string; ok: boolean; detail: string; ms: number }
 const run = async (title: string, fn: () => Promise<string>): Promise<Check> => {
@@ -97,7 +98,8 @@ function App(p: { projectId: string; projectName: string }) {
   const etag = React.useRef(-1);
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
-  React.useEffect(() => { loadSettings(p.projectId).then(r => { setSaved(r.settings); setCur(r.settings); etag.current = r.etag; if (!validateSettings(r.settings).length) setTab("command"); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
+  const [access, setAccess] = React.useState<Access>();
+  React.useEffect(() => { loadSettings(p.projectId).then(r => { setSaved(r.settings); setCur(r.settings); etag.current = r.etag; if (!validateSettings(r.settings).length) setTab("command"); checkAccess(p.projectId, r.settings.accessTeams).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const valid = !!saved && !validateSettings(saved).length;
   const activePeriod = period ?? saved?.period ?? { kind: "year" as const };
@@ -117,21 +119,24 @@ function App(p: { projectId: string; projectName: string }) {
     catch (e) { setMsg(e instanceof SettingsConflictError ? "Not saved: someone else saved the settings in the meantime. Reload the page to see their version." : "Save failed: " + (e as Error).message); }
     finally { setBusy(false); }
   };
+  const isAdmin = access?.admin !== "no";                               // only project administrators change the settings (unknown = do not lock out)
+  if (cur && !access) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="muted">Checking access…</div></div>;
+  if (access && !access.mayOpen) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="err" role="alert" style={{ marginTop: 8 }}>{NO_ACCESS}</div></div>;
   return (
     <div style={{ padding: "16px 22px", maxWidth: tab === "command" ? 1500 : 1100 }}>
       <h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2>
       <div className="muted" style={{ marginBottom: 8 }}>Read-only: nothing is edited from the planner. Hours come from your Epics’ grids, available hours from Azure DevOps team capacity.</div>
       <div className="tabs" role="tablist" aria-label="Resource Planner views" onKeyDown={e => {
-        const keys = ["command", "heatmap", "timeline", "gantt", "data", "settings", "checks"] as const; const i = keys.indexOf(tab);
+        const keys = (["command", "heatmap", "timeline", "gantt", "data", "settings", "checks"] as const).filter(k => k !== "settings" || isAdmin); const i = keys.indexOf(tab);
         const n = e.key === "ArrowRight" ? keys[(i + 1) % keys.length] : e.key === "ArrowLeft" ? keys[(i + keys.length - 1) % keys.length] : e.key === "Home" ? keys[0] : e.key === "End" ? keys[keys.length - 1] : undefined;
         if (n) { e.preventDefault(); setTab(n); setTimeout(() => document.getElementById("rp-tab-" + n)?.focus(), 0); }
       }} style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--line)", margin: "8px 0 12px" }}>
-        {([["command", "Planner"], ["heatmap", "Heatmap"], ["timeline", "Resource timeline"], ["gantt", "Epic Gantt"], ["data", "Data check"], ["settings", "Settings"], ["checks", "Diagnostics"]] as const).map(([k, l]) => <button key={k} id={"rp-tab-" + k} role="tab" aria-selected={tab === k} aria-controls="rp-panel" tabIndex={tab === k ? 0 : -1} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
+        {([["command", "Planner"], ["heatmap", "Heatmap"], ["timeline", "Resource timeline"], ["gantt", "Epic Gantt"], ["data", "Data check"], ["settings", "Settings"], ["checks", "Diagnostics"]] as const).filter(([k]) => k !== "settings" || isAdmin).map(([k, l]) => <button key={k} id={"rp-tab-" + k} role="tab" aria-selected={tab === k} aria-controls="rp-panel" tabIndex={tab === k ? 0 : -1} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
           style={{ background: "none", border: 0, borderBottom: "2px solid " + (tab === k ? "var(--accent)" : "transparent"), padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 600 : 400, color: "inherit" }}>{l}</button>)}
       </div>
       {cur && (tab === "heatmap" || tab === "timeline" || tab === "gantt") && valid && <PeriodBar period={activePeriod} onChange={setPeriod} />}
       <div id="rp-panel" role="tabpanel" aria-labelledby={"rp-tab-" + tab}>
-      {!cur ? <div className="muted">{msg || "Loading…"}</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} projectName={p.projectName} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
+      {!cur ? <div className="muted">{msg || "Loading…"}</div> : tab === "settings" && !isAdmin ? <div className="err" role="alert">Only project administrators can change the Resource Planner settings.</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} projectName={p.projectName} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
         : tab === "command" ? (valid ? <CommandCenter project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} filters={filters} onFilters={setFilters} period={activePeriod} onPeriod={setPeriod} /> : <div className="err">Complete the settings first (Settings tab).</div>)
         : tab === "heatmap" ? (valid ? <HeatmapTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} filters={filters} onFilters={setFilters} /> : <div className="err">Complete the settings first (Settings tab).</div>)
         : tab === "timeline" || tab === "gantt" ? (valid ? (

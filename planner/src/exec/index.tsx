@@ -10,6 +10,7 @@ import { LoadProgress } from "../data/epics";
 import { Loaded, loadAll } from "../data/loadAll";
 import { listSavedQueries, SavedQuery } from "../data/queries";
 import { loadSettings } from "../data/settingsStore";
+import { Access, checkAccess, NO_ACCESS } from "../data/access";
 import { ExecDashboard } from "./ExecDashboard";
 import { ago } from "./ago";
 
@@ -23,13 +24,14 @@ function App(p: { projectId: string; projectName: string }) {
   const [error, setError] = React.useState("");
   const [queries, setQueries] = React.useState<SavedQuery[]>([]);
   const [queryId, setQueryId] = React.useState("");
+  const [access, setAccess] = React.useState<Access>();
   const reload = React.useCallback(async (force: boolean, qid = queryId, s = settings) => {
     if (!s) return;
     setBusy(true); setError("");
     try { setLoaded(await loadAll({ id: p.projectId, name: p.projectName }, s, { queryId: qid || undefined, force, progress: setProgress })); }
     catch (e) { setError((e as Error).message); } finally { setBusy(false); setProgress(undefined); }
   }, [settings, queryId, p.projectId, p.projectName]);
-  React.useEffect(() => { loadSettings(p.projectId).then(r => { setSettings(r.settings); if (!validateExec(r.settings).length) void reload(false, "", r.settings); }).catch(e => setError("Could not load the settings: " + e.message)); }, [p.projectId]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { loadSettings(p.projectId).then(async r => { setSettings(r.settings); const a = await checkAccess(p.projectId, r.settings.accessTeams); setAccess(a); if (a.mayOpen && !validateExec(r.settings).length) void reload(false, "", r.settings); }).catch(e => setError("Could not load the settings: " + e.message)); }, [p.projectId]);   // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const problems = settings ? validateExec(settings) : [];
   // keep the figures current: a light refresh (changed Epics only) every 10 minutes while the page is open and visible; the label re-reads the clock every 30 s
@@ -49,7 +51,8 @@ function App(p: { projectId: string; projectName: string }) {
           <span style={{ color: busy ? "#fab219" : "#0ca30c" }} aria-hidden="true">●</span> {busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(loaded.at))}</span>
           : <span className="muted">Epics, status and go-live risk at a glance. Read-only.</span>}
       </div>
-      {!settings ? <div className="muted" style={{ marginTop: 12 }}>{error || "Loading…"}</div>
+      {!settings || !access ? <div className="muted" style={{ marginTop: 12 }}>{error || "Loading…"}</div>
+        : !access.mayOpen ? <div className="err" role="alert" style={{ marginTop: 12 }}>{NO_ACCESS}</div>
         : problems.length ? <div className="card" style={{ marginTop: 12 }}><b>The Executive Dashboard is not set up yet.</b><ul className="err">{problems.map(e => <li key={e}>{e}</li>)}</ul>
           <div className="muted">A planner administrator sets this up under Boards › Resource Planner › Settings › Executive dashboard.</div></div>
         : <ExecDashboard project={{ id: p.projectId, name: p.projectName }} settings={settings} loaded={loaded} busy={busy} progress={progress} error={error} onReload={f => void reload(f)}

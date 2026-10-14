@@ -52,5 +52,7 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Dark theme: text and cells readable.
 
 ## 7. Read-only and access
+- [ ] As a **non-administrator**: Resource Planner has no Settings tab; the Planner, Executive Dashboard and widgets still open (when Access teams is empty).
+- [ ] Choose an Access team in Settings, Save: a project member who is not in that team and not an administrator sees “You do not have access…” on the Planner, the Executive Dashboard and the widgets; a team member and an administrator still get in.
 - [ ] The extension lists only read scopes. No Epic is modified by any action.
 - [ ] A user without area-path access to some Epics sees only the Epics they can read.
