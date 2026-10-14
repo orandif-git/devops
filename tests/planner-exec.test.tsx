@@ -141,7 +141,7 @@ import { findQuery } from "../planner/src/core/ask";
 import { ExecQueries } from "../planner/src/hub/ExecQueries";
 import { ExecQuery } from "../planner/src/core/types";
 
-const Q = (name: string, show: ExecQuery["show"], conditions: ExecQuery["conditions"], month = "current"): ExecQuery => ({ id: name, name, show, conditions, month });
+const Q = (name: string, show: ExecQuery["show"], conditions: ExecQuery["conditions"], month = "current"): ExecQuery => ({ id: name, name, show, conditions, month, columns: [] });
 const C = (field: string, op: ExecQuery["conditions"][number]["op"], value = "", join: "and" | "or" = "and") => ({ field, op, value, join });
 const inputFor = (extra: Partial<Parameters<typeof runQuery>[1]> = {}) => {
   const people = { records: [{ key: "ann", name: "Ann A <ann>" }, { key: "bob", name: "Bob B <bob>" }, { key: "cy", name: "Cy C <cy>" }], hours: (k: string, m: string) => (m === "2026-10" ? 100 : null), team: (k: string) => (k === "cy" ? "Team B" : "Team A") };
@@ -245,5 +245,89 @@ describe("queries on the dashboard and in the settings", () => {
     expect(s.executive.queries[4].conditions[0].value).toBe("At risk");
     act(() => { sel("Operator").value = "notEmpty"; Simulate.change(sel("Operator")); });
     expect(card().querySelector('select[aria-label="Value"]')).toBeNull();
+  });
+});
+
+import { defaultColumns, formatCell, validateFormulas } from "../planner/src/core/execQuery";
+import { exampleFormulas } from "../planner/src/hub/ExecQueries";
+
+describe("calculated fields and columns", () => {
+  const F = (name: string, show: "epics" | "people" | "teams", formula: string, format: "number" | "percent" | "text" = "number", decimals = 1) => ({ id: name.replace(/\W/g, ""), name, show, formula, format, decimals });
+  const withF = (formulas: ReturnType<typeof F>[], extra: Record<string, unknown> = {}) => normalizeSettings({ ...settings, executive: { ...settings.executive, formulas, ...extra } });
+  const inp = (st: ReturnType<typeof withF>) => ({ ...inputFor(), settings: st, exec: buildExec({ epics, gridDone: {}, bookings: inputFor().bookings, avail: inputFor().avail, settings: st, today: TODAY }).rows });
+
+  it("computes a value per row for Teams, People and Epics, usable as a condition and a column", () => {
+    const st = withF([F("Free per person", "teams", "[Free hours] / [People]"), F("Over by", "people", "IF([Booked hours] > [Available hours], [Booked hours] - [Available hours], 0)"), F("Health", "epics", 'IF([Forecast days late] > 30, "Late", "OK")', "text")]);
+    const t = runQuery({ ...Q("t", "teams", [C("calc:Freeperperson", ">", "0")], "2026-10"), columns: ["team", "calc:Freeperperson"] }, inp(st));
+    expect(t.rows.map(r => [r.values.team, r.values["calc:Freeperperson"]])).toEqual([["Team B", 10], ["Team A", 15]]);        // Team A: 30 free hours / 2 people; Team B: 10 / 1
+    const t2 = runQuery({ ...Q("t", "teams", [C("calc:Freeperperson", ">", "12")], "2026-10"), columns: ["team", "calc:Freeperperson"] }, inp(st));
+    expect(t2.rows.map(r => r.values.team)).toEqual(["Team A"]);
+    expect(t2.shown.map(f => f.label)).toEqual(["Team", "Free per person"]);
+    const p2 = runQuery(Q("p", "people", [C("calc:Overby", ">", "0")]), inp(st));
+    expect(p2.rows.map(r => [r.values.name, r.values["calc:Overby"]])).toEqual([["Ann A", 30]]);
+    const e2 = runQuery({ ...Q("e", "epics", [C("calc:Health", "=", "Late")]), columns: ["title", "calc:Health"] }, inp(st));
+    expect(e2.rows.map(r => r.values.title).sort()).toEqual(["Basel IV", "Middleware", "Observability"]);          // forecast more than 30 days after go-live
+  });
+  it("uses earlier calculated fields, dates as day numbers and Today; blanks stay blank", () => {
+    const st = withF([F("Days to go", "epics", "[Go-live date] - Today", "number", 0), F("Weeks to go", "epics", "[Days to go] / 7", "number", 1), F("Ratio", "epics", "[Hours booked in the month] / [People booked]")]);
+    const r = runQuery(Q("e", "epics", []), inp(st));
+    const by = (t: string) => r.rows.find(x => x.values.title === t)!.values;
+    expect(by("Basel IV")["calc:Daysto" + "go"]).toBe(65);                                  // 14 Oct → 18 Dec 2026
+    expect(by("Basel IV")["calc:Weekstogo"]).toBe(9.3);
+    expect(by("PSD3")["calc:Ratio"]).toBeUndefined();                                       // nobody booked: division by zero stays blank
+    expect(by("No date")["calc:Daysto" + "go"]).toBeUndefined();                            // no go-live date: blank
+  });
+  it("formats percent and units and reports blanks as a dash", () => {
+    const st = withF([F("Share", "teams", "[Booked hours] / [Available hours] * 100", "percent", 0)]);
+    const f = catalog("teams", st).find(x => x.label === "Share")!;
+    expect(formatCell(f, 90)).toBe("90%"); expect(formatCell(f, undefined)).toBe("–"); expect(formatCell(catalog("teams", st).find(x => x.key === "utilization"), 85)).toBe("85%");
+    expect(defaultColumns("epics")).toContain("status");
+  });
+  it("is validated: names, formula syntax, unknown fields and order", () => {
+    const bad = withF([F("", "epics", "1"), F("Progress", "epics", "1"), F("A", "epics", "1 +"), F("B", "epics", "[Nope] * 2"), F("C", "epics", "[D]"), F("D", "epics", "[Progress] + 1"), F("A", "epics", "2")]);
+    expect(validateFormulas(bad).length).toBe(6);
+    expect(validateFormulas(withF(exampleFormulas().map(x => ({ ...x, id: x.name.replace(/\W/g, "") }))))).toEqual([]);
+    const col = withF([], { queries: [{ ...Q("Q", "epics", []), columns: ["nope"] }] });
+    expect(validateQueries(col).some(m => /column 'nope'/.test(m))).toBe(true);
+  });
+});
+
+describe("calculated fields in the editor and on the dashboard", () => {
+  it("adds a calculated field, shows its error and success, and picks columns for a query", () => {
+    const hostEl = document.createElement("div"); document.body.appendChild(hostEl);
+    let s = settings;
+    const render = () => ReactDOM.render(<ExecQueries s={s} onChange={n => { s = n; render(); }} />, hostEl);
+    act(() => { render(); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a calculated field")!); });
+    const ta = () => hostEl.querySelector('textarea[aria-label="Formula"]') as HTMLTextAreaElement;
+    act(() => { ta().value = "[Nope] * 2"; Simulate.change(ta()); });
+    expect(hostEl.textContent).toContain("[Nope] is not a field it can use");
+    const ins = hostEl.querySelector('select[aria-label="Insert a field"]') as HTMLSelectElement;
+    act(() => { ta().value = ""; Simulate.change(ta()); });
+    act(() => { (hostEl.querySelector('select[aria-label="Insert a field"]') as HTMLSelectElement).value = "Progress"; Simulate.change(hostEl.querySelector('select[aria-label="Insert a field"]')!); });
+    expect(s.executive.formulas[0].formula).toBe("[Progress]");
+    act(() => { ta().value = "[Progress] / 2"; Simulate.change(ta()); });
+    expect(hostEl.textContent).toContain("Formula is valid"); void ins;
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a query")!); });
+    const add = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement;
+    act(() => { add.value = "title"; Simulate.change(add); });
+    act(() => { const a2 = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement; a2.value = "calc:" + s.executive.formulas[0].id; Simulate.change(a2); });
+    expect(s.executive.queries[0].columns).toEqual(["title", "calc:" + s.executive.formulas[0].id]);
+    act(() => { Simulate.click(hostEl.querySelector('[aria-label="Remove column Title"]')!); });
+    expect(s.executive.queries[0].columns).toHaveLength(1);
+  });
+  it("an Epics query with columns shows a sortable result table including the calculated field", () => {
+    const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q", name: "Regulatory list", show: "epics", month: "current", conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }], columns: ["title", "progress", "calc:half"] }] } });
+    const data = { epics, bookings: [], gridDone: {}, avail: none, at: "", load: { ms: 1 } } as never;
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={data} busy={false} error="" onReload={() => undefined} />, h); });
+    act(() => { Simulate.click(h.querySelector(".ex-sugg .chip")!); });
+    const heads = Array.from(h.querySelectorAll(".ex-result th")).map(x => x.textContent);
+    expect(heads).toEqual(["Title", "Progress", "Half progress"]);
+    const firstRow = () => Array.from(h.querySelectorAll(".ex-result tbody tr")[0].querySelectorAll("td")).map(x => x.textContent);
+    act(() => { Simulate.click(h.querySelectorAll(".ex-result th button")[1]); });         // sort by progress, highest first
+    expect(firstRow()).toEqual(["FATCA", "100%", "50"]);
+    act(() => { Simulate.click(h.querySelectorAll(".ex-result th button")[1]); });         // again: lowest first
+    expect(firstRow()[1]).toBe("62%");
   });
 });

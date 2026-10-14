@@ -1,5 +1,5 @@
 import { validateQueries } from "./execQuery";
-import { defaultExec, defaultSettings, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
+import { defaultExec, defaultSettings, ExecFormula, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
 
 const FIELD = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -14,7 +14,15 @@ export function normalizeQueries(raw: unknown): ExecQuery[] {
       const y = c as Record<string, unknown>;
       return { field: str(y.field), op: (OPS.includes(str(y.op) as QueryOp) ? str(y.op) : "=") as QueryOp, value: typeof y.value === "string" ? y.value.trim() : y.value === undefined || y.value === null ? "" : String(y.value), join: (y.join === "or" ? "or" : "and") as "and" | "or" };
     });
-    return { id: str(x.id) || `q${i + 1}`, name: str(x.name), show: (["epics", "people", "teams"].includes(str(x.show)) ? str(x.show) : "epics") as ExecQuery["show"], conditions, month: /^(current|next|\d{4}-\d{2})$/.test(str(x.month)) ? str(x.month) : "current" };
+    return { id: str(x.id) || `q${i + 1}`, name: str(x.name), show: (["epics", "people", "teams"].includes(str(x.show)) ? str(x.show) : "epics") as ExecQuery["show"], conditions, month: /^(current|next|\d{4}-\d{2})$/.test(str(x.month)) ? str(x.month) : "current", columns: list(x.columns) };
+  });
+}
+
+export function normalizeFormulas(raw: unknown): ExecFormula[] {
+  return (Array.isArray(raw) ? raw : []).filter(f => f && typeof f === "object").map((f, i) => {
+    const x = f as Record<string, unknown>;
+    return { id: str(x.id) || `f${i + 1}`, name: str(x.name), show: (["epics", "people", "teams"].includes(str(x.show)) ? str(x.show) : "epics") as ExecFormula["show"], formula: typeof x.formula === "string" ? x.formula.trim() : "",
+      format: (["number", "percent", "text"].includes(str(x.format)) ? str(x.format) : "number") as ExecFormula["format"], decimals: typeof x.decimals === "number" && x.decimals >= 0 && x.decimals <= 6 ? Math.floor(x.decimals) : 1 };
   });
 }
 
@@ -31,7 +39,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
     doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
     slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
-    minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries),
+    minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries), formulas: normalizeFormulas(r.formulas),
   };
 }
 

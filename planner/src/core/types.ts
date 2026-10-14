@@ -63,6 +63,18 @@ export interface ExecQuery {
   conditions: QueryCondition[];
   /** the month the grid and capacity fields are read for: "current", "next" or "YYYY-MM" */
   month: string;
+  /** field keys shown as columns in the result table (empty = the standard columns; Epics queries then only filter the list) */
+  columns: string[];
+}
+
+/** A value worked out for each row with a formula, usable as a column, in conditions and for sorting. Same formula language as Grid & Rules calculations; fields are written [Like this]. */
+export interface ExecFormula {
+  id: string;
+  name: string;
+  show: QueryShow;
+  formula: string;
+  format: "number" | "percent" | "text";
+  decimals: number;
 }
 
 export interface ExecSettings {
@@ -88,12 +100,14 @@ export interface ExecSettings {
   likelyPct: number;
   /** named queries shown as chips under the Ask box */
   queries: ExecQuery[];
+  /** calculated fields available to the queries */
+  formulas: ExecFormula[];
 }
 
 export const defaultExec = (): ExecSettings => ({
   categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
-  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [],
+  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
 });
 
 export const defaultSettings = (): PlannerSettings => ({

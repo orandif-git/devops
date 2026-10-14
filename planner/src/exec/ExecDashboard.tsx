@@ -1,6 +1,6 @@
 import * as React from "react";
 import { answer, findQuery, interpret, matchesDims } from "../core/ask";
-import { describeResult, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
+import { describeResult, formatCell, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
 import { ExecQuery } from "../core/types";
 import { buildExec, dayText, dimFields, dimLabel, ExecEpic, ExecStatus, likely, NO_VALUE, STATUS_NAME, STATUS_ORDER } from "../core/executive";
 import { monthsOfPeriod } from "../core/period";
@@ -31,6 +31,7 @@ export function ExecDashboard(p: {
   const [said, setSaid] = React.useState<{ q: string; a: string }>();
   const [limit, setLimit] = React.useState(PAGE);
   const [run, setRun] = React.useState<QueryResult>();
+  const [sort, setSort] = React.useState<{ key: string; desc: boolean }>();
   const fields = dimFields(p.settings);
   React.useEffect(() => { if (!fields.includes(group)) setGroup(fields[0]); }, [fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -52,7 +53,8 @@ export function ExecDashboard(p: {
     if (!L || !built) return;
     const res = runQuery(x, { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone });
     setSel(undefined); setLimit(PAGE);
-    if (x.show === "epics") { setRun(undefined); setF({ ...none(), ids: res.rows.map(r => r.epicId!), idsName: x.name }); } else { setRun(res); setF(none()); }
+    setSort(undefined);
+    if (x.show === "epics") { setRun(x.columns.length ? res : undefined); setF({ ...none(), ids: res.rows.map(r => r.epicId!), idsName: x.name }); } else { setRun(res); setF(none()); }
     setSaid({ q: asked ?? x.name, a: describeResult(res) });
   };
   const ask = (q: string) => {
@@ -108,11 +110,14 @@ export function ExecDashboard(p: {
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive > 0 && `${built.noGoLive} Epic(s) have no go-live date. `}{built.noProgress > 0 && `${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only. `}{built.ignored > 0 && `${built.ignored} left out by state.`}</div>}
 
-      {run && <div className="card ex-result" role="region" aria-label={run.query.name}>
-        <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.query.show === "people" ? "people" : "teams"} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}>Close</button></h3>
-        {!run.rows.length ? <div className="muted">Nothing matches.</div> : <div className="ex-scroll" style={{ maxHeight: 360 }}><table><thead><tr>{(run.query.show === "people" ? ["name", "team", "booked", "available", "utilization", "free", "band", "epicsCount"] : ["team", "peopleCount", "booked", "available", "utilization", "free", "overCount", "epicsCount"]).map(k => <th key={k}>{run.columns.find(c => c.key === k)?.label}</th>)}</tr></thead>
-          <tbody>{run.rows.map(r => <tr key={r.key}>{(run.query.show === "people" ? ["name", "team", "booked", "available", "utilization", "free", "band", "epicsCount"] : ["team", "peopleCount", "booked", "available", "utilization", "free", "overCount", "epicsCount"]).map(k => <td key={k}>{r.values[k] === undefined ? "–" : k === "utilization" ? r.values[k] + "%" : String(r.values[k])}</td>)}</tr>)}</tbody></table></div>}
-      </div>}
+      {run && (() => {
+        const rowsSorted = sort ? run.rows.slice().sort((a, b) => { const x1 = a.values[sort.key], y1 = b.values[sort.key]; if (x1 === y1) return 0; if (x1 === undefined) return 1; if (y1 === undefined) return -1;   /* blanks stay last in both directions */ const d = typeof x1 === "number" && typeof y1 === "number" ? x1 - y1 : String(x1).localeCompare(String(y1)); return sort.desc ? -d : d; }) : run.rows;
+        return <div className="card ex-result" role="region" aria-label={run.query.name}>
+          <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.rows.length} {run.query.show === "epics" ? "Epics" : run.query.show} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}>Close</button></h3>
+          {!run.rows.length ? <div className="muted">Nothing matches.</div> : <div className="ex-scroll" style={{ maxHeight: 360 }}><table><thead><tr>{run.shown.map(c => <th key={c.key} aria-sort={sort?.key === c.key ? (sort.desc ? "descending" : "ascending") : undefined}><button className="lk" style={{ border: 0, background: "none", font: "inherit", fontWeight: 600, color: "inherit", cursor: "pointer", padding: 0 }} onClick={() => setSort(sort?.key === c.key ? { key: c.key, desc: !sort.desc } : { key: c.key, desc: c.type === "number" })}>{c.label}{sort?.key === c.key ? (sort.desc ? " ↓" : " ↑") : ""}</button></th>)}</tr></thead>
+            <tbody>{rowsSorted.map(r => <tr key={r.key}>{run.shown.map(c => <td key={c.key}>{formatCell(c, r.values[c.key])}</td>)}</tr>)}</tbody></table></div>}
+        </div>;
+      })()}
       <div className="ex-strip">
         <div className="ex-tile static"><div className="l">Portfolio</div><div className="v">{B.length}</div><div className="d">{cnt(B, "idle")} not started · {cnt(B, "unknown")} not assessed</div></div>
         {(["green", "amber", "red", "done"] as ExecStatus[]).map(tile)}
