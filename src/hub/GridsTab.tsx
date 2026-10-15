@@ -160,6 +160,7 @@ function ColumnRow(p: { c: ColumnDef; others: ColumnDef[]; statusCols: ColumnDef
               </>}
               <label className="field" style={{ width: 80 }}><span>Width (px)</span><input type="number" value={c.width ?? ""} onChange={e => set({ width: e.target.value === "" ? undefined : +e.target.value })} /></label>
             </div>
+            <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={!!c.hidden} onChange={e => set({ hidden: e.target.checked || undefined })} /> Hide this column in the grid <span className="muted">(it is still calculated and saved, and other columns, totals and status columns can use it; CSV/Excel exports still include it)</span></label>
             <label className="field"><span>Status from a number (e.g. Capacity Status from Utilization %)</span>
               <select value={c.statusBands ? "on" : ""} onChange={e => set({ statusBands: e.target.value ? { source: p.others.find(o => o.type === "number" || o.type === "calculated")?.id ?? "", ranges: CAPACITY_BANDS.map(b => ({ ...b })) } : undefined })}>
                 <option value="">No – this column is a normal column</option><option value="on">Yes – fill it automatically from ranges of a number column</option></select></label>

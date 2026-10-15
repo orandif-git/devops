@@ -13,6 +13,7 @@
 - New **Diagnostics** tab: storage, id length limit, version check, permissions, teams/members/fields/capacity reads, settings consistency; results can be copied.
 
 **Features**
+- Grid columns can be **hidden** (Grids tab › column › “Hide this column in the grid”): they are still calculated and saved and can feed other columns, totals and status columns, but are not drawn, so a rating can be shown without the weights and scores behind it.
 - The Boards **Capacity** page is gone: the capacity register editor and the utilization overview are shown in the hub's **Capacity** tab, and only when the capacity register is the capacity source (nothing to maintain when capacity comes from Azure DevOps team capacity).
 - **Fix (Server 2020):** the audit log failed with “localeCompare is not a function” because stored date-like text came back as Date objects; documents are now turned back into text.
 - Grid formulas can total a column per group: `GROUPTOTAL`, `GROUPAVG`, `GROUPMAX`, `GROUPMIN`, `GROUPCOUNT` (for example `GROUPTOTAL(score, category)` = the score of the rows with this row's category). Used by the new weighted NFR Risk Assessment template (`scripts/merge-nfr-assessment.js`).

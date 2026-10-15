@@ -342,6 +342,7 @@ export function validateConfig(cfg: GridConfig): string[] {
     if (ids.has(c.id)) errs.push(`Duplicate column id '${c.id}'`);
     ids.add(c.id);
     if (c.type === "calculated" && !c.formula?.trim()) errs.push(`Calculated column '${c.id}' has no formula`);
+    if (c.hidden && c.required && !c.formula && !c.lookup && !c.teamFrom && !c.statusBands) errs.push(`Column '${c.id}' is required but hidden, so nobody can fill it in`);
     if (c.type === "dropdown" && !c.lookup && !c.dependsOn && !(c.options && c.options.length)) errs.push(`Dropdown '${c.id}' has no options`);
     if (c.statusBands) {
       const sb = c.statusBands;

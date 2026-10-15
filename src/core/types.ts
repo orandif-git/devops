@@ -23,6 +23,8 @@ export interface ColumnDef {
   min?: number;
   max?: number;
   width?: number;
+  /** not shown in the grid; the column is still computed, saved and usable by formulas, totals and status columns (for example helper columns behind a rating) */
+  hidden?: boolean;
   /**
    * Auto-fill: value is looked up from another column of the same row (read-only, computed).
    * e.g. Phase = lookup of "SDLC Activity": { "Idea generation": "Discovery", ... }

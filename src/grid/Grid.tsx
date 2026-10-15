@@ -74,6 +74,7 @@ export function Grid(p: GridProps) {
   const errKey = (rowId: string, col: string) => errors.find(e => e.rowId === rowId && e.column === col)?.message;
   const totals = React.useMemo(() => columnTotals(rows, cfg), [rows, cfg]);
 
+  const shown = React.useMemo(() => cfg.columns.filter(c => !c.hidden), [cfg]);        // hidden columns are still computed and saved, just not drawn
   const visible = React.useMemo(() => {
     let r = rows;
     if (filter.trim()) {
@@ -248,7 +249,7 @@ export function Grid(p: GridProps) {
           <thead>
             <tr>
               <th className="narrow">#</th>
-              {cfg.columns.map(c => (
+              {shown.map(c => (
                 <th key={c.id} tabIndex={0} aria-sort={sort?.col === c.id ? (sort.dir === 1 ? "ascending" : "descending") : "none"} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); (e.currentTarget as HTMLElement).click(); } }} className={numCols.has(c.id) ? "num" : undefined} style={{ minWidth: c.width }} onClick={() => setSort(s => (s?.col === c.id ? (s.dir === 1 ? { col: c.id, dir: -1 } : null) : { col: c.id, dir: 1 }))}>
                   {c.name}{c.required && <span className="err">*</span>}{c.formula && <span className="muted" title={c.formula}> ƒ</span>}{cfg.schedule?.end === c.id && <span className="muted" title="Calculated from the start date, effort, allocation and the person's calendar"> ƒ</span>}{c.teamFrom && <span className="muted" title="Filled automatically with the person's team or group"> ⇢</span>}{c.lookup && <span className="muted" title={`Filled automatically from ${cfg.columns.find(x => x.id === c.lookup!.column)?.name ?? c.lookup.column}`}> ⇢</span>}
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
@@ -261,7 +262,7 @@ export function Grid(p: GridProps) {
             {visible.map((r, i) => (
               <tr key={r._id} className={rowStatus ? "row-" + (cellBand(rowStatus, r, cfg)?.color ?? "none") : undefined}>
                 <td className="narrow muted">{i + 1}{rowLocked(r) && <span title="Approved: locked (only administrators can change it)"> 🔒</span>}</td>
-                {cfg.columns.map(c => {
+                {shown.map(c => {
                   const band = c.statusBands || c.colorBy ? cellBand(c, r, cfg) : undefined;
                   const rvTint = rv && c.id === rv.statusColumn ? { approved: "tint-green", rejected: "tint-red", pending: "tint-yellow" }[stateOf(r, rv)] : "";
                   return <td key={c.id} className={[numCols.has(c.id) ? "num" : "", band ? "tint-" + band.color : "", rvTint, c.statusBands || rvTint ? "status" : ""].join(" ").trim() || undefined}>{editor(c, r)}</td>;
@@ -285,13 +286,13 @@ export function Grid(p: GridProps) {
                 )}
               </tr>
             ))}
-            {!visible.length && <tr><td colSpan={cfg.columns.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}
+            {!visible.length && <tr><td colSpan={shown.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}
           </tbody>
           {Object.keys(totals).length > 0 && (
             <tfoot>
               <tr>
                 <td className="narrow" />
-                {cfg.columns.map(c => (
+                {shown.map(c => (
                   <td key={c.id} className={numCols.has(c.id) ? "num" : undefined}>{c.total ? <strong title={`${c.total} of ${c.name}`}>{c.total === "count" ? "" : "Σ "}{totals[c.id]}{c.total === "avg" ? " avg" : c.total === "count" ? " items" : c.total === "min" ? " min" : c.total === "max" ? " max" : ""}</strong> : null}</td>
                 ))}
                 {(!lockedRows || childOn || !!rv) && <td />}

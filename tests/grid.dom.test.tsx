@@ -4,7 +4,7 @@ import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { Grid } from "../src/grid/Grid";
-import { newRow, normalizeRow } from "../src/core/gridModel";
+import { newRow, normalizeRow, recomputeAll, validateConfig } from "../src/core/gridModel";
 import { GridConfig, GridRow } from "../src/core/types";
 
 vi.mock("../src/shared/ado", () => ({ listPeople: () => Promise.resolve([{ displayName: "Ann", uniqueName: "ann@x.com", text: "Ann <ann@x.com>" }]) }));
@@ -106,5 +106,29 @@ describe("Import button", () => {
     expect(render(cfg)).not.toContain("Import");
     expect(render(cfg)).toEqual(expect.arrayContaining(["CSV", "Excel", "+ Add row"]));
     expect(render({ ...cfg, allowImport: true })).toContain("Import");
+  });
+});
+
+describe("hidden columns", () => {
+  it("are not drawn (heading, cells, footer) but are still calculated and used by other columns", () => {
+    const hcfg: GridConfig = { columns: [
+      { id: "w", name: "Weight", type: "number", defaultValue: 5, total: "sum", hidden: true },
+      { id: "s", name: "Scored", type: "calculated", formula: "w * 2", hidden: true },
+      { id: "p", name: "Percent", type: "calculated", formula: "TOTAL(s) / TOTAL(w) * 100", decimals: 0 },
+      { id: "a", name: "Assessment", type: "string", statusBands: { source: "p", ranges: [{ upTo: 150, label: "Low", color: "green" }, { upTo: null, label: "High", color: "red" }] } },
+    ] };
+    const host = document.createElement("div"); document.body.appendChild(host);
+    let rows: GridRow[] = recomputeAll([normalizeRow({}, hcfg)], hcfg);
+    const render = () => ReactDOM.render(<Grid cfg={hcfg} rows={rows} readOnly={false} projectId="p" busyChildren={false} status="" onChange={r => { rows = r; render(); }} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />, host);
+    act(() => { render(); });
+    const heads = Array.from(host.querySelectorAll("thead th")).map(h => h.textContent);
+    expect(heads.join("|")).toContain("Percent"); expect(heads.join("|")).toContain("Assessment"); expect(heads.join("|")).not.toContain("Weight"); expect(heads.join("|")).not.toContain("Scored");
+    expect(host.querySelectorAll("tbody tr:first-child td")).toHaveLength(4);                         // row number + the two shown columns + the row buttons
+    expect(rows[0]).toMatchObject({ w: 5, s: 10, p: 200, a: "High" });                                  // hidden columns are still stored and feed the percent (10 / 5 * 100) and the status
+    expect(host.querySelector("tbody")!.innerHTML).toMatch(/200/); expect(host.querySelector("tbody")!.innerHTML).toMatch(/High/);
+  });
+  it("a required hidden column that nobody can fill is reported", () => {
+    expect(validateConfig({ columns: [{ id: "x", name: "X", type: "string", required: true, hidden: true }] })).toEqual(["Column 'x' is required but hidden, so nobody can fill it in"]);
+    expect(validateConfig({ columns: [{ id: "x", name: "X", type: "number", hidden: true }] })).toEqual([]);
   });
 });
