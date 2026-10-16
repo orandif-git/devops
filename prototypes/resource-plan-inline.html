@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Resource Planner – inline plan prototype</title>
+<style>
+:root{color-scheme:light;--surface:#fff;--page:#f6f6f4;--ink:#0b0b0b;--ink2:#52514e;--muted:#898781;--grid:#e8e7e1;--axis:#c9c8bf;--ring:rgba(11,11,11,.10);--hover:rgba(11,11,11,.06);--accent:#2a78d6;--accent-fg:#fff;
+ --spare:#9ec5f4;--spare-t:#0d366b;--healthy:#0ca30c;--full:#fab219;--full-t:#0b0b0b;--over:#d03b3b;--shadow:0 8px 28px rgba(0,0,0,.18)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--surface:#1c1c1b;--page:#101010;--ink:#f0efec;--ink2:#c3c2b7;--muted:#8d8b83;--grid:#2c2c2a;--axis:#42413d;--ring:rgba(255,255,255,.12);--hover:rgba(255,255,255,.08);--accent:#5aa0f0;--accent-fg:#06121f;--spare:#3b6fae;--spare-t:#e5f0ff;--shadow:0 8px 28px rgba(0,0,0,.6)}}
+*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select,input{font:inherit;color:inherit}
+.app{max-width:1500px;margin:0 auto;padding:14px 22px 30px}
+h1{font-size:19px;margin:0}.sub{color:var(--ink2);font-size:12px}
+.bar{display:flex;gap:8px;align-items:center;margin:10px 0;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;background:var(--surface);border:1px solid var(--axis);border-radius:15px;cursor:pointer;white-space:nowrap}
+.pill:hover{background:var(--hover)}.pill select,.pill input{border:0;background:transparent;outline:0;padding:0;cursor:pointer}.pill input{cursor:text;width:130px}.pill .k{color:var(--muted);font-size:12px}
+.pill:focus-within{outline:2px solid var(--accent);outline-offset:1px}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--axis);border-radius:15px;padding:2px}
+.seg button{border:0;background:none;height:24px;padding:0 12px;border-radius:12px;cursor:pointer;color:var(--ink2)}.seg button.on{background:var(--accent);color:var(--accent-fg);font-weight:600}
+.spacer{flex:1}
+.kpis{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.tile{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:6px 14px;min-width:150px}.tile .l{color:var(--ink2);font-size:12px}.tile .v{font-size:22px;font-weight:650;line-height:1.2}
+.card{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:0;overflow:hidden}
+.wrap{max-height:600px;overflow:auto;position:relative}
+.row{display:grid;grid-template-columns:270px 96px repeat(12,minmax(58px,1fr));min-width:1100px;align-items:stretch;border-bottom:1px solid var(--grid)}
+.row>div{padding:0 4px;display:flex;align-items:center;min-height:32px}
+.head{position:sticky;top:0;z-index:6;background:var(--surface);font-weight:600;color:var(--ink2);font-size:12px}
+.head>div{min-height:30px;justify-content:center;border-bottom:2px solid var(--axis)}.head .nm,.head .tot{justify-content:flex-start;padding-left:10px}
+.nm{position:sticky;left:0;z-index:4;background:var(--surface);gap:6px;padding-left:10px!important;overflow:hidden}
+.tot{position:sticky;left:270px;z-index:4;background:var(--surface);justify-content:flex-end;font-variant-numeric:tabular-nums;padding-right:10px!important;border-right:2px solid var(--axis);font-weight:600}
+.head .nm,.head .tot{z-index:8}
+.team{background:var(--hover)}.team .nm,.team .tot{background:color-mix(in srgb,var(--ink) 6%,var(--surface))}.team>div{font-weight:650;color:var(--ink2)}
+.team button.car{border:0;background:none;cursor:pointer;width:22px;height:22px;border-radius:4px}.team button.car:hover{background:var(--ring)}
+.car{transition:transform .15s;display:inline-block}.car.shut{transform:rotate(-90deg)}
+.person .nm b{font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xp{border:0;background:none;cursor:pointer;width:22px;height:22px;border-radius:4px;color:var(--ink2);flex:none}.xp:hover{background:var(--hover)}
+.cnt{margin-left:auto;color:var(--muted);font-size:11px;flex:none;padding-right:6px}
+.cell{margin:2px;border-radius:4px;justify-content:center;font-variant-numeric:tabular-nums;font-weight:650;font-size:12px;width:calc(100% - 4px);cursor:default;transition:outline-color .1s}
+.cell:hover{outline:2px solid var(--ink);outline-offset:-2px}
+.cell.spare{background:var(--spare);color:var(--spare-t)}.cell.healthy{background:var(--healthy);color:#fff}.cell.full{background:var(--full);color:var(--full-t)}.cell.over{background:var(--over);color:#fff}.cell.none{color:var(--muted);font-weight:400}
+.cell i{font-style:normal;font-size:10px;margin-left:4px;opacity:.9}
+.epic{background:var(--surface)}.epic .nm{padding-left:44px!important}.epic .nm a{color:var(--accent);cursor:pointer;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.epic .nm a:hover{text-decoration:underline}
+.epic .plain{justify-content:center;color:var(--ink2);font-variant-numeric:tabular-nums}.epic.req .plain{font-style:italic;color:var(--muted)}
+.tag{font-size:10px;border:1px dashed var(--axis);border-radius:8px;padding:0 6px;color:var(--muted);flex:none}
+.legend{display:flex;gap:16px;flex-wrap:wrap;color:var(--ink2);font-size:12px;margin:10px 2px;align-items:center}.legend span{display:inline-flex;gap:6px;align-items:center}
+.sw{display:inline-flex;width:18px;height:18px;border-radius:5px;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+.sw.spare{background:var(--spare);color:var(--spare-t)}.sw.healthy{background:var(--healthy);color:#fff}.sw.full{background:var(--full);color:var(--full-t)}.sw.over{background:var(--over);color:#fff}
+.tip{position:fixed;pointer-events:none;z-index:60;background:var(--surface);border:1px solid var(--axis);box-shadow:var(--shadow);border-radius:8px;padding:7px 10px;font-size:12px;display:none;max-width:280px}.tip b{display:block;font-size:13px}.tip span{color:var(--ink2);display:block}
+.note{color:var(--muted);font-size:12px;margin-top:8px}
+</style></head><body>
+<div class="app">
+  <h1>Resource Planner</h1><div class="sub" id="sub"></div>
+  <div class="bar">
+    <label class="pill"><span class="k">Team</span><select id="team"></select></label>
+    <label class="pill"><span class="k">⌕</span><input id="q" placeholder="Find a person…" aria-label="Find a person"></label>
+    <div class="seg" role="group" aria-label="What to count" id="st"><button data-v="c" class="on">Committed</button><button data-v="b">Committed + requested</button></div>
+    <div class="seg" role="group" aria-label="Units" id="un"><button data-v="h" class="on">Hours</button><button data-v="p">% of capacity</button><button data-v="f">FTE</button></div>
+    <span class="spacer"></span>
+    <button class="pill" id="ex">⊞ Expand all</button><button class="pill" id="co">⊟ Collapse all</button>
+  </div>
+  <div class="kpis" id="kpis"></div>
+  <div class="card"><div class="wrap" id="wrap"></div></div>
+  <div class="legend"><span><i class="sw spare"></i>Spare (under 50%)</span><span><i class="sw healthy">✓</i>Healthy (50–85%)</span><span><i class="sw full">▲</i>Nearly full (85–100%)</span><span><i class="sw over">!</i>Over capacity</span><span style="color:var(--muted)">Epic rows are plain; <i>italic</i> = requested, not yet approved</span></div>
+  <div class="note">Prototype with sample data. Click ▸ to see which Epics make up a person's hours · the first two columns stay in place when you scroll sideways · units and the committed/requested switch change every number, total and colour.</div>
+</div><div class="tip" id="tip"></div>
+<script>
+const M=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],TH={spare:50,healthy:85,full:100};
+let seed=5;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const TEAMS=["Platform","Payments","Risk & Credit","Data","Mobile"],NAMES=["Ana Ng","Ben Roy","Chen Park","Dara Diaz","Eli Khan","Fay Moss","Gus Lund","Hana Cole","Ivo Shah","Jun Ito","Kai Vega","Lea Frey","Mo Hale","Nia Sato","Omar Reed","Pia Wong","Quin Ruiz","Raj Patel","Sol Berg","Tia Cruz","Uma Das","Vik Roth","Wen Xu","Xia Ma","Yan Li","Zoe Fox","Abel Orr","Bea Kim"];
+const EPICS=[[1100,"Credit scoring v2"],[1107,"Payments gateway upgrade"],[1114,"Data lake migration"],[1121,"Mobile onboarding redesign"],[1128,"Platform observability"],[1135,"KYC automation"],[1142,"Fraud rules engine"],[1149,"API gateway hardening"],[1156,"Reporting warehouse"],[1163,"Biometric login"],[1170,"Loan origination revamp"],[1177,"Cloud cost control"]];
+const P=[];const cnt=[6,6,6,5,5];
+TEAMS.forEach((t,ti)=>{for(let k=0;k<cnt[ti];k++){const nm=NAMES[P.length];const n=2+Math.floor(rnd()*3);const picks=[];while(picks.length<n){const e=EPICS[Math.floor(rnd()*EPICS.length)];if(!picks.includes(e))picks.push(e)}
+  const avail=Array.from({length:12},(_,m)=>m===11?112:m===7?144:160),boost=rnd()<.25?1.45:rnd()<.2?.5:1;
+  const bookings=picks.map(e=>{const s=Math.floor(rnd()*7),len=3+Math.floor(rnd()*7),share=.14+rnd()*.3,h=Array.from({length:12},(_,m)=>m>=s&&m<s+len?Math.round(avail[m]*share*boost*(.85+rnd()*.3)):0);return {epic:e,status:rnd()<.78?"c":"r",h}});
+  P.push({name:nm,team:t,avail,bookings})}});
+const S={st:"c",un:"h",team:"",q:"",open:new Set(),shut:{}};
+const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const counted=b=>S.st==="b"||b.status==="c";
+const hrs=(p,m)=>p.bookings.filter(counted).reduce((a,b)=>a+b.h[m],0);
+const band=r=>r===null?"none":r*100<TH.spare?"spare":r*100<=TH.healthy?"healthy":r*100<=TH.full?"full":"over";
+const SYM={spare:"",healthy:"✓",full:"▲",over:"!",none:""};
+function fmt(h,a){if(S.un==="h")return h?String(Math.round(h)):"";if(!a)return h?"∞":"";const r=h/a;return h?(S.un==="p"?Math.round(r*100)+"%":r.toFixed(2)):""}
+const fmtTot=(h,a)=>S.un==="h"?Math.round(h).toLocaleString()+" h":!a?"–":S.un==="p"?Math.round(h/a*100)+"%":(h/a).toFixed(2)+" FTE";
+function render(){
+  const q=S.q.trim().toLowerCase(),people=P.filter(p=>(!S.team||p.team===S.team)&&(!q||p.name.toLowerCase().includes(q)));
+  $("sub").textContent=`Sample data · ${people.length} people · ${S.st==="c"?"committed hours only":"committed and requested hours"} · ${S.un==="h"?"hours":S.un==="p"?"% of available hours":"FTE (hours ÷ available hours)"}`;
+  const cm=9,tot=people.reduce((a,p)=>a+hrs(p,cm),0),av=people.reduce((a,p)=>a+p.avail[cm],0),over=people.filter(p=>hrs(p,cm)>p.avail[cm]).length,free=people.reduce((a,p)=>a+Math.max(0,p.avail[cm]-hrs(p,cm)),0);
+  $("kpis").innerHTML=`<div class="tile"><div class="l">Utilization · Oct</div><div class="v">${av?Math.round(tot/av*100):0}%</div></div><div class="tile"><div class="l">Over capacity</div><div class="v">${over}</div></div><div class="tile"><div class="l">Free capacity</div><div class="v">${Math.round(free).toLocaleString()} h</div></div>`;
+  let h=`<div class="row head"><div class="nm">Person / Epic</div><div class="tot">Total</div>${M.map(m=>`<div>${m}</div>`).join("")}</div>`;
+  for(const t of TEAMS){const ps=people.filter(p=>p.team===t);if(!ps.length)continue;const shut=S.shut[t];
+    const th=Array.from({length:12},(_,m)=>ps.reduce((a,p)=>a+hrs(p,m),0)),ta=Array.from({length:12},(_,m)=>ps.reduce((a,p)=>a+p.avail[m],0));
+    h+=`<div class="row team"><div class="nm"><button class="car" data-t="${esc(t)}" aria-expanded="${!shut}" aria-label="Toggle ${esc(t)}"><span class="car${shut?" shut":""}">▾</span></button>${esc(t)}<span class="cnt">${ps.length} people</span></div><div class="tot">${fmtTot(th.reduce((a,b)=>a+b,0),ta.reduce((a,b)=>a+b,0))}</div>${th.map((x,m)=>`<div style="justify-content:center;font-weight:600;font-variant-numeric:tabular-nums">${fmt(x,ta[m])}</div>`).join("")}</div>`;
+    if(shut)continue;
+    for(const p of ps){const open=S.open.has(p.name),ph=Array.from({length:12},(_,m)=>hrs(p,m)),sumh=ph.reduce((a,b)=>a+b,0),suma=p.avail.reduce((a,b)=>a+b,0),n=p.bookings.filter(counted).length;
+      h+=`<div class="row person"><div class="nm"><button class="xp" data-p="${esc(p.name)}" aria-expanded="${open}" aria-label="${open?"Collapse":"Expand"} ${esc(p.name)}">${open?"▾":"▸"}</button><b>${esc(p.name)}</b><span class="cnt">${n} Epic${n===1?"":"s"}</span></div><div class="tot">${fmtTot(sumh,suma)}</div>${ph.map((x,m)=>{const r=x?x/p.avail[m]:null,b=band(r);return `<div class="cell ${b}" data-p="${esc(p.name)}" data-m="${m}">${fmt(x,p.avail[m])}${x&&SYM[b]?`<i>${SYM[b]}</i>`:""}</div>`}).join("")}</div>`;
+      if(open)for(const b of p.bookings){if(!counted(b))continue;const eh=b.h.reduce((a,x)=>a+x,0);
+        h+=`<div class="row epic${b.status==="r"?" req":""}"><div class="nm"><a data-e="${b.epic[0]}">${b.epic[0]} · ${esc(b.epic[1])}</a>${b.status==="r"?'<span class="tag">requested</span>':""}</div><div class="tot" style="font-weight:400;color:var(--ink2)">${fmtTot(eh,suma)}</div>${b.h.map((x,m)=>`<div class="plain">${fmt(x,p.avail[m])}</div>`).join("")}</div>`}
+    }}
+  $("wrap").innerHTML=h;
+  $("wrap").querySelectorAll(".xp").forEach(b=>b.onclick=()=>{const n=b.dataset.p;S.open.has(n)?S.open.delete(n):S.open.add(n);render()});
+  $("wrap").querySelectorAll("button.car[data-t]").forEach(b=>b.onclick=()=>{S.shut[b.dataset.t]=!S.shut[b.dataset.t];render()});
+  $("wrap").querySelectorAll(".cell").forEach(c=>{c.onmousemove=ev=>{const p=P.find(x=>x.name===c.dataset.p),m=+c.dataset.m,x=hrs(p,m);const t=$("tip");t.innerHTML=`<b>${esc(p.name)} · ${M[m]}</b><span>${Math.round(x)} of ${p.avail[m]} h · ${Math.round(x/p.avail[m]*100)}%</span><span>${p.bookings.filter(counted).filter(b=>b.h[m]).map(b=>`${b.epic[1]}: ${b.h[m]} h${b.status==="r"?" (requested)":""}`).join("<br>")||"Nothing booked"}</span>`;t.style.display="block";t.style.left=Math.min(innerWidth-300,ev.clientX+14)+"px";t.style.top=ev.clientY+14+"px"};c.onmouseleave=()=>$("tip").style.display="none"});
+}
+$("team").innerHTML='<option value="">All teams</option>'+TEAMS.map(t=>`<option>${t}</option>`).join("");$("team").onchange=e=>{S.team=e.target.value;render()};
+$("q").oninput=e=>{S.q=e.target.value;render();$("q").focus()};
+const seg=(id,key)=>{$(id).querySelectorAll("button").forEach(b=>b.onclick=()=>{S[key]=b.dataset.v;$(id).querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));render()})};seg("st","st");seg("un","un");
+$("ex").onclick=()=>{P.forEach(p=>S.open.add(p.name));render()};$("co").onclick=()=>{S.open.clear();render()};
+render();
+</script></body></html>
