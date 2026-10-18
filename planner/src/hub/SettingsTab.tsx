@@ -159,6 +159,12 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
             <input type="number" value={s.thresholds[k]} onChange={e => set({ thresholds: { ...s.thresholds, [k]: Number(e.target.value) } })} /></label>))}
         <label className="field" style={{ width: 180 }}><span>Colours</span>
           <select value={s.colourMode} onChange={e => set({ colourMode: e.target.value as "rag" | "shades" })}><option value="rag">Traffic light</option><option value="shades">Shades</option></select></label>
+        <label className="field" style={{ width: 200 }}><span>Planner opens in</span>
+          <select value={s.plan.view} onChange={e => set({ plan: { ...s.plan, view: e.target.value as PlannerSettings["plan"]["view"] } })}><option value="heat">Heatmap</option><option value="time">Timeline</option><option value="gantt">Epic Gantt</option></select></label>
+        <label className="field" style={{ width: 220 }}><span>Group the plan by</span>
+          <select value={s.plan.groupBy} onChange={e => set({ plan: { ...s.plan, groupBy: e.target.value as PlannerSettings["plan"]["groupBy"] } })}><option value="team">Team › Person › Epic</option><option value="epic">Epic › Team › Person</option><option value="person">Person › Epic</option></select></label>
+        <label className="field" style={{ width: 160 }}><span>Show figures as</span>
+          <select value={s.plan.units} onChange={e => set({ plan: { ...s.plan, units: e.target.value as PlannerSettings["plan"]["units"] } })}><option value="h">Hours</option><option value="p">% of capacity</option><option value="f">FTE</option></select></label>
       </div>
 
       <ExecSettings s={s} fields={fields} project={p.projectName} onChange={p.onChange} />

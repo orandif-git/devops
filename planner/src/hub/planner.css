@@ -92,20 +92,27 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 @media (max-width: 1000px) { .cc-strip { grid-template-columns: 1fr 1fr; } .cc-main.withpanel { grid-template-columns: 1fr; } .cc-panel { position: static; } }
 .chip.on .btn.icon { background: transparent; border: 0; color: inherit; padding: 0 5px; margin-left: 2px; border-radius: 8px; } .chip.on .btn.icon:hover:not(:disabled) { background: rgba(255,255,255,.25); } .chip.on .btn.icon:disabled { opacity: .35; }
 
-/* plan layout: sticky name and total columns, expandable person rows */
-.cc-plan { gap: 2px; align-items: stretch; min-width: 1000px; }
+/* plan layout: toolbar in two tidy rows, sticky name and total columns, rows by level */
+.cc-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding: 4px 0; position: static; } .cc-bar > * { flex: none; } .cc-bar .grow { flex: 1 1 0; min-width: 0; }
+.cc-bar .seg { margin-left: 0; } .cc-bar .seg button { height: 26px; } .cc-bar:first-child { padding-bottom: 2px; }
+.cc-bar .pill { height: 32px; } .cc-bar .pill.icon { width: 32px; padding: 0; justify-content: center; font-size: 15px; } .cc-bar .pill.search { flex: 1 1 160px; min-width: 140px; } .cc-bar .pill.search input { width: 100%; max-width: none; }
+.cc-filters { padding-top: 0; padding-bottom: 8px; } .cc-drawer { left: auto; right: 0; }
+.cc-plan { gap: 0 2px; align-items: stretch; min-width: 1000px; }
+.cc-plan > * { border-bottom: 1px solid color-mix(in srgb, var(--line) 55%, transparent); }
 .cc-plan .mh { position: sticky; top: 0; z-index: 6; background: var(--bg); }
 .cc-plan .cc-h { position: sticky; top: 0; z-index: 8; background: var(--bg); font-weight: 600; color: var(--fg2); padding: 4px 6px; border-bottom: 2px solid var(--line); }
-.cc-plan .cc-s1 { position: sticky; left: 0; z-index: 4; background: var(--bg); } .cc-plan .cc-s2 { position: sticky; left: 270px; z-index: 4; background: var(--bg); text-align: right; border-right: 2px solid var(--line); }
+.cc-plan .cc-s1 { position: sticky; left: 0; z-index: 4; background: var(--bg); min-width: 0; } .cc-plan .cc-s2 { position: sticky; left: 300px; z-index: 4; background: var(--bg); text-align: right; border-right: 2px solid var(--line); }
 .cc-plan .cc-h.cc-s1, .cc-plan .cc-h.cc-s2 { z-index: 9; }
-.cc-plan .cc-team { grid-column: auto; margin-top: 0; background: color-mix(in srgb, var(--fg) 6%, var(--bg)); border-radius: 0; padding: 5px 6px; } .cc-plan .cc-mini { margin-left: auto; }
-.cc-plan .cc-tt { display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-weight: 600; font-variant-numeric: tabular-nums; } .cc-plan .cc-team + .cc-tt, .cc-plan .cc-team + .cc-tt ~ .cc-tc { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
-.cc-plan .cc-team + .cc-tt { background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
-.cc-plan .cc-tc { display: flex; align-items: center; justify-content: center; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--fg2); background: color-mix(in srgb, var(--fg) 6%, var(--bg)); }
-.cc-plan .cc-person { display: flex; align-items: center; gap: 4px; padding: 0 6px 0 4px; min-height: 30px; } .cc-plan .cc-person.sel .cc-nm, .cc-plan .cc-person:hover .cc-nm { background: var(--hover); }
-.cc-plan .cc-person .cc-nm { padding: 2px 6px; flex: 1; min-width: 0; }
-.cc-xp { border: 0; background: none; cursor: pointer; width: 22px; height: 22px; border-radius: 4px; color: var(--fg2); flex: none; } .cc-xp:hover { background: var(--hover); }
-.cc-n { color: var(--fg2); font-size: 11px; flex: none; opacity: .8; }
-.cc-plan .cell { height: auto; min-height: 28px; font-variant-numeric: tabular-nums; } .cc-plan .cell i { font-style: normal; font-size: 10px; margin-left: 4px; opacity: .9; }
-.cc-plan .cc-epic { padding: 4px 6px 4px 36px; display: flex; align-items: center; overflow: hidden; } .cc-plan .cc-epic a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; }
-.cc-plan .cc-et { font-weight: 400; color: var(--fg2); } .cc-plan .cc-ec { display: flex; align-items: center; justify-content: center; color: var(--fg2); font-variant-numeric: tabular-nums; }
+.cc-plan .grp { background: color-mix(in srgb, var(--fg) 7%, var(--bg)); font-weight: 600; } .cc-plan .sub { background: color-mix(in srgb, var(--fg) 3.5%, var(--bg)); font-weight: 600; }
+.cc-plan .cc-team { grid-column: auto; margin-top: 0; border-radius: 0; padding-top: 6px; padding-bottom: 6px; width: 100%; } .cc-plan .cc-team:hover { background: color-mix(in srgb, var(--fg) 11%, var(--bg)); }
+.cc-plan .cc-lab { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .cc-plan .cc-mini { margin-left: auto; flex: none; white-space: nowrap; }
+.cc-plan .cc-tt { display: flex; align-items: center; justify-content: flex-end; padding: 0 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cc-plan .cc-tc { display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; color: var(--fg2); }
+.cc-plan .cc-person { display: flex; align-items: center; gap: 4px; padding-right: 6px; min-height: 32px; } .cc-plan .cc-person.sel .cc-nm, .cc-plan .cc-person:hover .cc-nm { background: var(--hover); }
+.cc-plan .cc-person .cc-nm { padding: 2px 6px; flex: 0 1 auto; min-width: 0; }
+.cc-xp { border: 0; background: none; cursor: pointer; width: 22px; height: 22px; border-radius: 4px; color: var(--fg2); flex: none; padding: 0; } button.cc-xp:hover { background: var(--hover); }
+.cc-n { color: var(--fg2); font-size: 11px; flex: none; opacity: .85; margin-left: auto; white-space: nowrap; padding-left: 8px; }
+.cc-plan .cell { height: auto; min-height: 32px; font-variant-numeric: tabular-nums; margin: 1px 0; } .cc-plan .cell i { font-style: normal; font-size: 10px; margin-left: 4px; opacity: .9; }
+.cc-plan .cc-epic { padding-top: 4px; padding-bottom: 4px; display: flex; align-items: center; overflow: hidden; } .cc-plan .cc-epic a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; min-width: 0; }
+.cc-plan .cc-ec { display: flex; align-items: center; justify-content: center; color: var(--fg2); font-variant-numeric: tabular-nums; } .cc-plan .cc-tt:not(.grp):not(.sub) { font-weight: 500; }
+.cc-plan .car.shut { transform: rotate(-90deg); }

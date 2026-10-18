@@ -152,12 +152,26 @@ describe("Command center", () => {
     expect(h.querySelectorAll(".cc-epic")).toHaveLength(0);
     click(h.querySelector(".cc-xp")!);
     expect(h.querySelectorAll(".cc-epic").length).toBeGreaterThan(0);
-    click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "⊟ Collapse all")!);
+    click(Array.from(h.querySelectorAll("button")).find(b => b.getAttribute("aria-label") === "Collapse all")!);
     expect(h.querySelectorAll(".cc-epic")).toHaveLength(0);
-    click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "⊞ Expand all")!);
+    click(Array.from(h.querySelectorAll("button")).find(b => b.getAttribute("aria-label") === "Expand all")!);
     expect(h.querySelectorAll(".cc-epic").length).toBeGreaterThan(0);
     click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "% of capacity")!);
     expect(h.querySelector(".cc-person + .cc-tt")!.textContent).toMatch(/%|–/);
+  });
+  it("groups by Epic first, then team, then person, and by person then Epic", () => {
+    const h = host();
+    const sel = h.querySelector('select[aria-label="Group by"]') as HTMLSelectElement;
+    const change = (v: string) => act(() => { sel.value = v; sel.dispatchEvent(new Event("change", { bubbles: true })); });
+    change("epic");
+    const tops = () => Array.from(h.querySelectorAll(".cc-team.grp")).map(x => x.textContent!);
+    expect(tops().length).toBeGreaterThan(0); expect(h.querySelectorAll(".cell")).toHaveLength(0);       // everything closed
+    click(h.querySelector(".cc-team.grp")!);
+    expect(h.querySelector(".cc-team.sub")).not.toBeNull();                                               // its teams
+    click(h.querySelector(".cc-team.sub")!);
+    expect(h.querySelector(".cc-nm")).not.toBeNull();                                                     // their people
+    change("person");
+    expect(h.querySelectorAll(".cc-person").length).toBeGreaterThan(0); expect(h.querySelectorAll(".cc-team")).toHaveLength(0);
   });
   it("switches to the timeline and the Gantt without losing the filter bar", () => {
     const h = host();

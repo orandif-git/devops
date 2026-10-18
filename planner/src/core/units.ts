@@ -1,7 +1,8 @@
 import { PersonRow } from "./model";
+import { PlanUnits } from "./types";
 
 /** How the plan shows a person's month: hours, share of the available hours, or FTE (hours ÷ available hours). */
-export type Units = "h" | "p" | "f";
+export type Units = PlanUnits;
 export const UNIT_LABEL: Record<Units, string> = { h: "Hours", p: "% of capacity", f: "FTE" };
 const r1 = (n: number) => Math.round(n * 10) / 10;
 

@@ -62,3 +62,5 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] ▸ on a person shows their Epics with hours per month; the Epic link opens the Epic dialog.
 - [ ] Total column and team header totals are right; switching Hours / % of capacity / FTE re-computes them (FTE = hours ÷ available hours).
 - [ ] Expand all / Collapse all work; name and Total columns stay in view when scrolling sideways.
+- [ ] Group by Epic › Team › Person lists all Epics first (closed); opening an Epic shows its teams, then the people and their hours on that Epic.
+- [ ] Settings › Planner opens in / Group the plan by / Show figures as change what the Planner starts with.

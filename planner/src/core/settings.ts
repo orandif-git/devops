@@ -52,6 +52,8 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
   const num = (v: unknown, fb: number) => (typeof v === "number" && Number.isFinite(v) ? v : fb);
   const th = (r.thresholds && typeof r.thresholds === "object" ? r.thresholds : {}) as Record<string, unknown>;
   const per = (r.period && typeof r.period === "object" ? r.period : {}) as Record<string, unknown>;
+  const pl = (r.plan && typeof r.plan === "object" ? r.plan : {}) as Record<string, unknown>;
+  const pick = <T extends string>(v: unknown, ok: T[], fb: T): T => (ok.includes(v as T) ? (v as T) : fb);
   const kinds = ["year", "quarter", "last12", "next12", "custom"];
   const sources: GridSource[] = (Array.isArray(r.sources) ? r.sources : []).filter(s => s && typeof s === "object").map((s, i) => {
     const x = s as Record<string, unknown>; const c = (x.columns && typeof x.columns === "object" ? x.columns : {}) as Record<string, unknown>;
@@ -67,7 +69,8 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
     capacityTeams: teams(r.capacityTeams),
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },
     thresholds: { spare: num(th.spare, d.thresholds.spare), healthy: num(th.healthy, d.thresholds.healthy), full: num(th.full, d.thresholds.full) },
-    colourMode: r.colourMode === "shades" ? "shades" : "rag", accessTeams: teams(r.accessTeams),
+    colourMode: r.colourMode === "shades" ? "shades" : "rag",
+    plan: { groupBy: pick(pl.groupBy, ["team", "epic", "person"], d.plan.groupBy), units: pick(pl.units, ["h", "p", "f"], d.plan.units), view: pick(pl.view, ["heat", "time", "gantt"], d.plan.view) }, accessTeams: teams(r.accessTeams),
     extraFilterFields: (Array.isArray(r.extraFilterFields) ? r.extraFilterFields : []).map(str).filter(Boolean),
     executive: normalizeExec(r.executive),
   };
