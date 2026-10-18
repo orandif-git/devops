@@ -11,6 +11,7 @@
 
 ## 2.2.0 (next)
 **Resource Capacity**
+- Automatic grids such as Resource Capacity show read-only cells as plain text (nothing cut off, numbers right-aligned under their headings, people shown by name with the full address on hover).
 - Rows with hours on other Epics get a ▸ expander: it opens the list of those Epics (id, title, hours that month) right under the row, with Expand all / Collapse all; the filter also finds Epics by title and a click opens the Epic. Read-only; exports stay flat rows.
 
 **Reliability**

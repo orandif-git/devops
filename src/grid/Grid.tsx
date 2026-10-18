@@ -154,6 +154,12 @@ export function Grid(p: GridProps) {
     const dis = readOnly || isEnd || (!!c.teamFrom && !c.teamFrom.allowOverride) || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
     const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
     const title = errKey(r._id, c.id) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
+    // automatic grids (e.g. Resource Capacity): read-only cells are shown as plain text, so nothing is cut off like in a disabled input
+    if (p.autoRows && dis && c.type !== "boolean") {
+      const raw = c.displayFormat ? formatDateText(v, c.displayFormat) : v === null || v === undefined ? "" : String(v);
+      const text = c.type === "identity" ? raw.replace(/\s*<[^>]*>\s*$/, "").trim() || raw : raw;
+      return <span className={"ro" + (c.type === "calculated" ? " calc" : "")} title={title ?? (c.type === "calculated" ? c.formula : raw) ?? undefined}>{text === "" ? <span className="muted">{c.capacity ? "not registered" : "–"}</span> : text}</span>;
+    }
     switch (c.type) {
       case "calculated":
         return <input className="cell calc" type="text" disabled readOnly value={v === null || v === undefined ? "" : String(v)} title={c.formula} />;
