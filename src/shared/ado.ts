@@ -149,3 +149,9 @@ export function downloadFile(name: string, data: Blob | string, mime = "text/pla
   document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
 }
+
+/** Open another work item's form on top of the current page (nothing happens on servers that do not offer it). */
+export async function openWorkItemForm(id: number): Promise<void> {
+  try { await (await SDK.getService<IWorkItemNavigationLike>(WorkItemTrackingServiceIds.WorkItemFormNavigationService)).openWorkItem(id, false); } catch { /* not available */ }
+}
+interface IWorkItemNavigationLike { openWorkItem(id: number, newTab?: boolean): Promise<unknown> }

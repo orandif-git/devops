@@ -13,6 +13,8 @@ export interface GridProps {
   autoRows?: boolean;
   /** heading shown above the grid */
   title?: string;
+  /** read-only detail lines that open under a row (e.g. the other Epics behind "Hours (other Epics)") */
+  details?: { lines(row: GridRow): { id: number; title: string; hours: number }[]; label: string; onOpen(id: number): void };
   projectId: string;
   busyChildren: boolean;
   onChange(rows: GridRow[]): void;
@@ -55,6 +57,7 @@ export function Grid(p: GridProps) {
   const lockedRows = readOnly || !!p.autoRows;
   const [sort, setSort] = React.useState<SortState>(null);
   const [filter, setFilter] = React.useState("");
+  const [openRows, setOpenRows] = React.useState<Set<string>>(new Set());          // rows whose detail lines are showing
   // rows added with "Add row" that the user has not touched yet: no red highlighting
   const [pristine, setPristine] = React.useState<Set<string>>(new Set());
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -79,7 +82,7 @@ export function Grid(p: GridProps) {
     let r = rows;
     if (filter.trim()) {
       const q = filter.toLowerCase();
-      r = r.filter(row => cfg.columns.some(c => String(row[c.id] ?? "").toLowerCase().includes(q) || (!!c.displayFormat && formatDateText(row[c.id], c.displayFormat).toLowerCase().includes(q))));
+      r = r.filter(row => (p.details?.lines(row) ?? []).some(l => `${l.id} ${l.title}`.toLowerCase().includes(q)) || cfg.columns.some(c => String(row[c.id] ?? "").toLowerCase().includes(q) || (!!c.displayFormat && formatDateText(row[c.id], c.displayFormat).toLowerCase().includes(q))));
     }
     if (sort) {
       const c = cfg.columns.find(x => x.id === sort.col)!;
@@ -90,7 +93,7 @@ export function Grid(p: GridProps) {
       });
     }
     return r;
-  }, [rows, filter, sort, cfg]);
+  }, [rows, filter, sort, cfg, p.details]);
 
   const update = (rowId: string, col: string, value: unknown) => {
     const target = rows.find(r => r._id === rowId);
@@ -212,6 +215,7 @@ export function Grid(p: GridProps) {
             <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) p.onImport(f); e.target.value = ""; }} />
           </>}
+          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}>⊞</button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}>⊟</button></>}
           <button className="btn" onClick={() => p.onExport("csv")}>CSV</button>
           <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
           {childOn && <button className="btn" disabled={p.busyChildren || !pendingChildren} onClick={p.onCreateAllChildren}>
@@ -240,6 +244,7 @@ export function Grid(p: GridProps) {
         <div className="toolbar">
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           <span className="spacer" />
+          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}>⊞</button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}>⊟</button></>}
           <button className="btn" onClick={() => p.onExport("csv")}>CSV</button>
           <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
         </div>
@@ -260,8 +265,8 @@ export function Grid(p: GridProps) {
           </thead>
           <tbody>
             {visible.map((r, i) => (
-              <tr key={r._id} className={rowStatus ? "row-" + (cellBand(rowStatus, r, cfg)?.color ?? "none") : undefined}>
-                <td className="narrow muted">{i + 1}{rowLocked(r) && <span title="Approved: locked (only administrators can change it)"> 🔒</span>}</td>
+              <React.Fragment key={r._id}><tr className={rowStatus ? "row-" + (cellBand(rowStatus, r, cfg)?.color ?? "none") : undefined}>
+                <td className="narrow muted">{p.details && (p.details.lines(r).length > 0 ? <button className="btn icon xp" aria-expanded={openRows.has(r._id)} aria-label={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} title={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} onClick={() => setOpenRows(s => { const n = new Set(s); if (n.has(r._id)) n.delete(r._id); else n.add(r._id); return n; })}>{openRows.has(r._id) ? "▾" : "▸"}</button> : <span className="xp" />)}{i + 1}{rowLocked(r) && <span title="Approved: locked (only administrators can change it)"> 🔒</span>}</td>
                 {shown.map(c => {
                   const band = c.statusBands || c.colorBy ? cellBand(c, r, cfg) : undefined;
                   const rvTint = rv && c.id === rv.statusColumn ? { approved: "tint-green", rejected: "tint-red", pending: "tint-yellow" }[stateOf(r, rv)] : "";
@@ -285,6 +290,12 @@ export function Grid(p: GridProps) {
                   </td>
                 )}
               </tr>
+              {p.details && openRows.has(r._id) && p.details.lines(r).length > 0 && <tr className="detail"><td />
+                <td colSpan={shown.length + 1}><div className="dl" role="group" aria-label={p.details.label}>
+                  <div className="dh">{p.details.label}</div>
+                  {p.details.lines(r).map(l => <div key={l.id} className="dr"><a href="#" className="lk" onClick={e => { e.preventDefault(); p.details!.onOpen(l.id); }}>#{l.id}{l.title ? " · " + l.title : ""}</a><span className="dv">{Math.round(l.hours * 100) / 100} h</span></div>)}
+                </div></td></tr>}
+              </React.Fragment>
             ))}
             {!visible.length && <tr><td colSpan={shown.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}
           </tbody>

@@ -132,3 +132,27 @@ describe("hidden columns", () => {
     expect(validateConfig({ columns: [{ id: "x", name: "X", type: "number", hidden: true }] })).toEqual([]);
   });
 });
+
+describe("detail lines under a row", () => {
+  it("open and close with the row expander, all at once, and the filter finds them", () => {
+    const rows = [normalizeRow({ qty: 1, cat: "HW" }, cfg), normalizeRow({ qty: 2, cat: "SW" }, cfg)];
+    const opened: number[] = [];
+    const host = document.createElement("div"); document.body.appendChild(host);
+    act(() => { ReactDOM.render(<Grid cfg={cfg} rows={rows} readOnly={false} projectId="p" busyChildren={false} status="" onChange={() => undefined} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined}
+      details={{ label: "Other Epics this month", onOpen: id => opened.push(id), lines: r => (r.qty === 1 ? [{ id: 7, title: "Alpha launch", hours: 40 }, { id: 9, title: "Beta", hours: 16 }] : []) }} />, host); });
+    const xp = host.querySelectorAll("button.xp");
+    expect(xp).toHaveLength(1);                                                    // only the row that has other Epics
+    expect(host.querySelector("tr.detail")).toBeNull();
+    act(() => { Simulate.click(xp[0]); });
+    expect(host.querySelector("tr.detail")!.textContent).toContain("#7 · Alpha launch");
+    act(() => { Simulate.click(host.querySelector("tr.detail a")!); });
+    expect(opened).toEqual([7]);
+    act(() => { Simulate.click(host.querySelector('button[aria-label="Collapse all"]')!); });
+    expect(host.querySelector("tr.detail")).toBeNull();
+    act(() => { Simulate.click(host.querySelector('button[aria-label="Expand all"]')!); });
+    expect(host.querySelectorAll("tr.detail")).toHaveLength(1);
+    const q = host.querySelector('input[type="search"]') as HTMLInputElement;
+    act(() => { Simulate.change(q, { target: { value: "beta" } } as never); });
+    expect(host.querySelectorAll("tbody tr:not(.detail)")).toHaveLength(1);
+  });
+});

@@ -10,6 +10,9 @@
 - Heatmap, resource timeline, Epic Gantt, three dashboard widgets (utilization, over capacity, team map), Diagnostics tab, keyboard-accessible tabs, Marketplace page. Read-only (`vso.work`, `vso.project`). Pilot checklist: `docs/planner-pilot-checklist.md`.
 
 ## 2.2.0 (next)
+**Resource Capacity**
+- Rows with hours on other Epics get a ▸ expander: it opens the list of those Epics (id, title, hours that month) right under the row, with Expand all / Collapse all; the filter also finds Epics by title and a click opens the Epic. Read-only; exports stay flat rows.
+
 **Reliability**
 - Capacity records and live allocations now use short, fixed-length ids. Long ids were seen to be mistaken for each other on Azure DevOps (each new audit entry replaced the previous one). Older records are still read, de-duplicated, and can be moved with **Diagnostics → Move to short ids**.
 - Saving the settings is version-checked: if another administrator saved in the meantime you can load their version or overwrite. Preset saves from work items retry on a clash.

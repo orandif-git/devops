@@ -1,13 +1,13 @@
 import * as React from "react";
 import { sameRows, sourceMembers, syncDerived } from "../core/derived";
 import { parseStored, serialize } from "../core/gridModel";
-import { entriesFromRows, sameEntries, sumAllocations } from "../core/allocations";
+import { allocKey, AllocationDoc, entriesFromRows, sameEntries, sumAllocations } from "../core/allocations";
 import { CapacityRegister } from "../core/capacity";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { loadLiveAllocations, saveAllocation } from "../shared/allocationStore";
 import { applyCalculations } from "../shared/calcRunner";
 import { loadRegister } from "../shared/capacityStore";
-import { downloadFile, getFormService } from "../shared/ado";
+import { downloadFile, getFormService, openWorkItemForm } from "../shared/ado";
 import { exportCsv, exportXlsx } from "../shared/excel";
 import { Grid } from "./Grid";
 import { onFormEvent, writeGrid } from "./formWriter";
@@ -26,6 +26,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
   const [registerTried, setRegisterTried] = React.useState(!usesRegister);
   const usesOthers = cfg.columns.some(c => c.others);
   const [others, setOthers] = React.useState<Record<string, number>>();
+  const [otherDocs, setOtherDocs] = React.useState<AllocationDoc[]>([]);         // the other Epics behind "Hours (other Epics)"
   const [othersTried, setOthersTried] = React.useState(!usesOthers);
   const [unverified, setUnverified] = React.useState(false);
   const published = React.useRef<Record<string, number> | null>(null);
@@ -74,6 +75,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
       const id = await (await getFormService()).getId();
       const live = await loadLiveAllocations(p.projectId);
       setOthers(sumAllocations(live.docs, id || undefined));
+      setOtherDocs(live.docs.filter(x => x.workItemId !== id));
       setUnverified(!live.verified);
     })().catch(e => setWarn(`Could not load the hours of other Epics: ${e.message}. "Hours (other Epics)" may be out of date.`)).finally(() => setOthersTried(true));
   }, [usesOthers, p.projectId]);
@@ -115,6 +117,13 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
     const adj = typeof row["_adj_" + col.id] === "number";
     return `${adj ? "Adjusted by hand. Calculated from:" : "Made up of:"}\n${lines.join("\n")}`;
   };
+  const othersCol = cfg.columns.find(c => c.others);
+  /** the other Epics that hold hours for this row's person and month */
+  const otherEpics = React.useCallback((row: GridRow) => {
+    if (!othersCol?.others) return [];
+    const key = allocKey(row[othersCol.others.resource], row[othersCol.others.period]);
+    return otherDocs.filter(d => (d.entries[key] ?? 0) !== 0).map(d => ({ id: d.workItemId, title: d.title ?? "", hours: d.entries[key] })).sort((a, b) => b.hours - a.hours || a.id - b.id);
+  }, [othersCol, otherDocs]);
   const resync = (next: GridRow[]) => apply(syncDerived(p.sourceRows, cfg, next, register, others, p.sourceCfg));
 
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
@@ -122,7 +131,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
     <>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       {unverified && <div className="muted" style={{ padding: "2px 8px", fontSize: 12 }}>Hours of other Epics are counted without checking that those Epics still exist (the check could not be completed).</div>}
-      <Grid title={p.name} cfg={cfg} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
+      <Grid title={p.name} cfg={cfg} details={othersCol ? { lines: otherEpics, label: "Other Epics this month", onOpen: id => { void openWorkItemForm(id); } } : undefined} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
         onChange={resync} cellInfo={cellInfo} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined}
         onExport={async k => { if (k === "csv") downloadFile(`${p.name}.csv`, "﻿" + exportCsv(rowsRef.current, cfg), "text/csv;charset=utf-8"); else downloadFile(`${p.name}.xlsx`, await exportXlsx(rowsRef.current, cfg)); }} />
     </>
