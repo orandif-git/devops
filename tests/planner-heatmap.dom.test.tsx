@@ -146,6 +146,19 @@ describe("Command center", () => {
     act(() => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
     expect(h.querySelector(".cc-panel")).toBeNull();
   });
+  it("expands a person to their Epics, shows the Total column and switches units", () => {
+    const h = host();
+    expect(h.querySelector(".cc-h.cc-s2")!.textContent).toBe("Total");
+    expect(h.querySelectorAll(".cc-epic")).toHaveLength(0);
+    click(h.querySelector(".cc-xp")!);
+    expect(h.querySelectorAll(".cc-epic").length).toBeGreaterThan(0);
+    click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "⊟ Collapse all")!);
+    expect(h.querySelectorAll(".cc-epic")).toHaveLength(0);
+    click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "⊞ Expand all")!);
+    expect(h.querySelectorAll(".cc-epic").length).toBeGreaterThan(0);
+    click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "% of capacity")!);
+    expect(h.querySelector(".cc-person + .cc-tt")!.textContent).toMatch(/%|–/);
+  });
   it("switches to the timeline and the Gantt without losing the filter bar", () => {
     const h = host();
     click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "Timeline")!);

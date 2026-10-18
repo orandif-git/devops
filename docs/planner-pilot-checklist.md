@@ -57,3 +57,8 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Choose an Access team in Settings, Save: a project member who is not in that team and not an administrator sees “You do not have access…” on the Planner, the Executive Dashboard and the widgets; a team member and an administrator still get in.
 - [ ] The extension lists only read scopes. No Epic is modified by any action.
 - [ ] A user without area-path access to some Epics sees only the Epics they can read.
+
+## Resource plan layout (Planner tab, Heatmap view)
+- [ ] ▸ on a person shows their Epics with hours per month; the Epic link opens the Epic dialog.
+- [ ] Total column and team header totals are right; switching Hours / % of capacity / FTE re-computes them (FTE = hours ÷ available hours).
+- [ ] Expand all / Collapse all work; name and Total columns stay in view when scrolling sideways.

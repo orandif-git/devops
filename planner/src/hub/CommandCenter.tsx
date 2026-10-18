@@ -8,6 +8,7 @@ import { LoadProgress } from "../data/epics";
 import { downloadFile } from "../../../src/shared/ado";
 import { EpicDialog } from "./EpicDialog";
 import { BANDS, monthLabel, paint, RAG } from "./HeatmapTab";
+import { cellText, epicLines, periodSums, totalText, Units, UNIT_LABEL } from "../core/units";
 import { TimelineTab } from "./TimelineTab";
 import { GanttTab } from "./GanttTab";
 
@@ -30,6 +31,8 @@ export function CommandCenter(p: {
   const [sel, setSel] = React.useState<{ person: string; month: string }>();
   const [dialog, setDialog] = React.useState<number>();
   const [hov, setHov] = React.useState<string>();
+  const [units, setUnits] = React.useState<Units>("h");
+  const [open, setOpen] = React.useState<Set<string>>(new Set());          // people whose Epics are shown under their row
   const [tip, setTip] = React.useState<{ x: number; y: number; title: string; lines: string[] }>();
   const nowMonth = new Date().toISOString().slice(0, 7);
   const [focus, setFocus] = React.useState(() => (p.months.includes(nowMonth) ? nowMonth : p.months[0]));
@@ -69,25 +72,42 @@ export function CommandCenter(p: {
   const clearAll = () => { p.onFilters({ ...noFilters(), search: f.search }); setHl(null); if (p.queryId) p.onQuery(""); };
   const exportCsv = () => downloadFile(`resource-utilization-${p.months[0]}-${p.months[p.months.length - 1]}.csv`, "﻿" + heatmapCsv(people, p.months, th), "text/csv");
 
+  const cols = `270px 96px repeat(${p.months.length}, minmax(58px, 1fr))`;
+  const toggleOpen = (key: string) => setOpen(o => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n; });
   const heat = (
-    <div className="cc-scroll"><div className="hm" style={{ gridTemplateColumns: `180px repeat(${p.months.length}, minmax(34px, 1fr))` }}>
-      <div />{p.months.map(m => <button key={m} className={"mh" + (m === focus ? " on" : m === hov ? " hov" : "")} title="Use this month for the figures above" onClick={() => setFocus(m)}>{monthLabel(m)}</button>)}
+    <div className="cc-scroll"><div className="hm cc-plan" style={{ gridTemplateColumns: cols }}>
+      <div className="cc-h cc-s1">Person / Epic</div><div className="cc-h cc-s2">Total</div>
+      {p.months.map(m => <button key={m} className={"mh" + (m === focus ? " on" : m === hov ? " hov" : "")} title="Use this month for the figures above" onClick={() => setFocus(m)}>{monthLabel(m)}</button>)}
       {groups.map(g => { const gs = monthSummary(g.people, focus, th); const closed = shut[g.team];
+        const gh = p.months.map(m => g.people.reduce((a, x) => a + (x.hours[m] ?? 0), 0)), ga = p.months.map(m => g.people.reduce((a, x) => a + (x.available[m] ?? 0), 0));
         return <React.Fragment key={g.team}>
-          <button className={"cc-team" + (closed ? " shut" : "")} aria-expanded={!closed} onClick={() => setShut({ ...shut, [g.team]: !closed })}>
-            <span className="car">▾</span>{g.team}<span className="cc-mini">{g.people.length} people · {pctOf(gs.utilization)} in {monthLabel(focus)}{gs.over > 0 && <span className="cc-flag"><Sw b="over" />{gs.over} over</span>}</span></button>
-          {!closed && g.people.map(pp => <React.Fragment key={pp.key}>
-            <button className={"n cc-nm" + (sel?.person === pp.key ? " sel" : "")} title={pp.name} onClick={() => setSel({ person: pp.key, month: focus })}>{shortName(pp.name)}</button>
-            {p.months.map(m => {
-              const c = cellOf(pp, m, th), v = paint(p.settings.colourMode, c), dim = hl !== null && c.band !== hl;
-              const open = () => { setSel({ person: pp.key, month: m }); setFocus(m); };
-              return <div key={m} className={"cell" + (sel?.person === pp.key && sel.month === m ? " sel" : "")} tabIndex={v.label ? 0 : -1} role={v.label ? "button" : undefined}
-                aria-label={v.label ? `${shortName(pp.name)}, ${m}: ${c.hours} of ${c.available ?? "?"} hours, ${v.label}` : undefined}
-                style={{ background: v.background, color: v.color, opacity: dim ? .18 : 1 }}
-                onClick={v.label ? open : undefined} onKeyDown={e => { if (v.label && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open(); } }}
-                onPointerEnter={() => setHov(m)} onPointerLeave={() => { setHov(undefined); setTip(undefined); }}
-                onPointerMove={v.label ? e => setTip({ x: e.clientX, y: e.clientY, title: `${pctOf(c.ratio)} · ${shortName(pp.name)}`, lines: [`${c.hours} h booked of ${c.available ?? "?"} h available`, `${pp.team} · ${m}`, v.label] }) : undefined}>{v.text}</div>;
-            })}</React.Fragment>)}
+          <button className={"cc-team cc-s1" + (closed ? " shut" : "")} aria-expanded={!closed} onClick={() => setShut({ ...shut, [g.team]: !closed })}>
+            <span className="car">▾</span>{g.team}<span className="cc-mini">{g.people.length} people{gs.over > 0 && <span className="cc-flag"><Sw b="over" />{gs.over} over</span>}</span></button>
+          <div className="cc-tt cc-s2">{totalText(units, gh.reduce((a, b) => a + b, 0), ga.reduce((a, b) => a + b, 0))}</div>
+          {gh.map((x, i) => <div key={i} className="cc-tc">{cellText(units, x, ga[i])}</div>)}
+          {!closed && g.people.map(pp => { const isOpen = open.has(pp.key), sums = periodSums(pp, p.months), lines = isOpen ? epicLines(pp, p.months) : [], n = epicLines(pp, p.months).length;
+            return <React.Fragment key={pp.key}>
+              <div className={"cc-s1 cc-person" + (sel?.person === pp.key ? " sel" : "")}>
+                <button className="cc-xp" aria-expanded={isOpen} aria-label={`${isOpen ? "Hide" : "Show"} the Epics of ${shortName(pp.name)}`} onClick={() => toggleOpen(pp.key)}>{isOpen ? "▾" : "▸"}</button>
+                <button className="n cc-nm" title={pp.name} onClick={() => setSel({ person: pp.key, month: focus })}>{shortName(pp.name)}</button>
+                <span className="cc-n">{n} Epic{n === 1 ? "" : "s"}</span></div>
+              <div className="cc-tt cc-s2">{totalText(units, sums.hours, sums.available)}</div>
+              {p.months.map(m => {
+                const c = cellOf(pp, m, th), v = paint(p.settings.colourMode, c), dim = hl !== null && c.band !== hl;
+                const open2 = () => { setSel({ person: pp.key, month: m }); setFocus(m); };
+                return <div key={m} className={"cell" + (sel?.person === pp.key && sel.month === m ? " sel" : "")} tabIndex={v.label ? 0 : -1} role={v.label ? "button" : undefined}
+                  aria-label={v.label ? `${shortName(pp.name)}, ${m}: ${c.hours} of ${c.available ?? "?"} hours, ${v.label}` : undefined}
+                  style={{ background: v.background, color: v.color, opacity: dim ? .18 : 1 }}
+                  onClick={v.label ? open2 : undefined} onKeyDown={e => { if (v.label && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); open2(); } }}
+                  onPointerEnter={() => setHov(m)} onPointerLeave={() => { setHov(undefined); setTip(undefined); }}
+                  onPointerMove={v.label ? e => setTip({ x: e.clientX, y: e.clientY, title: `${pctOf(c.ratio)} · ${shortName(pp.name)}`, lines: [`${c.hours} h booked of ${c.available ?? "?"} h available`, `${pp.team} · ${m}`, v.label] }) : undefined}>{cellText(units, c.hours, c.available)}{v.text && <i>{v.text}</i>}</div>;
+              })}
+              {lines.map(l => <React.Fragment key={l.epicId}>
+                <div className="cc-s1 cc-epic"><a href="#" className="lk" title={epicById.get(l.epicId)?.title} onClick={e => { e.preventDefault(); setDialog(l.epicId); }}>{l.epicId} · {epicById.get(l.epicId)?.title ?? ""}</a></div>
+                <div className="cc-tt cc-s2 cc-et">{totalText(units, l.total, sums.available)}</div>
+                {p.months.map(m => <div key={m} className="cc-ec">{cellText(units, l.byMonth[m] ?? 0, pp.available[m] ?? null)}</div>)}
+              </React.Fragment>)}
+            </React.Fragment>; })}
         </React.Fragment>; })}
     </div></div>
   );
@@ -111,7 +131,10 @@ export function CommandCenter(p: {
           </div>}</span>
         <button className="pill" disabled={p.busy} onClick={() => p.onReload(false)} title={`${L.epics.length} Epics read · refreshed ${new Date(L.at).toLocaleTimeString()} · ${(L.load.ms / 1000).toFixed(1)} s`}>{p.busy ? "Refreshing…" : "⟳ Refresh"}</button>
         <button className="pill" disabled={!people.length} onClick={exportCsv}>⭳ CSV</button>
-        <div className="seg" role="tablist" aria-label="View">{([["heat", "Heatmap"], ["time", "Timeline"], ["gantt", "Epic Gantt"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
+        {view === "heat" && <>
+          <div className="seg" role="group" aria-label="Units" style={{ marginLeft: "auto" }}>{(Object.keys(UNIT_LABEL) as Units[]).map(u => <button key={u} aria-pressed={units === u} className={units === u ? "on" : ""} onClick={() => setUnits(u)}>{UNIT_LABEL[u]}</button>)}</div>
+          <button className="pill" onClick={() => setOpen(new Set(people.map(x => x.key)))}>⊞ Expand all</button><button className="pill" onClick={() => setOpen(new Set())}>⊟ Collapse all</button></>}
+        <div className="seg" role="tablist" aria-label="View" style={view === "heat" ? { marginLeft: 0 } : undefined}>{([["heat", "Heatmap"], ["time", "Timeline"], ["gantt", "Epic Gantt"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
       </div>
       {chips.length > 0 && <div className="cc-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={clearAll}>Clear all</button>}</div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
