@@ -139,18 +139,18 @@ describe("detail lines under a row", () => {
     const opened: number[] = [];
     const host = document.createElement("div"); document.body.appendChild(host);
     act(() => { ReactDOM.render(<Grid cfg={cfg} rows={rows} readOnly={false} projectId="p" busyChildren={false} status="" onChange={() => undefined} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined}
-      details={{ label: "Other Epics this month", onOpen: id => opened.push(id), lines: r => (r.qty === 1 ? [{ id: 7, title: "Alpha launch", hours: 40 }, { id: 9, title: "Beta", hours: 16 }] : []) }} />, host); });
+      details={{ label: "Other Epics this month", onOpen: id => opened.push(id), lines: r => (r.qty === 1 ? [{ id: 7, title: "Alpha launch", hours: 40, share: 27 }, { id: 9, title: "Beta", hours: 16, share: 11 }] : []) }} />, host); });
     const xp = host.querySelectorAll("button.xp");
     expect(xp).toHaveLength(1);                                                    // only the row that has other Epics
     expect(host.querySelector("tr.detail")).toBeNull();
     act(() => { Simulate.click(xp[0]); });
-    expect(host.querySelector("tr.detail")!.textContent).toContain("#7 · Alpha launch");
+    expect(host.querySelector("tr.detail")!.textContent).toContain("Alpha launch");
     act(() => { Simulate.click(host.querySelector("tr.detail a")!); });
     expect(opened).toEqual([7]);
     act(() => { Simulate.click(host.querySelector('button[aria-label="Collapse all"]')!); });
     expect(host.querySelector("tr.detail")).toBeNull();
     act(() => { Simulate.click(host.querySelector('button[aria-label="Expand all"]')!); });
-    expect(host.querySelectorAll("tr.detail")).toHaveLength(1);
+    expect(host.querySelectorAll("tr.detail")).toHaveLength(3);                          // two Epics and the total
     const q = host.querySelector('input[type="search"]') as HTMLInputElement;
     act(() => { Simulate.change(q, { target: { value: "beta" } } as never); });
     expect(host.querySelectorAll("tbody tr:not(.detail)")).toHaveLength(1);

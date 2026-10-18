@@ -14,7 +14,7 @@ export interface GridProps {
   /** heading shown above the grid */
   title?: string;
   /** read-only detail lines that open under a row (e.g. the other Epics behind "Hours (other Epics)") */
-  details?: { lines(row: GridRow): { id: number; title: string; hours: number }[]; label: string; onOpen(id: number): void };
+  details?: { lines(row: GridRow): { id: number; title: string; hours: number; share?: number | null }[]; label: string; onOpen(id: number): void; /** the column the hours line up under, and the one holding available hours (for the share) */ column?: string; availableText?(row: GridRow): string };
   projectId: string;
   busyChildren: boolean;
   onChange(rows: GridRow[]): void;
@@ -272,7 +272,7 @@ export function Grid(p: GridProps) {
           <tbody>
             {visible.map((r, i) => (
               <React.Fragment key={r._id}><tr className={rowStatus ? "row-" + (cellBand(rowStatus, r, cfg)?.color ?? "none") : undefined}>
-                <td className="narrow muted">{p.details && (p.details.lines(r).length > 0 ? <button className="btn icon xp" aria-expanded={openRows.has(r._id)} aria-label={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} title={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} onClick={() => setOpenRows(s => { const n = new Set(s); if (n.has(r._id)) n.delete(r._id); else n.add(r._id); return n; })}>{openRows.has(r._id) ? "▾" : "▸"}</button> : <span className="xp" />)}{i + 1}{rowLocked(r) && <span title="Approved: locked (only administrators can change it)"> 🔒</span>}</td>
+                <td className="narrow muted">{p.details && (p.details.lines(r).length > 0 ? <button className="xp" aria-expanded={openRows.has(r._id)} aria-label={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} title={`${openRows.has(r._id) ? "Hide" : "Show"} ${p.details.label}`} onClick={() => setOpenRows(s => { const n = new Set(s); if (n.has(r._id)) n.delete(r._id); else n.add(r._id); return n; })}>{openRows.has(r._id) ? "▾" : "▸"}</button> : <span className="xp" />)}{i + 1}{rowLocked(r) && <span title="Approved: locked (only administrators can change it)"> 🔒</span>}</td>
                 {shown.map(c => {
                   const band = c.statusBands || c.colorBy ? cellBand(c, r, cfg) : undefined;
                   const rvTint = rv && c.id === rv.statusColumn ? { approved: "tint-green", rejected: "tint-red", pending: "tint-yellow" }[stateOf(r, rv)] : "";
@@ -296,11 +296,15 @@ export function Grid(p: GridProps) {
                   </td>
                 )}
               </tr>
-              {p.details && openRows.has(r._id) && p.details.lines(r).length > 0 && <tr className="detail"><td />
-                <td colSpan={shown.length + 1}><div className="dl" role="group" aria-label={p.details.label}>
-                  <div className="dh">{p.details.label}</div>
-                  {p.details.lines(r).map(l => <div key={l.id} className="dr"><a href="#" className="lk" onClick={e => { e.preventDefault(); p.details!.onOpen(l.id); }}>#{l.id}{l.title ? " · " + l.title : ""}</a><span className="dv">{Math.round(l.hours * 100) / 100} h</span></div>)}
-                </div></td></tr>}
+              {p.details && openRows.has(r._id) && p.details.lines(r).length > 0 && (() => {
+                const d = p.details!, ls = d.lines(r), at = d.column ? shown.findIndex(c => c.id === d.column) : -1, i0 = at < 0 ? 1 : at, rest = shown.length - i0 - 1 + ((!lockedRows || childOn || !!rv) ? 1 : 0);
+                const total = Math.round(ls.reduce((s, l) => s + l.hours, 0) * 100) / 100;
+                return <>{ls.map((l, k) => <tr key={l.id} className={"detail" + (k === 0 ? " first" : "")}><td className="dbar" />
+                  <td colSpan={i0 || 1}><span className="tree" aria-hidden="true">└</span><span className="idc">#{l.id}</span><a href="#" className="lk" onClick={e => { e.preventDefault(); d.onOpen(l.id); }}>{l.title || "Epic " + l.id}</a></td>
+                  <td className="num dh2">{Math.round(l.hours * 100) / 100} h</td>
+                  <td colSpan={rest > 0 ? rest : 1}>{typeof l.share === "number" && <><span className="sbar" aria-hidden="true"><i style={{ width: Math.min(100, Math.max(0, l.share)) + "%" }} /></span><span className="spct">{Math.round(l.share * 10) / 10} % of {d.availableText?.(r) ?? "capacity"}</span></>}</td></tr>)}
+                  <tr className="detail sum last"><td className="dbar" /><td colSpan={i0 || 1} className="slab">{d.label}</td><td className="num dh2">{total} h</td><td colSpan={rest > 0 ? rest : 1} /></tr></>;
+              })()}
               </React.Fragment>
             ))}
             {!visible.length && <tr><td colSpan={shown.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}

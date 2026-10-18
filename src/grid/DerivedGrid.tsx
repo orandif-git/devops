@@ -118,12 +118,14 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
     return `${adj ? "Adjusted by hand. Calculated from:" : "Made up of:"}\n${lines.join("\n")}`;
   };
   const othersCol = cfg.columns.find(c => c.others);
+  const capCol = cfg.columns.find(c => c.capacity);
   /** the other Epics that hold hours for this row's person and month */
   const otherEpics = React.useCallback((row: GridRow) => {
     if (!othersCol?.others) return [];
     const key = allocKey(row[othersCol.others.resource], row[othersCol.others.period]);
-    return otherDocs.filter(d => (d.entries[key] ?? 0) !== 0).map(d => ({ id: d.workItemId, title: d.title ?? "", hours: d.entries[key] })).sort((a, b) => b.hours - a.hours || a.id - b.id);
-  }, [othersCol, otherDocs]);
+    const avail = capCol ? Number(row[capCol.id]) : NaN;
+    return otherDocs.filter(d => (d.entries[key] ?? 0) !== 0).map(d => ({ id: d.workItemId, title: d.title ?? "", hours: d.entries[key], share: avail > 0 ? d.entries[key] / avail * 100 : null })).sort((a, b) => b.hours - a.hours || a.id - b.id);
+  }, [othersCol, capCol, otherDocs]);
   const resync = (next: GridRow[]) => apply(syncDerived(p.sourceRows, cfg, next, register, others, p.sourceCfg));
 
   if (!cfg.dataField) return <div className="err" style={{ padding: 8 }}>The derived grid “{p.name}” has no data field. Set one in Project settings → Grid &amp; Rules.</div>;
@@ -131,7 +133,7 @@ export function DerivedGrid(p: { name: string; cfg: GridConfig; sourceCfg?: Grid
     <>
       {warn && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{warn}</div>}
       {unverified && <div className="muted" style={{ padding: "2px 8px", fontSize: 12 }}>Hours of other Epics are counted without checking that those Epics still exist (the check could not be completed).</div>}
-      <Grid title={p.name} cfg={cfg} details={othersCol ? { lines: otherEpics, label: "Other Epics this month", onOpen: id => { void openWorkItemForm(id); } } : undefined} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
+      <Grid title={p.name} cfg={cfg} details={othersCol ? { lines: otherEpics, label: "Other Epics total", column: othersCol.id, availableText: r => capCol ? `${r[capCol.id]} h` : "capacity", onOpen: id => { void openWorkItemForm(id); } } : undefined} rows={rows} readOnly={!!cfg.readOnly} autoRows projectId={p.projectId} busyChildren={false} status=""
         onChange={resync} cellInfo={cellInfo} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined}
         onExport={async k => { if (k === "csv") downloadFile(`${p.name}.csv`, "﻿" + exportCsv(rowsRef.current, cfg), "text/csv;charset=utf-8"); else downloadFile(`${p.name}.xlsx`, await exportXlsx(rowsRef.current, cfg)); }} />
     </>
