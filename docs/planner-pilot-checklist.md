@@ -4,7 +4,7 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 
 ## 0. Install
 - [ ] Install the `.vsix` (dev copy first), hard refresh (Ctrl+Shift+R). Boards shows **Resource Planner**.
-- [ ] **Diagnostics → Connection**: every line ✔ (Server 2020: teams, WIQL and batch read all work).
+- [ ] **Data & diagnostics → Connection**: every line ✔ (Server 2020: teams, WIQL and batch read all work).
 
 ## 1. Settings
 - [ ] Epic start/target date fields chosen from the lists. Grid field chosen; **Detect** fills the column mapping. Capacity teams added. Save works; reload keeps it.
@@ -12,7 +12,7 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 
 ## 2. Data
 - [ ] **Heatmap** loads; first load under 10 s (note the time), a reload under 2 s.
-- [ ] **Data check** and **Diagnostics → Setup and data**: counts match a hand-checked Epic; people without capacity and rows without monthly hours are explained.
+- [ ] **Data & diagnostics → Setup and data**: counts match a hand-checked Epic; people without capacity and rows without monthly hours are explained.
 
 ## 2b. Planner tab (one screen)
 - [ ] Planner opens by default. Period, Team, Epics, search and the Filters drawer change the figures; active filters show as chips that can be removed; Clear all works.
