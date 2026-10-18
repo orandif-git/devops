@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Other Epics detail – variants</title>
+<style>
+:root{--bg:#fff;--fg:#201f1e;--fg2:#6b6b6b;--line:#d9d9d9;--accent:#0078d4;--hover:#f3f2f1}
+body{margin:0;padding:20px 24px;font:13px "Segoe UI",system-ui,sans-serif;color:var(--fg);background:var(--bg)}
+h2{font-size:14px;margin:26px 0 8px} h2:first-child{margin-top:0} h2 small{font-weight:400;color:var(--fg2);margin-left:8px}
+table{border-collapse:collapse;width:100%;border:1px solid var(--line)} th,td{padding:5px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{text-align:left;font-weight:600;background:#fff} td.n,th.n{text-align:right;font-variant-numeric:tabular-nums} td.c{width:1%}
+tr.r td{background:#fbe6e6} tr.g td{background:#e8f3e8} td.hot{background:#f0bcbc!important;font-weight:600} td.ok{background:#bcdcbc!important;font-weight:600}
+.xp{border:0;background:none;width:20px;height:20px;color:var(--fg2);cursor:pointer;border-radius:3px;font-size:11px} .xp:hover{background:rgba(0,0,0,.07)}
+/* detail rows */
+tr.d td{background:#fafafa;border-bottom:0;padding-top:3px;padding-bottom:3px;color:var(--fg2)}
+tr.d td:first-child{border-left:3px solid var(--accent);padding:0}
+tr.d.first td{padding-top:8px} tr.d.last td{border-bottom:1px solid var(--line)}
+.tree{display:inline-block;width:22px;color:#b5b5b5;text-align:center}
+.id{display:inline-block;min-width:26px;text-align:center;background:#eaeaea;border-radius:9px;padding:0 6px;font-size:11px;color:#444;margin-right:6px}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+.bar{display:inline-block;vertical-align:middle;width:70px;height:6px;border-radius:3px;background:#e4e4e4;margin-right:6px;overflow:hidden} .bar i{display:block;height:100%;background:#7fb2e5}
+.pct{font-size:11px;color:var(--fg2)}
+tr.d.sum td{color:var(--fg);font-weight:600;padding-top:4px} tr.d.sum td.n{border-top:1px solid #cfcfcf}
+.st{display:inline-block;font-size:11px;padding:0 8px;border-radius:9px;margin-left:8px} .st.a{background:#dcebfa;color:#0b5aa8} .st.nw{background:#ececec;color:#555} .st.cl{background:#dff0df;color:#2a6b2a}
+.note{color:var(--fg2);margin:0 0 8px}
+</style></head><body>
+
+<h2>Variant A <small>hours under their own column · subtotal · tree connector · share of capacity</small></h2>
+<table>
+<thead><tr><th class="c">#</th><th>Team</th><th>Resource</th><th>Period</th><th class="n">Hours (this Epic)</th><th class="n">Hours (other Epics)</th><th class="n">Total hours ƒ</th><th class="n">Available Capacity</th><th class="n">Utilization %</th></tr></thead>
+<tbody>
+<tr class="r"><td class="c"><button class="xp">▾</button> 1</td><td>ETU</td><td>Aman S</td><td>Oct-26</td><td class="n">160</td><td class="n">28</td><td class="n"><b>188</b></td><td class="n">147</td><td class="n hot">127.9</td></tr>
+<tr class="d first"><td></td><td colspan="4"><span class="tree">└</span><span class="id">#2</span><a href="#">TTEst</a></td><td class="n">14 h</td><td colspan="3"><span class="bar"><i style="width:9.5%"></i></span><span class="pct">9.5 % of 147 h</span></td></tr>
+<tr class="d"><td></td><td colspan="4"><span class="tree">└</span><span class="id">#3</span><a href="#">Test Epic</a></td><td class="n">14 h</td><td colspan="3"><span class="bar"><i style="width:9.5%"></i></span><span class="pct">9.5 % of 147 h</span></td></tr>
+<tr class="d sum last"><td></td><td colspan="4" style="text-align:right">Other Epics total</td><td class="n">28 h</td><td colspan="3"></td></tr>
+<tr class="r"><td class="c"><button class="xp">▸</button> 2</td><td>Enterprise Architecture</td><td>Aman S</td><td>Nov-26</td><td class="n">300</td><td class="n">52</td><td class="n"><b>352</b></td><td class="n">147</td><td class="n hot">239.5</td></tr>
+<tr class="g"><td class="c"> 3</td><td>Enterprise Architecture</td><td>Aman S</td><td>Dec-26</td><td class="n">80</td><td class="n">0</td><td class="n"><b>80</b></td><td class="n">161</td><td class="n ok">49.7</td></tr>
+</tbody></table>
+
+<h2>Variant B <small>Variant A + Epic state chip</small></h2>
+<table>
+<thead><tr><th class="c">#</th><th>Team</th><th>Resource</th><th>Period</th><th class="n">Hours (this Epic)</th><th class="n">Hours (other Epics)</th><th class="n">Total hours ƒ</th><th class="n">Available Capacity</th><th class="n">Utilization %</th></tr></thead>
+<tbody>
+<tr class="r"><td class="c"><button class="xp">▾</button> 1</td><td>ETU</td><td>Aman S</td><td>Oct-26</td><td class="n">160</td><td class="n">28</td><td class="n"><b>188</b></td><td class="n">147</td><td class="n hot">127.9</td></tr>
+<tr class="d first"><td></td><td colspan="4"><span class="tree">└</span><span class="id">#2</span><a href="#">TTEst</a><span class="st a">Active</span></td><td class="n">14 h</td><td colspan="3"><span class="bar"><i style="width:9.5%"></i></span><span class="pct">9.5 % of 147 h</span></td></tr>
+<tr class="d"><td></td><td colspan="4"><span class="tree">└</span><span class="id">#3</span><a href="#">Test Epic</a><span class="st nw">New</span></td><td class="n">14 h</td><td colspan="3"><span class="bar"><i style="width:9.5%"></i></span><span class="pct">9.5 % of 147 h</span></td></tr>
+<tr class="d sum last"><td></td><td colspan="4" style="text-align:right">Other Epics total</td><td class="n">28 h</td><td colspan="3"></td></tr>
+<tr class="r"><td class="c"><button class="xp">▸</button> 2</td><td>Enterprise Architecture</td><td>Aman S</td><td>Nov-26</td><td class="n">300</td><td class="n">52</td><td class="n"><b>352</b></td><td class="n">147</td><td class="n hot">239.5</td></tr>
+</tbody></table>
+</body></html>
