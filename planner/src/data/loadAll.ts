@@ -1,3 +1,5 @@
+import { loadStateGroups } from "./stateGroups";
+import { StateGroups } from "../core/timeline";
 import { aggregate } from "../core/aggregate";
 import { parseSource, sumStats } from "../core/parseGrid";
 import { GridDone, gridDoneOf } from "../core/progress";
@@ -16,6 +18,8 @@ export interface Loaded {
   stats: ParseStats;
   perSource: { name: string; epics: number; rows: number }[];
   avail: Availability;
+  /** state group of each Epic state in the process (empty when it could not be read) */
+  stateGroups?: StateGroups;
   ms: number;
   at: string;
 }
@@ -36,8 +40,8 @@ export async function loadAll(project: { id: string; name: string }, s: PlannerS
     if (g.columns.done) { const d = gridDoneOf(raw, g); if (d) (gridDone[e.id] ??= {})[g.id] = d; }
     perStats.push(r.stats); bookings.push(...r.bookings); tasks.push(...r.tasks); perSource[i].epics++; perSource[i].rows += r.stats.rows;
   });
-  const avail = await loadAvailability(s.capacityTeams, opts.force);
-  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, ms: Date.now() - t0, at: new Date().toISOString() };
+  const [avail, stateGroups] = await Promise.all([loadAvailability(s.capacityTeams, opts.force), loadStateGroups(project.name, s.workItemType)]);
+  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, ms: Date.now() - t0, at: new Date().toISOString() };
 }
 
 export const monthsFor = (s: PlannerSettings) => monthsOfPeriod(s.period);

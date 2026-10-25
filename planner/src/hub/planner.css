@@ -116,3 +116,7 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .cc-plan .cc-epic { padding-top: 4px; padding-bottom: 4px; display: flex; align-items: center; overflow: hidden; } .cc-plan .cc-epic a { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; min-width: 0; }
 .cc-plan .cc-ec { display: flex; align-items: center; justify-content: center; color: var(--fg2); font-variant-numeric: tabular-nums; } .cc-plan .cc-tt:not(.grp):not(.sub) { font-weight: 500; }
 .cc-plan .car.shut { transform: rotate(-90deg); }
+.gb .gbl { margin-left: auto; padding-left: 10px; font-weight: 600; } .gb span:first-child + .gbl { margin-left: auto; }
+.tl-lane .gl { position: absolute; top: 9px; font-size: 11px; color: var(--fg2); white-space: nowrap; z-index: 2; }
+/* the toolbar must not clip the Filters drawer that opens below it */
+.cc-bar { overflow: visible; flex-wrap: wrap; } .cc-bar .grow { flex: 1 1 0; }

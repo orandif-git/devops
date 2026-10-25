@@ -133,6 +133,7 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
         <label className="field" style={{ width: 160 }}><span>Work item type</span><input value={s.workItemType} onChange={e => set({ workItemType: e.target.value })} /></label>
         <FieldPick label="Epic start-date field" value={s.epicStartField} fields={fields} accept={isDate} placeholder="Custom.StartDate" onChange={v => set({ epicStartField: v })} />
         <FieldPick label="Epic target-date field" value={s.epicTargetField} fields={fields} accept={isDate} placeholder="Custom.TargetDate" onChange={v => set({ epicTargetField: v })} />
+        <FieldPick label="Gantt: field shown at the end of each bar" value={s.ganttLabelField} fields={fields} accept={() => true} placeholder="Custom.DeliveryStatus" onChange={v => set({ ganttLabelField: v })} />
       </div>
       {fieldsMsg && <div className="muted">{fieldsMsg}</div>}
 

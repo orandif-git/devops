@@ -64,3 +64,6 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Expand all / Collapse all work; name and Total columns stay in view when scrolling sideways.
 - [ ] Group by Epic › Team › Person lists all Epics first (closed); opening an Epic shows its teams, then the people and their hours on that Epic.
 - [ ] Settings › Planner opens in / Group the plan by / Show figures as change what the Planner starts with.
+- [ ] Epic Gantt: an Epic in a state grouped under In Progress (e.g. Delivery Committed) is blue, Completed is green, Cancelled grey, and one past its target date (not completed) is red. The Gantt field set in Settings shows at the end of each bar.
+- [ ] A non-administrator sees only Planner (and Executive when enabled); Settings and Data & diagnostics are hidden.
+- [ ] The Filters button opens its drawer fully, also at the right edge of the page.

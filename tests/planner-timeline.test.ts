@@ -25,7 +25,12 @@ describe("timeline geometry", () => {
     expect(layoutTasks([], w)).toEqual({ placed: [], lanes: 1 });
   });
   it("groups Epic states into a few categories", () => {
-    expect(["New", "Active", "On Hold", "Closed", "Resolved", "In Progress", "Proposed", "Weird"].map(categoryOf)).toEqual(["new", "active", "hold", "done", "done", "active", "new", "other"]);
+    expect(["New", "Active", "On Hold", "Closed", "Resolved", "In Progress", "Proposed", "Weird"].map(x => categoryOf(x))).toEqual(["new", "active", "hold", "done", "done", "active", "new", "other"]);
+  });
+  it("keeps Delivery Committed active and Cancelled removed, and prefers the process state group", () => {
+    expect(["Delivery Committed", "Cancelled", "Completed", "Not Started", "Deferred"].map(x => categoryOf(x))).toEqual(["active", "removed", "done", "new", "hold"]);
+    const g = { "delivery committed": "inprogress", "on hold": "inprogress", cancelled: "removed", done: "complete", "not started": "proposed", weird: "inprogress" };
+    expect(["Delivery Committed", "On Hold", "Cancelled", "Done", "Not Started", "Weird"].map(x => categoryOf(x, g))).toEqual(["active", "hold", "removed", "done", "new", "active"]);
   });
 });
 

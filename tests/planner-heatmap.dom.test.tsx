@@ -98,8 +98,17 @@ describe("Epic Gantt tab", () => {
     const bars = host.querySelectorAll(".tl-lane .gb");
     expect(bars).toHaveLength(2);
     expect(host.textContent).toContain("1 · Credit score");
-    expect(host.querySelectorAll(".late.flag")).toHaveLength(1);                         // Migration ended in March and is still Active
-    click(bars[0]);
+    expect(bars[0].getAttribute("style")).toMatch(/rgb\(209, 52, 56\)|#d13438/);       // Migration ended in March and is still Active: red bar
+    expect(bars[1].getAttribute("style")).not.toMatch(/rgb\(209, 52, 56\)|#d13438/);
+    host.remove();
+    const h2 = document.createElement("div"); document.body.appendChild(h2);
+    const withField = { ...loaded, epics: loaded.epics.map(e => ({ ...e, extra: { "Custom.Status": "3. Design" } })) };
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, ganttLabelField: "Custom.Status" }} loaded={withField} months={year} filters={noFilters()} />, h2); });
+    expect(h2.textContent).toContain("3. Design");                                          // the field value at the end of the bar
+    h2.remove();
+    const host3 = document.createElement("div"); document.body.appendChild(host3);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={loaded} months={year} filters={noFilters()} />, host3); });
+    click(host3.querySelectorAll(".tl-lane .gb")[0]);
     await act(async () => { await Promise.resolve(); });
     expect(document.querySelector(".modal")!.textContent).toContain("Migration");   // rows run in start-date order
     click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent === "Close")!);

@@ -64,7 +64,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
   });
   return {
     version: 1,
-    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField),
+    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField),
     sources, estimateUnscheduled: r.estimateUnscheduled === undefined ? d.estimateUnscheduled : !!r.estimateUnscheduled,
     capacityTeams: teams(r.capacityTeams),
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },
@@ -79,7 +79,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
 /** Problems that stop the planner from working; an empty list means the settings can be used. */
 export function validateSettings(s: PlannerSettings): string[] {
   const e: string[] = [];
-  for (const [label, v] of [["Epic start-date field", s.epicStartField], ["Epic target-date field", s.epicTargetField]] as const) if (v && !FIELD.test(v)) e.push(`${label}: '${v}' is not a field reference name (for example Custom.StartDate).`);
+  for (const [label, v] of [["Epic start-date field", s.epicStartField], ["Epic target-date field", s.epicTargetField], ["Gantt label field", s.ganttLabelField]] as const) if (v && !FIELD.test(v)) e.push(`${label}: '${v}' is not a field reference name (for example Custom.StartDate).`);
   if (!s.sources.length) e.push("Add at least one grid that holds the hours (Hours sources).");
   const ids = new Set<string>();
   s.sources.forEach((g, i) => {

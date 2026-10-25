@@ -27,6 +27,8 @@ export interface PlannerSettings {
   /** Epic start / target date fields (any date field) */
   epicStartField: string;
   epicTargetField: string;
+  /** an Epic field (e.g. Delivery Status) whose value is written at the end of each Gantt bar; empty = none */
+  ganttLabelField: string;
   sources: GridSource[];
   /** when a scheduled row has no stored monthly hours, spread its effort over the weekdays between start and end (flagged as estimated) */
   estimateUnscheduled: boolean;
@@ -119,7 +121,7 @@ export const defaultExec = (): ExecSettings => ({
 });
 
 export const defaultSettings = (): PlannerSettings => ({
-  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
+  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
   period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat" }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 

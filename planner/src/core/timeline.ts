@@ -34,14 +34,27 @@ export function layoutTasks(tasks: Task[], w: { start: string; end: string; days
   return { placed, lanes: Math.max(1, laneEnd.length) };
 }
 
-export type Category = "new" | "active" | "hold" | "done" | "other";
-/** The state of an Epic as one of a few groups (state names differ between processes). */
-export function categoryOf(state: string): Category {
-  const s = state.toLowerCase();
-  if (/hold|block|paus|defer/.test(s)) return "hold";
-  if (/done|clos|resolv|complet|finish|deliver|cancel|remov/.test(s)) return "done";
-  if (/new|propos|to do|todo|backlog|plan|draft/.test(s)) return "new";
-  if (/activ|progress|commit|doing|develop|approv|running|open/.test(s)) return "active";
+export type Category = "new" | "active" | "hold" | "done" | "removed" | "other";
+/** The state's group in the process (lower-case state name -> "proposed" | "inprogress" | "resolved" | "complete" | "removed"). */
+export type StateGroups = Record<string, string>;
+/**
+ * The state of an Epic as one of a few groups. The process's own state group decides when it is known (so "Delivery Committed",
+ * which sits under In Progress, is active); otherwise the state name is matched by words (names differ between processes).
+ */
+export function categoryOf(state: string, groups: StateGroups = {}): Category {
+  const s = state.toLowerCase().trim();
+  const hold = /\b(hold|blocked?|paused?|deferred?)\b/.test(s);
+  switch (groups[s]) {
+    case "removed": return "removed";
+    case "complete": case "completed": case "resolved": return "done";
+    case "proposed": return "new";
+    case "inprogress": return hold ? "hold" : "active";
+  }
+  if (hold) return "hold";
+  if (/\b(cancel+ed|removed|rejected|obsolete|abandoned)\b/.test(s)) return "removed";
+  if (/\b(done|closed|completed?|resolved|finished|delivered)\b/.test(s)) return "done";
+  if (/\b(new|proposed|to do|todo|backlog|not started|draft)\b/.test(s)) return "new";
+  if (/activ|progress|commit|doing|develop|approv|running|open|plan/.test(s)) return "active";
   return "other";
 }
 
@@ -54,6 +67,8 @@ export interface GanttInput {
   inView: Set<number>;
   group: GroupBy;
   teamOf(person: string): string;
+  /** the process's state groups, when they could be read */
+  stateGroups?: StateGroups;
   today: string;
 }
 
@@ -81,12 +96,12 @@ export function buildGantt(i: GanttInput): { name: string; rows: GanttRow[] }[] 
     else if (!start) start = end; else if (!end) end = ms.length ? monthEnd(ms[ms.length - 1]) > start ? monthEnd(ms[ms.length - 1]) : start : start;
     if (end < start) end = start;
     if (end < w.start || start > w.end) continue;
-    const category = categoryOf(epic.state);
+    const category = categoryOf(epic.state, i.stateGroups);
     let group = "";
     if (i.group === "area") group = epic.areaPath.split("\\").pop() || epic.areaPath || "(no area)";
     else if (i.group === "state") group = epic.state || "(no state)";
     else if (i.group === "team") { const lead = Array.from(info.people).sort((a, b) => b[1] - a[1])[0]; group = (lead ? i.teamOf(lead[0]) : "") || "No team capacity entered"; }
-    rows.push({ epic, start, end, derived, category, late: category !== "done" && end < i.today, people: info.people.size, hours: Math.round(info.hours * 100) / 100, group });
+    rows.push({ epic, start, end, derived, category, late: category !== "done" && category !== "removed" && end < i.today, people: info.people.size, hours: Math.round(info.hours * 100) / 100, group });
   }
   const groups = new Map<string, GanttRow[]>();
   for (const r of rows) groups.set(r.group, [...(groups.get(r.group) ?? []), r]);

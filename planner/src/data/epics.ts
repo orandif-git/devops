@@ -18,7 +18,7 @@ const text = (v: unknown): string => (v && typeof v === "object" ? String((v as 
 /** Epic fields kept in `extra`: the filter fields plus what the Executive Dashboard reads (categories, go-live date, progress fields). */
 export function extraFields(s: PlannerSettings): string[] {
   const x = s.executive;
-  const f = [...s.extraFilterFields, ...x.categoryFields, x.goLiveField, ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
+  const f = [...s.extraFilterFields, s.ganttLabelField, ...x.categoryFields, x.goLiveField, ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
   return Array.from(new Set(f.filter((v): v is string => !!v)));
 }
 
