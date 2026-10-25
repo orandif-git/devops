@@ -28,7 +28,12 @@ export function GanttTab(p: { project: { id: string; name: string }; settings: P
   const groups = React.useMemo(() => buildGantt({ epics: L.epics, bookings: L.bookings, months: p.months, inView: epicsInView(L.epics, p.filters), group, teamOf: k => L.avail.team(k), today, stateGroups: L.stateGroups }), [L, p.months, p.filters, group, today]);
   const labelField = p.settings.ganttLabelField;
   const rows: Row[] = React.useMemo(() => groups.flatMap(g => [...(group === "none" ? [] : [{ kind: "group" as const, name: g.name, n: g.rows.length }]), ...g.rows.map(r => ({ kind: "epic" as const, r }))] as Row[]), [groups, group]);
-  const present = React.useMemo(() => Array.from(new Set(groups.flatMap(g => g.rows.map(r => r.category)))), [groups]);
+  /** the Epic states behind each bar colour, so the key names real states (not the colour groups) */
+  const key = React.useMemo(() => {
+    const m = new Map<Category, Set<string>>(); let late = false, est = false;
+    for (const r of groups.flatMap(g => g.rows)) { (m.get(r.category) ?? m.set(r.category, new Set()).get(r.category)!).add(r.epic.state || "(no state)"); late = late || r.late; est = est || r.derived; }
+    return { cats: Array.from(m, ([c, s]) => ({ c, states: Array.from(s).sort() })), late, est };
+  }, [groups]);
   const nowPct = today >= w.start && today <= w.end ? ((Date.parse(today) - Date.parse(w.start)) / 86400000) / w.days * 100 : undefined;
   const mm = p.months.length;
   const total = groups.reduce((a, g) => a + g.rows.length, 0);
@@ -45,7 +50,7 @@ export function GanttTab(p: { project: { id: string; name: string }; settings: P
         <button className="btn" onClick={exportCsv} disabled={!total}>Export CSV</button>
         <span className="muted">{total} Epics in this period</span>
       </div>
-      <div className="keyrow">{present.map(c => <span key={c}><i style={{ background: BAR_BG(c) }} />{LABEL[c]}</span>)}<span><i style={{ background: LATE }} />Late: target date passed, not done</span><span>dashed outline = dates taken from the hours (no start/target date)</span></div>
+      <div className="keyrow">{key.cats.map(k => <span key={k.c} title={LABEL[k.c]}><i style={{ background: BAR_BG(k.c) }} />{k.states.join(", ")}</span>)}{key.late && <span><i style={{ background: LATE }} />Late: target date passed, not completed</span>}{key.est && <span>dashed outline = dates taken from the hours (no start/target date)</span>}</div>
       {!settingsDates(p.settings) && <div className="muted">No Epic start or target date field is chosen in Settings, so bars use the months with hours.</div>}
       {!rows.length ? <div className="card muted">No Epics in this period match the filters.</div> : (
         <div className="card" style={{ padding: 0 }}>
