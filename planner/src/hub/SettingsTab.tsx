@@ -101,6 +101,7 @@ function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; project: string; 
 /** Everything the planner needs to know about your process, in one place. */
 export function SettingsTab(p: { projectId: string; projectName: string; value: PlannerSettings; saved: PlannerSettings; busy: boolean; msg: string; onChange(s: PlannerSettings): void; onSave(): void; onDiscard(): void }) {
   const s = p.value;
+  const [sub, setSub] = React.useState<"shared" | "planner" | "exec">("shared");
   const [teams, setTeams] = React.useState<TeamRef[]>([]);
   const [fields, setFields] = React.useState<FieldInfo[]>([]);
   const [fieldsMsg, setFieldsMsg] = React.useState("");
@@ -132,6 +133,10 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       </div>
       {errors.length > 0 && <ul className="err" style={{ margin: "4px 0 10px 18px" }}>{errors.map(e => <li key={e}>{e}</li>)}</ul>}
 
+      <div className="subtabs" role="tablist" aria-label="Settings sections">
+        {([["shared", "General"], ["planner", "Resource Planner"], ["exec", "Executive Dashboard"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={sub === k} className={"subtab" + (sub === k ? " on" : "")} onClick={() => setSub(k)}>{l}</button>)}
+      </div>
+      {sub === "shared" && <>
       <h3>Epics</h3>
       <div className="row">
         <label className="field" style={{ width: 160 }}><span>Work item type</span><input value={s.workItemType} onChange={e => set({ workItemType: e.target.value })} /></label>
@@ -141,6 +146,21 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       </div>
       {fieldsMsg && <div className="muted">{fieldsMsg}</div>}
 
+      <h3>Go-live history</h3>
+      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={s.history.enabled} onChange={e => set({ history: { ...s.history, enabled: e.target.checked } })} /> <b>Read the history of the go-live date</b> (the Epic target date and the go-live date field)</label>
+      <div className="help">Reads every change of those date fields from the work item history, so the Epic Gantt and the Executive Dashboard can mark where a date was originally and how often it moved. The first read goes through all revisions of your Epics and can take a while; afterwards only new revisions are read.</div>
+      {s.history.enabled && <div className="row">
+        <label className="field" style={{ width: 160 }}><span>“Recently” means (days)</span><input type="number" min={7} max={730} value={s.history.windowDays} onChange={e => set({ history: { ...s.history, windowDays: Number(e.target.value) } })} /></label>
+        <label className="field" style={{ width: 220 }}><span>Needs attention after this many recent moves</span><input type="number" min={1} max={20} value={s.history.movesAmber} onChange={e => set({ history: { ...s.history, movesAmber: Number(e.target.value) } })} /></label>
+        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }}><input type="checkbox" checked={s.history.affectStatus} onChange={e => set({ history: { ...s.history, affectStatus: e.target.checked } })} /> Let moves change an Epic’s status on the Executive Dashboard</label></div>}
+
+      <h3>Access and filters</h3>
+      <div className="help">Teams allowed to open the planner (none = every project member). This is a display rule, not access control.</div>
+      <Chips all={teams} value={s.accessTeams} onChange={v => set({ accessTeams: v })} />
+      <label className="field"><span>Extra Epic fields offered as filters (reference names, comma separated)</span>
+        <input defaultValue={s.extraFilterFields.join(", ")} onBlur={e => set({ extraFilterFields: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} /></label>
+      </>}
+      {sub === "planner" && <>
       <h3>Hours sources (grids)</h3>
       <div className="help">Add a grid and pick its data field: the planner reads a sample Epic and chooses the columns for you. Hours from all grids are added per person and month.</div>
       {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} fields={fields} project={p.projectName} type={s.workItemType} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
@@ -178,14 +198,6 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
           <select value={s.plan.units} onChange={e => set({ plan: { ...s.plan, units: e.target.value as PlannerSettings["plan"]["units"] } })}><option value="h">Hours</option><option value="p">% of capacity</option><option value="f">FTE</option></select></label>
       </div>
 
-      <h3>Go-live history</h3>
-      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={s.history.enabled} onChange={e => set({ history: { ...s.history, enabled: e.target.checked } })} /> <b>Read the history of the go-live date</b> (the Epic target date and the go-live date field)</label>
-      <div className="help">Reads every change of those date fields from the work item history, so the Epic Gantt and the Executive Dashboard can mark where a date was originally and how often it moved. The first read goes through all revisions of your Epics and can take a while; afterwards only new revisions are read.</div>
-      {s.history.enabled && <div className="row">
-        <label className="field" style={{ width: 160 }}><span>“Recently” means (days)</span><input type="number" min={7} max={730} value={s.history.windowDays} onChange={e => set({ history: { ...s.history, windowDays: Number(e.target.value) } })} /></label>
-        <label className="field" style={{ width: 220 }}><span>Needs attention after this many recent moves</span><input type="number" min={1} max={20} value={s.history.movesAmber} onChange={e => set({ history: { ...s.history, movesAmber: Number(e.target.value) } })} /></label>
-        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }}><input type="checkbox" checked={s.history.affectStatus} onChange={e => set({ history: { ...s.history, affectStatus: e.target.checked } })} /> Let moves change an Epic’s status on the Executive Dashboard</label></div>}
-
       <h3>Epic Gantt grouping</h3>
       <div className="help">Epic fields offered in the Epic Gantt “Group by” list besides Area, State and Team, for example Delivery Status or Business Unit. Epics with an empty value go to a “(none)” group.</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
@@ -198,13 +210,10 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       <div className="help">The statistics shown above the Epic Gantt by default. Each person can change them for their own saved views.</div>
       <div className="row" style={{ flexWrap: "wrap", gap: "4px 18px" }}>{TILES.map(t => <label key={t.id} title={t.hint} style={{ display: "flex", gap: 6 }}><input type="checkbox" checked={s.plan.ganttTiles.includes(t.id)} onChange={e => set({ plan: { ...s.plan, ganttTiles: e.target.checked ? TILES.map(x => x.id).filter(id => id === t.id || s.plan.ganttTiles.includes(id)) : s.plan.ganttTiles.filter(x => x !== t.id) } })} />{t.label}</label>)}</div>
 
+      </>}
+      {sub === "exec" && <>
       <ExecSettings s={s} fields={fields} project={p.projectName} onChange={p.onChange} />
-
-      <h3>Access and filters</h3>
-      <div className="help">Teams allowed to open the planner (none = every project member). This is a display rule, not access control.</div>
-      <Chips all={teams} value={s.accessTeams} onChange={v => set({ accessTeams: v })} />
-      <label className="field"><span>Extra Epic fields offered as filters (reference names, comma separated)</span>
-        <input defaultValue={s.extraFilterFields.join(", ")} onBlur={e => set({ extraFilterFields: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} /></label>
+      </>}
     </div>
   );
 }

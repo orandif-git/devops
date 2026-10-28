@@ -180,3 +180,9 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .modal .btn.primary { background: linear-gradient(135deg, #a8325c, #7a1a3c); color: #fff; border: 0; border-radius: 10px; box-shadow: 0 6px 14px rgba(122,26,60,.3); } .modal .btn { border-radius: 10px; }
 .tl-name .tl-t { display: flex; align-items: center; gap: 7px; min-width: 0; } .tl-name .tl-t a.lk { flex: 1; min-width: 0; } .tl-name .idc { margin-bottom: 0; flex: none; }
 .gantt-wrap .tl-lane .gl { top: auto; margin-top: 0; }
+
+/* Settings sub menu */
+.subtabs { display: flex; gap: 4px; margin: 10px 0 14px; padding: 3px; width: max-content; max-width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--card-shadow); }
+.subtab { border: 0; background: none; padding: 7px 16px; border-radius: 9px; color: var(--fg2); font-weight: 500; cursor: pointer; }
+.subtab:hover { color: var(--fg); } .subtab.on { color: #fff; background: linear-gradient(135deg, #a8325c, #7a1a3c); box-shadow: 0 4px 10px rgba(122,26,60,.3); }
+.subtab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
