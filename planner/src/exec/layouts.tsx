@@ -121,8 +121,8 @@ export function MapLayout({ lp }: { lp: LP }) {
   rows.forEach((r, ri) => { const rh = H * rowT[ri] / allT; let x = 0;
     r.forEach(g => { const gt = g.list.reduce((a, i) => a + wt(i), 0), gw = w * gt / rowT[ri];
       blocks.push(<div key={"c" + ri + g.g} className="ex-cat" style={{ left: x, top: y, width: gw, height: rh }}><div className="cl">{g.g} · {g.list.length}</div>{(() => { const cols = Math.max(1, Math.round(Math.sqrt(g.list.length * gw / Math.max(1, rh) / 1.6))), per = Math.ceil(g.list.length / cols); const out: React.ReactNode[] = []; let cx = 0;
-        for (let c = 0; c < cols; c++) { const part = g.list.slice(c * per, (c + 1) * per); if (!part.length) continue; const ct = part.reduce((a, i) => a + wt(i), 0), cw = gw * ct / gt; let cy = 16;
-          part.forEach(i => { const bh = Math.max(1, (rh - 16) * wt(i) / ct); out.push(<button key={i.id} type="button" className={"ex-blk " + i.status} style={{ left: cx, top: cy, width: cw, height: bh, background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · ${i.hours.toLocaleString()} h`}>{bh > 30 && cw > 70 ? <b>{i.title}</b> : null}{bh > 48 && cw > 90 ? <span>{i.r.pct ?? "–"}% · {i.state}</span> : null}</button>); cy += bh; }); cx += cw; } return out; })()}</div>); x += gw; });
+        for (let c = 0; c < cols; c++) { const part = g.list.slice(c * per, (c + 1) * per); if (!part.length) continue; const ct = part.reduce((a, i) => a + wt(i), 0), cw = gw * ct / gt; let cy = 22;
+          part.forEach(i => { const bh = Math.max(1, (rh - 22) * wt(i) / ct); out.push(<button key={i.id} type="button" className={"ex-blk " + i.status} style={{ left: cx, top: cy, width: cw, height: bh, background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · ${i.hours.toLocaleString()} h`}>{bh > 26 && cw > 64 ? <b>{i.title}</b> : null}{bh > 48 && cw > 90 ? <span>{i.r.pct ?? "–"}% · {i.state}</span> : null}</button>); cy += bh; }); cx += cw; } return out; })()}</div>); x += gw; });
     y += rh; });
   const attention = items.filter(i => i.status === "red" || i.status === "amber").sort((a, b) => (a.status === "red" ? 0 : 1) - (b.status === "red" ? 0 : 1) || b.r.slip - a.r.slip).slice(0, 12);
   return (
@@ -188,7 +188,7 @@ function Roadmap({ lp }: { lp: LP }) {
               {track(<div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: c[s], background: COLOR[s] }} />)}</div>)}</div>
             {isOpen && list.slice(0, lim).map(i => { const l = pos(i.r.start ?? i.r.goLive! - 90 * DAY), r = pos(i.r.goLive!), f = i.r.forecast, late = i.r.slip > 0 && i.status !== "done", b0 = lp.historyOn && i.hist && i.hist.baseline !== i.hist.current ? Date.parse(i.hist.baseline + "T00:00:00Z") : undefined;
               return <div className="lane" key={i.id}><div className="nm"><button className="lk" onClick={() => lp.open(i)}>{i.title}</button><small>{i.state}</small></div>
-                {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} /><span>{i.title}</span></button>
+                {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} /></button>
                   {late && f !== undefined && <div className="slipx" style={{ left: r + "%", width: Math.max(.4, pos(f) - r) + "%" }} title="Forecast slip" />}
                   {b0 !== undefined && <><div className={"mvline " + (b0 < i.r.goLive! ? "later" : "earlier")} style={{ left: Math.min(pos(b0), r) + "%", width: Math.max(.2, Math.abs(r - pos(b0))) + "%" }} /><div className="orig" style={{ left: `calc(${pos(b0)}% - 5px)` }} title={`Original go-live ${lp.day(b0)} · moved ${i.sum.moves}× (${signed(i.sum.net)} days)`} /></>}
                   {f !== undefined && i.status !== "done" && i.status !== "idle" && <div className="diam" style={{ left: `calc(${pos(f)}% - 6px)` }} title={`Forecast finish ${lp.day(f)}`} />}</>)}</div>; })}
@@ -196,7 +196,7 @@ function Roadmap({ lp }: { lp: LP }) {
           </React.Fragment>; })}
         <div className="today" style={{ left: `calc(220px + (100% - 220px) * ${pos(lp.today) / 100})` }}><span>Today</span></div>
       </div>
-      <div className="muted" style={{ padding: "6px 10px" }}>Bar = start to go-live, darker part = progress · hatched = forecast slip · ◆ = forecast finish{lp.historyOn ? " · ◇ and a line = where the go-live date was originally (red = moved later)" : ""}. Epics without a go-live date are not drawn.</div>
+      <div className="muted" style={{ padding: "6px 10px" }}>Collapsed row: the stripe is the group\u2019s status mix (not dates). Bar = start to go-live (hover or click for the title), darker part = progress · hatched = forecast slip · ◆ = forecast finish{lp.historyOn ? " · ◇ and a line = where the go-live date was originally (red = moved later)" : ""}. Epics without a go-live date are not drawn.</div>
     </section>
   );
 }

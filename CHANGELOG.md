@@ -1,6 +1,7 @@
 # Changelog
 
 ## Resource Planner & Heatmap (separate extension, `planner/`)
+- **Executive Dashboard for large portfolios**: Roadmap bars no longer carry the title (it is in the name column; hover or click for details), so the go-live markers stay readable; a caption explains that a collapsed row\u2019s stripe is the status mix, not dates; the Portfolio map has larger group and block labels. Scorecards stay.
 - **CBQ burgundy colours**: the purple/indigo accent and gradient are replaced by a burgundy palette (hero card, layout switch, buttons, selected filters, logo, Gantt statistics and go-live markers). Status colours (green, amber, red, grey, blue) are unchanged. The exact brand hex values can be swapped in one place if the bank's brand guide differs.
 - **Polished look, always light**: the Executive Dashboard (all three layouts), the Epic Gantt and the Epic dialog have a refined design (portfolio health gauge, status cards with trend lines and "vs last week" changes, rounded charts, sliding layout switch, id chips, skeleton loading). The extension no longer follows the Azure DevOps dark theme; it is light everywhere.
 - **Weekly snapshots**: the first person to open the dashboard each week stores the portfolio numbers (shared, refreshed at most every 12 hours, last 26 weeks) so trends and "vs last week" are real; the trend lines appear from the second week. Trends show only when no filter is narrowing the view.

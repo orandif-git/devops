@@ -100,3 +100,8 @@ span.ex-bar { height: 7px; border-radius: 99px; background: #e8ecf4; } span.ex-b
 .ex.dense .ex-kpi { padding: 9px 12px; } .ex.dense .ex-kpi .v { font-size: 24px; } .ex.dense .ex-card { padding: 9px 11px; } .ex.dense .ex-table td { padding: 5px 8px; } .ex.dense .ex-kpis, .ex.dense .ex-charts { gap: 9px; } .ex.dense .ex-road .lane .nm { padding-top: 3px; padding-bottom: 3px; }
 
 .ex-search { flex: 1 1 200px; min-width: 200px; max-width: 380px; } .ex-chip.sel select { max-width: 130px; } .ex-brand { margin-right: 0; }
+
+/* large-portfolio readability */
+.ex-cat .cl { font-size: 12px; font-weight: 700; right: 4px; overflow: hidden; text-overflow: ellipsis; color: var(--fg); top: 2px; left: 8px; }
+.ex-blk { font-size: 12px; } .ex-blk b { display: block; font-size: 12px; line-height: 1.25; } .ex-blk span { font-size: 11px; opacity: .92; }
+.ex-road .gb { cursor: pointer; } .ex-road .gb:hover { filter: brightness(1.08); }
