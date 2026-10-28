@@ -110,6 +110,7 @@ export function ExecDashboard(p: {
       </div>
       {(chips.length > 0 || !isEmpty(fx)) && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="ex-fchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={() => { setF(emptyXF()); setSavedId(""); }}>Clear all</button>}<span className="muted">{items.length} of {all.length} Epics</span></div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
+      {historyOn && L.history && !all.some(i => i.sum.moves > 0) && <div className="muted" style={{ marginBottom: 6 }} role="status">No go-live date change is recorded in the field "{goLiveField}" that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads "${p.settings.epicTargetField}"` : ""}. Check Settings › Executive dashboard › Go-live date field.</div>}
       {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive} Epic(s) have no go-live date{built.noProgress ? `; ${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only` : ""}.</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
