@@ -5,6 +5,7 @@ import { barOf, buildGantt, Category, GanttRow, GroupBy, windowOf } from "../cor
 import { epicTiles, passes, TILES } from "../core/epicStats";
 import { progressOf } from "../core/progress";
 import { dimLabel } from "../core/executive";
+import { daysBetween, signed } from "../core/history";
 import { fmtDate } from "../core/dates";
 import { IconDownload, IconStats } from "./icons";
 import { PlannerSettings } from "../core/types";
@@ -93,6 +94,7 @@ export function GanttTab(p: {
             overlay={nowPct !== undefined ? <div className="today" style={{ left: `calc(200px + (100% - 200px) * ${nowPct / 100})` }}><span>Today</span></div> : undefined}
             render={r => r.kind === "group" ? <div className="tl-grp">{r.name} <span className="muted">({r.n})</span></div> : (() => {
               const g = r.r; const b = barOf(g.start, g.end, w)!;
+              const hh = p.settings.history.enabled ? L.history?.[p.settings.epicTargetField]?.[g.epic.id] : undefined, moved = !!hh && hh.baseline !== hh.current, bo = moved ? barOf(hh!.baseline, hh!.baseline, w) : null;
               const label = labelField ? (g.epic.extra[labelField] ?? "") : "", inside = b.left + b.width > 78;
               return (
                 <div className="tl-row">
@@ -100,8 +102,9 @@ export function GanttTab(p: {
                   <div className="tl-lane" style={{ backgroundSize: `calc(100% / ${mm}) 100%` }}>
                     <div className={"gb" + (g.derived ? " est" : "")} tabIndex={0} role="button" aria-label={`Epic ${g.epic.id}, ${fmtDate(p.settings, g.start)} to ${fmtDate(p.settings, g.end)}`} style={{ left: b.left + "%", width: b.width + "%", top: 7, background: g.late ? LATE : BAR_BG(g.category), borderRadius: `${b.clippedStart ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedStart ? 0 : 4}px` }}
                       onClick={() => setDialog(g.epic.id)} onKeyDown={ev => { if (ev.key === "Enter") setDialog(g.epic.id); }}
-                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${g.epic.id} · ${g.epic.title}`, lines: [`${g.epic.state} · ${g.epic.areaPath}`, `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}${g.derived ? " (from the hours)" : ""}`, `${g.people} people · ${g.hours} h in the period`, g.late ? "Late: target date has passed" : "", label ? `${labelField.split(".").pop()}: ${label}` : ""].filter(Boolean) })}
+                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${g.epic.id} · ${g.epic.title}`, lines: [`${g.epic.state} · ${g.epic.areaPath}`, `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}${g.derived ? " (from the hours)" : ""}`, `${g.people} people · ${g.hours} h in the period`, g.late ? "Late: target date has passed" : "", label ? `${labelField.split(".").pop()}: ${label}` : "", hh && hh.changes.length ? `Target date moved ${hh.changes.length}× (${signed(daysBetween(hh.baseline, hh.current))} days); originally ${fmtDate(p.settings, hh.baseline)}` : ""].filter(Boolean) })}
                       onPointerLeave={() => setTip(undefined)}>{b.width > (p.settings.dateFormat ? 16 : 9) ? <span>{p.settings.dateFormat ? `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}` : `${g.start.slice(5)} → ${g.end.slice(5)}`}</span> : null}{label && inside && <span className="gbl">{label}</span>}</div>
+                    {moved && bo && <><div className={"gline " + (hh!.baseline < hh!.current ? "later" : "earlier")} style={{ left: Math.min(bo.left, b.left + b.width) + "%", width: Math.max(.2, Math.abs(b.left + b.width - bo.left)) + "%" }} /><div className="gorig" style={{ left: `calc(${bo.left}% - 5px)` }} title={`Original target date ${fmtDate(p.settings, hh!.baseline)}`} /></>}
                     {label && !inside && <span className="gl" style={{ left: `calc(${b.left + b.width}% + 6px)` }}>{label}</span>}
                   </div>
                 </div>);

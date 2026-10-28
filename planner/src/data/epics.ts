@@ -6,7 +6,7 @@ import { restPost } from "../rest";
 import { cacheGet, cacheSet } from "./idb";
 import { runSavedQuery } from "./queries";
 
-export interface LoadProgress { phase: "query" | "check" | "read"; done: number; total: number }
+export interface LoadProgress { phase: "query" | "check" | "read" | "history"; done: number; total: number }
 export interface LoadResult { epics: EpicRecord[]; ids: number; fetched: number; fromCache: number; failed: number; ms: number; syncedAt: string; usedCache: boolean }
 interface CacheEntry { syncedAt: string; epics: EpicRecord[] }
 interface BatchItem { id: number; fields: Record<string, unknown> }

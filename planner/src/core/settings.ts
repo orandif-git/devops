@@ -28,6 +28,12 @@ export function normalizeFormulas(raw: unknown): ExecFormula[] {
   });
 }
 
+const normHistory = (raw: unknown): PlannerSettings["history"] => {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultSettings().history;
+  const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
+  return { enabled: r.enabled === true, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false };
+};
+
 export function normalizeExec(raw: unknown): ExecSettings {
   const d = defaultExec();
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -66,7 +72,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
   });
   return {
     version: 1,
-    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField), ganttGroupFields: list(r.ganttGroupFields), dateFormat: isDateFormat(str(r.dateFormat)) ? str(r.dateFormat) : "", monthFormat: isDateFormat(str(r.monthFormat)) ? str(r.monthFormat) : "",
+    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField), ganttGroupFields: list(r.ganttGroupFields), history: normHistory(r.history), dateFormat: isDateFormat(str(r.dateFormat)) ? str(r.dateFormat) : "", monthFormat: isDateFormat(str(r.monthFormat)) ? str(r.monthFormat) : "",
     sources, estimateUnscheduled: r.estimateUnscheduled === undefined ? d.estimateUnscheduled : !!r.estimateUnscheduled,
     capacityTeams: teams(r.capacityTeams),
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },

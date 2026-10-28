@@ -1,4 +1,5 @@
 import { loadStateGroups } from "./stateGroups";
+import { HistoryMap, loadHistory } from "./history";
 import { StateGroups } from "../core/timeline";
 import { aggregate } from "../core/aggregate";
 import { parseSource, sumStats } from "../core/parseGrid";
@@ -20,6 +21,10 @@ export interface Loaded {
   avail: Availability;
   /** state group of each Epic state in the process (empty when it could not be read) */
   stateGroups?: StateGroups;
+  /** history of the go-live and target date fields (when switched on in the settings) */
+  history?: HistoryMap;
+  /** why the history could not be read */
+  historyError?: string;
   ms: number;
   at: string;
 }
@@ -41,7 +46,10 @@ export async function loadAll(project: { id: string; name: string }, s: PlannerS
     perStats.push(r.stats); bookings.push(...r.bookings); tasks.push(...r.tasks); perSource[i].epics++; perSource[i].rows += r.stats.rows;
   });
   const [avail, stateGroups] = await Promise.all([loadAvailability(s.capacityTeams, opts.force), loadStateGroups(project.name, s.workItemType)]);
-  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, ms: Date.now() - t0, at: new Date().toISOString() };
+  let history: HistoryMap | undefined, historyError: string | undefined;
+  const hf = Array.from(new Set([s.epicTargetField, s.executive.goLiveField].filter(Boolean)));
+  if (s.history.enabled && hf.length) { try { history = await loadHistory(project, s.workItemType, hf, { force: opts.force, progress: opts.progress }); } catch (e) { historyError = (e as Error).message; } }
+  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, history, historyError, ms: Date.now() - t0, at: new Date().toISOString() };
 }
 
 export const monthsFor = (s: PlannerSettings) => monthsOfPeriod(s.period);

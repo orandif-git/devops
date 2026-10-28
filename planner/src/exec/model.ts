@@ -1,12 +1,15 @@
 import { fmtDate } from "../core/dates";
 import { dimFields, dimLabel, ExecEpic, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
+import { Hist, movedTags, Summary, summarize } from "../core/history";
 import { Loaded } from "../data/loadAll";
 
 /** One Epic as the dashboard shows it: the assessed row plus what the slicers and the search need. */
 export interface Item {
   r: ExecEpic; id: number; title: string; state: string; status: ExecStatus;
   team: string; quarter: string; hours: number;
+  /** the history of the go-live date (when it was read), what it says, and the words it can be filtered by */
+  hist?: Hist; sum: Summary; moved: string[];
   /** lower-case text the search looks in: id, title, state, area, categories, reasons, people, dates, team */
   text: string;
 }
@@ -19,7 +22,8 @@ export const sortQuarters = (qs: string[]) => [...qs].sort((a, b) => qKey(a).loc
 const iso = (t?: number) => (t === undefined ? "" : new Date(t).toISOString().slice(0, 10));
 
 /** Hours booked, the team with most hours, and the searchable text of each Epic. */
-export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings): Item[] {
+export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings, today = Date.now()): Item[] {
+  const hmap = L.history?.[s.executive.goLiveField || s.epicTargetField];
   const by = new Map<number, { hours: number; people: Set<string>; teams: Map<string, number> }>();
   for (const b of L.bookings) {
     const e = by.get(b.epicId) ?? { hours: 0, people: new Set<string>(), teams: new Map<string, number>() };
@@ -27,17 +31,18 @@ export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings): Ite
     by.set(b.epicId, e);
   }
   return rows.map(r => {
+    const hist = hmap?.[r.epic.id], sum = summarize(hist, today, s.history.windowDays), moved = movedTags(sum);
     const e = by.get(r.epic.id), team = e ? Array.from(e.teams).sort((a, b) => b[1] - a[1])[0][0] : NO_VALUE;
-    const text = [r.epic.id, r.epic.title, r.epic.state, r.epic.areaPath, ...Object.values(r.dims), ...r.reasons, STATUS_NAME[r.status], team, quarterOf(r.goLive), iso(r.goLive), fmtDate(s, iso(r.goLive)), iso(r.forecast), ...(e ? Array.from(e.people) : [])].join(" | ").toLowerCase();
-    return { r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, text };
+    const text = [r.epic.id, r.epic.title, r.epic.state, r.epic.areaPath, ...Object.values(r.dims), ...r.reasons, STATUS_NAME[r.status], team, quarterOf(r.goLive), iso(r.goLive), fmtDate(s, iso(r.goLive)), iso(r.forecast), ...(e ? Array.from(e.people) : []), ...(hist ? moved : [])].join(" | ").toLowerCase();
+    return { r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, text, hist, sum, moved };
   });
 }
 
 /** What the person has chosen. Within one slicer the choices add up (or); different slicers narrow each other (and). */
-export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
-export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], dims: {}, text: "" });
-export const isEmpty = (f: XF) => !f.status.length && !f.state.length && !f.team.length && !f.quarter.length && !Object.values(f.dims).some(v => v.length) && !f.text && !f.saved;
-export type Skip = "status" | "state" | "team" | "quarter" | { dim: string };
+export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
+export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], moved: [], dims: {}, text: "" });
+export const isEmpty = (f: XF) => !f.status.length && !f.state.length && !f.team.length && !f.quarter.length && !f.moved.length && !Object.values(f.dims).some(v => v.length) && !f.text && !f.saved;
+export type Skip = "status" | "state" | "team" | "quarter" | "moved" | { dim: string };
 
 export function pass(i: Item, f: XF, skip?: Skip): boolean {
   const k = typeof skip === "string" ? skip : undefined, d = typeof skip === "object" ? skip.dim : undefined;
@@ -45,6 +50,7 @@ export function pass(i: Item, f: XF, skip?: Skip): boolean {
   if (k !== "state" && f.state.length && !f.state.includes(i.state)) return false;
   if (k !== "team" && f.team.length && !f.team.includes(i.team)) return false;
   if (k !== "quarter" && f.quarter.length && !f.quarter.includes(i.quarter)) return false;
+  if (k !== "moved" && f.moved.length && !i.moved.some(t => f.moved.includes(t))) return false;
   for (const [dim, vals] of Object.entries(f.dims)) if (dim !== d && vals.length && !vals.includes(i.r.dims[dim])) return false;
   if (f.saved && !f.saved.includes(i.id)) return false;
   if (f.text) for (const w of f.text.toLowerCase().split(/\s+/).filter(Boolean)) if (!i.text.includes(w)) return false;
@@ -64,6 +70,7 @@ export function chipsOf(f: XF, change: (n: XF) => void): { label: string; clear(
   Object.entries(f.dims).forEach(([k, vs]) => vs.forEach(v => out.push({ label: `${dimLabel(k)}: ${v}`, clear: () => change({ ...f, dims: { ...f.dims, [k]: vs.filter(x => x !== v) } }) })));
   f.team.forEach(s => out.push({ label: "Team: " + s, clear: () => change({ ...f, team: f.team.filter(x => x !== s) }) }));
   f.quarter.forEach(s => out.push({ label: "Go-live: " + s, clear: () => change({ ...f, quarter: f.quarter.filter(x => x !== s) }) }));
+  f.moved.forEach(s => out.push({ label: "Go-live: " + s.toLowerCase(), clear: () => change({ ...f, moved: f.moved.filter(x => x !== s) }) }));
   if (f.saved) out.push({ label: "Saved filter: " + (f.savedName ?? ""), clear: () => change({ ...f, saved: undefined, savedName: undefined }) });
   if (f.text) out.push({ label: `Search: “${f.text}”`, clear: () => change({ ...f, text: "" }) });
   return out;

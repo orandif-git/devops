@@ -1,6 +1,7 @@
 import { AvailabilityLike, buildPeople, cellOf, noFilters } from "./model";
 import { GridDone, progressOf } from "./progress";
 import { Booking, EpicRecord, PlannerSettings } from "./types";
+import { Hist, signed, summarize } from "./history";
 
 export type ExecStatus = "green" | "amber" | "red" | "idle" | "unknown" | "done";
 export const STATUS_NAME: Record<ExecStatus, string> = { green: "On track", amber: "Needs attention", red: "At risk", idle: "Not started", unknown: "Not assessed", done: "Done" };
@@ -42,7 +43,7 @@ export const dayText = (t: number) => new Date(t).toLocaleDateString("en-GB", { 
 export interface ExecResult { rows: ExecEpic[]; ignored: number; noGoLive: number; noProgress: number }
 
 /** Status, forecast and confidence of every Epic, from its dates, state, progress and the people booked over capacity. Pure: `today` is a parameter. */
-export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date }): ExecResult {
+export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date; /** the go-live date history of each Epic, when it was read */ history?: Record<number, Hist> }): ExecResult {
   const s = p.settings, x = s.executive;
   const today = Date.UTC((p.today ?? new Date()).getUTCFullYear(), (p.today ?? new Date()).getUTCMonth(), (p.today ?? new Date()).getUTCDate());
   const month = new Date(today).toISOString().slice(0, 7);
@@ -80,6 +81,8 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     else if (!row.late && row.slip > x.slipAmberDays) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live`); }
     if (!row.late && gap > x.gapRedPts) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used`); }
     else if (!row.late && gap > x.gapAmberPts) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used`); }
+    const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
+    if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }
     if (row.over.length) { score = Math.max(score, 1); reasons.push(`${row.over.length} ${row.over.length > 1 ? "people are" : "person is"} booked over capacity on this Epic this month`); }
     if (prog === undefined && !row.late && !row.hold) { row.status = "unknown"; reasons.unshift("No progress value, so only the dates can be checked"); if (!row.over.length) { rows.push(row); continue; } }
     row.status = score === 2 ? "red" : score === 1 ? "amber" : prog === undefined ? "unknown" : "green";

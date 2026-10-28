@@ -132,6 +132,20 @@ describe("Executive dashboard page", () => {
     act(() => { Simulate.change(Array.from(h.querySelectorAll(".ex-pop input[type=checkbox]"))[0], { target: { checked: true } } as never); });
     expect(h.querySelector(".ex-chips")!.textContent).toContain("Type:"); expect(rows(h)).toBeLessThan(8);
   });
+  it("shows go-live moves: a slicer, a column and a card, and filters to the Epics that moved", () => {
+    const st = normalizeSettings({ ...settings, history: { enabled: true, windowDays: 3650, movesAmber: 5, affectStatus: false } });
+    const hist = { 1: { baseline: "2026-09-01", current: "2026-12-18", rev: 3, changes: [{ at: "2026-05-01T00:00:00Z", by: "Ann", from: "2026-09-01", to: "2026-11-01" }, { at: "2026-06-01T00:00:00Z", by: "Bo", from: "2026-11-01", to: "2026-12-18" }] } };
+    const data = { ...(loaded as object), history: { "Custom.GoLive": hist } } as never;
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={data} busy={false} error="" onReload={() => undefined} />, h); });
+    expect(Array.from(h.querySelectorAll(".ex-table th")).map(x => x.textContent)).toContain("Go-live changes");
+    expect(h.querySelector(".ex-table")!.textContent).toContain("2×");
+    const card = Array.from(h.querySelectorAll(".ex-kpi")).find(b => b.textContent!.includes("Go-live moved"))!; expect(card.querySelector(".v")!.textContent).toBe("1");
+    act(() => { Simulate.click(card); });
+    expect(rows(h)).toBe(1); expect(h.querySelector(".ex-chips")!.textContent).toContain("moved recently");
+    act(() => { Simulate.click(h.querySelector("tr.ex-row")!); });
+    expect(h.querySelector(".ex-hist")!.textContent).toContain("original date"); expect(h.querySelector(".ex-hist")!.textContent).toContain("Bo");
+  });
   it("saves a personal view, applies a saved filter from the settings and shows calculated fields as columns", async () => {
     const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q1", name: "Regulatory only", show: "epics", month: "current", columns: [], conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }] }] } });
     const h = mount(st);

@@ -1,6 +1,7 @@
 import * as React from "react";
 import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
+import { MOVED, signed } from "../core/history";
 import { byStatus, countBy, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Donut, ProgressBar, Slicer, StackedBars, StatusPill, Sw, pct } from "./parts";
 
@@ -8,6 +9,8 @@ export interface ExtraCol { key: string; label: string; get(i: Item): string }
 export interface LP {
   all: Item[]; items: Item[]; f: XF; setF(f: XF): void; fields: string[]; settings: PlannerSettings;
   open(i: Item): void; day(t?: number): string; extra: ExtraCol[]; today: number;
+  /** the history of the go-live date was read: show moves, marks and the slicer */
+  historyOn: boolean;
 }
 const DAY = 86400000;
 
@@ -18,6 +21,10 @@ export function optionsOf(lp: LP, skip: Skip, key: (i: Item) => string, order?: 
   const list = Array.from(vals);
   return (order ? order(list) : list.sort((a, b) => (a === NO_VALUE ? 1 : 0) - (b === NO_VALUE ? 1 : 0) || a.localeCompare(b))).map(value => ({ value, count: m.get(value) ?? 0 }));
 }
+
+const MOVED_ORDER = [MOVED.recent, MOVED.later, MOVED.earlier, MOVED.often, MOVED.same, MOVED.none] as string[];
+/** The "go-live changes" words with the count each would give; an Epic can carry several. */
+export function movedOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "moved")); return MOVED_ORDER.map(value => ({ value, count: base.filter(i => i.moved.includes(value)).length })).filter(o => o.count > 0 || lp.f.moved.includes(o.value)); }
 
 /** All the slicers as pop-up lists (Report and Roadmap layouts). */
 export function Slicers(lp: LP) {
@@ -30,6 +37,7 @@ export function Slicers(lp: LP) {
       {lp.fields.map(d => <Slicer key={d} label={dimLabel(d)} options={optionsOf(lp, { dim: d }, i => i.r.dims[d])} selected={f.dims[d] ?? []} onChange={v => setF({ ...f, dims: { ...f.dims, [d]: v } })} />)}
       <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />
       <Slicer label="Go-live" options={optionsOf(lp, "quarter", i => i.quarter, sortQuarters)} selected={f.quarter} onChange={v => setF({ ...f, quarter: v })} />
+      {lp.historyOn && <Slicer label="Go-live changes" options={movedOptions(lp)} selected={f.moved} onChange={v => setF({ ...f, moved: v })} />}
     </div>
   );
 }
@@ -43,6 +51,7 @@ function KpiRow({ lp }: { lp: LP }) {
   return (
     <div className="ex-kpis">
       <Kpi label="Portfolio" value={base.length} detail={`${c.idle} not started · ${c.unknown} not assessed`} onClick={() => lp.setF({ ...lp.f, status: [] })} />
+      {lp.historyOn && <Kpi c="#7a5af8" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
       {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })} />)}
     </div>
   );
@@ -53,15 +62,15 @@ type SortKey = "status" | "title" | "dim" | "state" | "pct" | "goLive" | "foreca
 export function ItemsTable({ lp, items, limit = 100 }: { lp: LP; items: Item[]; limit?: number }) {
   const [sort, setSort] = React.useState<{ k: SortKey; d: number }>({ k: "status", d: 1 }), [more, setMore] = React.useState(limit);
   const order = { red: 0, amber: 1, green: 2, unknown: 3, idle: 4, done: 5 };
-  const val = (i: Item, k: SortKey): number | string => k === "status" ? order[i.status] * 1e6 - i.r.slip : k === "title" ? i.title : k === "state" ? i.state : k === "dim" ? i.r.dims[lp.fields[0]] : k === "pct" ? i.r.pct ?? -1 : k === "goLive" ? i.r.goLive ?? 9e15 : k === "forecast" ? i.r.forecast ?? 9e15 : k === "conf" ? i.r.conf ?? -1 : lp.extra.find(c => c.key === k)?.get(i) ?? "";
+  const val = (i: Item, k: SortKey): number | string => k === "status" ? order[i.status] * 1e6 - i.r.slip : k === "title" ? i.title : k === "state" ? i.state : k === "dim" ? i.r.dims[lp.fields[0]] : k === "pct" ? i.r.pct ?? -1 : k === "goLive" ? i.r.goLive ?? 9e15 : k === "forecast" ? i.r.forecast ?? 9e15 : k === "conf" ? i.r.conf ?? -1 : k === "moves" ? i.sum.moves : lp.extra.find(c => c.key === k)?.get(i) ?? "";
   const rows = React.useMemo(() => [...items].sort((a, b) => { const x = val(a, sort.k), y = val(b, sort.k); return ((x > y ? 1 : x < y ? -1 : 0) || a.title.localeCompare(b.title)) * sort.d; }), [items, sort]);   // eslint-disable-line react-hooks/exhaustive-deps
   const th = (k: SortKey, label: string) => <th key={k} aria-sort={sort.k === k ? (sort.d > 0 ? "ascending" : "descending") : "none"}><button className="lk" onClick={() => setSort({ k, d: sort.k === k ? -sort.d : 1 })}>{label}{sort.k === k ? (sort.d > 0 ? " ▲" : " ▼") : ""}</button></th>;
   return (
-    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{th("status", "Status")}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
+    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{th("status", "Status")}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{lp.historyOn && th("moves", "Go-live changes")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
       <tbody>{rows.slice(0, more).map(i => <tr key={i.id} className="ex-row" tabIndex={0} onClick={() => lp.open(i)} onKeyDown={e => { if (e.key === "Enter") lp.open(i); }}>
         <td><StatusPill s={i.status} /></td><td><b>{i.title}</b><div className="muted">{i.id}</div></td><td>{i.r.dims[lp.fields[0]]}</td><td>{i.state}</td>
         <td><ProgressBar i={i} /> <span>{i.r.pct === undefined ? "–" : i.r.pct + "%"}</span></td><td>{lp.day(i.r.goLive)}</td>
-        <td>{i.status === "done" ? "–" : lp.day(i.r.forecast)}{i.r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{i.r.slip}d</span>}</td><td>{i.r.conf === null ? "–" : i.r.conf + "%"}</td><td className="muted">{i.r.reasons[0]}</td>{lp.extra.map(c => <td key={c.key}>{c.get(i)}</td>)}</tr>)}</tbody></table>
+        <td>{i.status === "done" ? "–" : lp.day(i.r.forecast)}{i.r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{i.r.slip}d</span>}</td>{lp.historyOn && <td title={i.hist ? `Original ${lp.day(Date.parse(i.hist.baseline + "T00:00:00Z"))}` : undefined}>{i.sum.moves ? <><b>{i.sum.moves}×</b> <span className={i.sum.net > 0 ? "ex-slip" : "ex-good"}>{signed(i.sum.net)}d</span></> : "–"}</td>}<td>{i.r.conf === null ? "–" : i.r.conf + "%"}</td><td className="muted">{i.r.reasons[0]}</td>{lp.extra.map(c => <td key={c.key}>{c.get(i)}</td>)}</tr>)}</tbody></table>
       {rows.length > more && <div style={{ padding: 10 }}><button className="btn" onClick={() => setMore(more + 100)}>Show {Math.min(100, rows.length - more)} more ({rows.length - more} left)</button></div>}
       {!rows.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div>
   );
@@ -116,6 +125,7 @@ export function MapLayout({ lp }: { lp: LP }) {
         {lp.fields.map(d => rail(dimLabel(d), optionsOf(lp, { dim: d }, i => i.r.dims[d]), f.dims[d] ?? [], v => setF({ ...f, dims: { ...f.dims, [d]: v } })))}
         {rail("Team", optionsOf(lp, "team", i => i.team), f.team, v => setF({ ...f, team: v }))}
         {rail("Go-live", optionsOf(lp, "quarter", i => i.quarter, sortQuarters), f.quarter, v => setF({ ...f, quarter: v }))}
+        {lp.historyOn && rail("Go-live changes", movedOptions(lp), f.moved, v => setF({ ...f, moved: v }))}
       </aside>
       <div className="ex-mapmain"><KpiRow lp={lp} />
         <div className="ex-mapcols">
@@ -168,16 +178,17 @@ function Roadmap({ lp }: { lp: LP }) {
           return <React.Fragment key={g}>
             <div className="lane cat"><button className="nm" aria-expanded={isOpen} onClick={() => setOpen(toggle(open, g))}><span aria-hidden="true">{isOpen ? "▾" : "▸"}</span> <b>{g}</b><small>{list.length} Epics · {c.red} at risk</small></button>
               {track(<div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: c[s], background: COLOR[s] }} />)}</div>)}</div>
-            {isOpen && list.slice(0, lim).map(i => { const l = pos(i.r.start ?? i.r.goLive! - 90 * DAY), r = pos(i.r.goLive!), f = i.r.forecast, late = i.r.slip > 0 && i.status !== "done";
+            {isOpen && list.slice(0, lim).map(i => { const l = pos(i.r.start ?? i.r.goLive! - 90 * DAY), r = pos(i.r.goLive!), f = i.r.forecast, late = i.r.slip > 0 && i.status !== "done", b0 = lp.historyOn && i.hist && i.hist.baseline !== i.hist.current ? Date.parse(i.hist.baseline + "T00:00:00Z") : undefined;
               return <div className="lane" key={i.id}><div className="nm"><button className="lk" onClick={() => lp.open(i)}>{i.title}</button><small>{i.state}</small></div>
                 {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} /><span>{i.title}</span></button>
                   {late && f !== undefined && <div className="slipx" style={{ left: r + "%", width: Math.max(.4, pos(f) - r) + "%" }} title="Forecast slip" />}
+                  {b0 !== undefined && <><div className={"mvline " + (b0 < i.r.goLive! ? "later" : "earlier")} style={{ left: Math.min(pos(b0), r) + "%", width: Math.max(.2, Math.abs(r - pos(b0))) + "%" }} /><div className="orig" style={{ left: `calc(${pos(b0)}% - 5px)` }} title={`Original go-live ${lp.day(b0)} · moved ${i.sum.moves}× (${signed(i.sum.net)} days)`} /></>}
                   {f !== undefined && i.status !== "done" && i.status !== "idle" && <div className="diam" style={{ left: `calc(${pos(f)}% - 6px)` }} title={`Forecast finish ${lp.day(f)}`} />}</>)}</div>; })}
             {isOpen && list.length > lim && <div className="lane"><div className="nm"><button className="lk" onClick={() => setLimit({ ...limit, [g]: lim + 40 })}>Show 40 more ({list.length - lim} left)</button></div>{track(null)}</div>}
           </React.Fragment>; })}
         <div className="today" style={{ left: `calc(220px + (100% - 220px) * ${pos(lp.today) / 100})` }}><span>Today</span></div>
       </div>
-      <div className="muted" style={{ padding: "6px 10px" }}>Bar = start to go-live, darker part = progress · hatched = forecast slip · ◆ = forecast finish. Epics without a go-live date are not drawn.</div>
+      <div className="muted" style={{ padding: "6px 10px" }}>Bar = start to go-live, darker part = progress · hatched = forecast slip · ◆ = forecast finish{lp.historyOn ? " · ◇ and a line = where the go-live date was originally (red = moved later)" : ""}. Epics without a go-live date are not drawn.</div>
     </section>
   );
 }

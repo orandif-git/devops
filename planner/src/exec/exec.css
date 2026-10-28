@@ -52,3 +52,10 @@ span.ex-bar { display: inline-block; vertical-align: middle; width: 110px; heigh
 .ex-why { margin: 0 0 6px 18px; padding: 0; } .ex-kv { display: grid; grid-template-columns: 110px 1fr; gap: 6px 10px; margin: 12px 0; } .ex-kv dt { color: var(--fg2); } .ex-kv dd { margin: 0; }
 @media (max-width: 1100px) { .ex-kpis { grid-template-columns: repeat(3, 1fr); } .ex-charts { grid-template-columns: 1fr; } .ex-maplayout { grid-template-columns: 1fr; } .ex-rail { position: static; max-height: none; } .ex-mapcols { grid-template-columns: 1fr; } }
 .ex-drawer .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+.ex-good { color: var(--st-green); font-weight: 600; }
+.ex-kpis { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.ex-road .orig { position: absolute; top: 10px; width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #7a5af8; background: var(--bg); z-index: 1; }
+.ex-road .mvline { position: absolute; top: 16px; height: 3px; border-radius: 2px; z-index: 0; } .ex-road .mvline.later { background: var(--st-red); } .ex-road .mvline.earlier { background: var(--st-green); }
+.ex-hist h4 { margin: 14px 0 6px; } .ex-hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .ex-hist li { padding: 3px 0 3px 12px; position: relative; } .ex-hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a5af8; } .ex-hist li.later::before { background: var(--st-red); } .ex-hist li.earlier::before { background: var(--st-green); }
+.ex-road .mvline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); z-index: 1; } .tl-lane .gline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); }

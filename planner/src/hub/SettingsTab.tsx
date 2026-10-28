@@ -178,6 +178,14 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
           <select value={s.plan.units} onChange={e => set({ plan: { ...s.plan, units: e.target.value as PlannerSettings["plan"]["units"] } })}><option value="h">Hours</option><option value="p">% of capacity</option><option value="f">FTE</option></select></label>
       </div>
 
+      <h3>Go-live history</h3>
+      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={s.history.enabled} onChange={e => set({ history: { ...s.history, enabled: e.target.checked } })} /> <b>Read the history of the go-live date</b> (the Epic target date and the go-live date field)</label>
+      <div className="help">Reads every change of those date fields from the work item history, so the Epic Gantt and the Executive Dashboard can mark where a date was originally and how often it moved. The first read goes through all revisions of your Epics and can take a while; afterwards only new revisions are read.</div>
+      {s.history.enabled && <div className="row">
+        <label className="field" style={{ width: 160 }}><span>“Recently” means (days)</span><input type="number" min={7} max={730} value={s.history.windowDays} onChange={e => set({ history: { ...s.history, windowDays: Number(e.target.value) } })} /></label>
+        <label className="field" style={{ width: 220 }}><span>Needs attention after this many recent moves</span><input type="number" min={1} max={20} value={s.history.movesAmber} onChange={e => set({ history: { ...s.history, movesAmber: Number(e.target.value) } })} /></label>
+        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }}><input type="checkbox" checked={s.history.affectStatus} onChange={e => set({ history: { ...s.history, affectStatus: e.target.checked } })} /> Let moves change an Epic’s status on the Executive Dashboard</label></div>}
+
       <h3>Epic Gantt grouping</h3>
       <div className="help">Epic fields offered in the Epic Gantt “Group by” list besides Area, State and Team, for example Delivery Status or Business Unit. Epics with an empty value go to a “(none)” group.</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>

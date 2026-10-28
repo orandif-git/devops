@@ -84,3 +84,10 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Click an Epic (row, block or bar): the detail panel opens (Esc closes); “Open the Epic details” shows the Epic dialog.
 - [ ] A named filter of the settings appears in “Saved filter”; a calculated field appears as a table column.
 - [ ] Views: save, set as default, copy link; Full screen button. With about 485 Epics the three layouts stay quick (note the load time).
+
+## Go-live history
+- [ ] Settings › Go-live history: tick “Read the history…”, Save, Reload everything. The load shows “Reading the go-live history…”; note the time of the first read (about 485 Epics) and of the second (only new revisions).
+- [ ] An Epic whose go-live/target date you changed twice shows a ◇ at the original date and a line to the current one on the Epic Gantt and on the Executive Roadmap; the tooltip says how often and how many days.
+- [ ] Executive Dashboard: the “Go-live moved” card, the “Go-live changes” slicer and the table column agree with the Epic's history; the Epic panel lists each change with who and when.
+- [ ] With the status effect on, an Epic moved 2+ times in 90 days is “needs attention” with that reason; untick it and the reason disappears.
+- [ ] If the history cannot be read (for example on a server without the revisions report), a red note says why and the dashboards still work.

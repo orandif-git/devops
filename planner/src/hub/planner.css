@@ -134,3 +134,7 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .cc-full .cc-scroll { max-height: calc(100vh - 260px); }
 .cc-bar .pill svg, .cc-bar .btn svg, .views .btn svg { flex: none; } .cc-bar .pill { gap: 6px; } .views .btn.icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; }
 .views button.btn { display: inline-flex; align-items: center; gap: 6px; }
+
+.tl-lane .gorig { position: absolute; top: 3px; width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #7a5af8; background: var(--bg); z-index: 2; }
+.tl-lane .gline { position: absolute; top: 8px; height: 3px; border-radius: 2px; z-index: 1; } .tl-lane .gline.later { background: #d13438; } .tl-lane .gline.earlier { background: #1a9d57; }
+.tl-lane .gline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); }

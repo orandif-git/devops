@@ -32,6 +32,8 @@ export interface PlannerSettings {
   ganttLabelField: string;
   /** Epic fields offered in the Epic Gantt "Group by" list (e.g. Delivery Status, Business Unit) */
   ganttGroupFields: string[];
+  /** go-live history: the changes of the go-live date read from the work item history */
+  history: HistorySettings;
   /** how dates and months are shown ("" = standard: YYYY-MM-DD and YYYY-MM); stored values never change */
   dateFormat: string;
   monthFormat: string;
@@ -91,6 +93,15 @@ export interface ExecFormula {
   decimals: number;
 }
 
+export interface HistorySettings {
+  /** read the history of the go-live (and Epic target) date field; off by default (the first read goes through all revisions) */
+  enabled: boolean;
+  /** "recently" means this many days */
+  windowDays: number;
+  /** an Epic whose date moved this many times recently needs attention (when affectStatus is on) */
+  movesAmber: number;
+  affectStatus: boolean;
+}
 export type ExecLayout = "report" | "map" | "roadmap";
 export interface ExecSettings {
   /** show the Executive Dashboard tab in the Resource Planner (off by default) */
@@ -130,7 +141,7 @@ export const defaultExec = (): ExecSettings => ({
 });
 
 export const defaultSettings = (): PlannerSettings => ({
-  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], dateFormat: "", monthFormat: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
+  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], history: { enabled: false, windowDays: 90, movesAmber: 2, affectStatus: true }, dateFormat: "", monthFormat: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
   period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat", rows: "collapsed", ganttTiles: ["epics", "progress", "ok", "late", "due30", "hold"] }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 

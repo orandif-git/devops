@@ -153,6 +153,15 @@ describe("Epic Gantt statistics, key filter and search", () => {
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, dateFormat: "DD/MM/YYYY" }} loaded={data} months={year} filters={noFilters()} />, h); });
     expect(Array.from(h.querySelectorAll(".tl-lane .gb")).some(b => /\d\d\/\d\d\/2026/.test(b.getAttribute("aria-label") ?? ""))).toBe(true);
   });
+  it("marks where the target date originally was when the history is on", () => {
+    const hist = { 1: { baseline: "2026-08-01", current: "2026-12-15", rev: 2, changes: [{ at: "2026-05-01T00:00:00Z", by: "Ann", from: "2026-08-01", to: "2026-12-15" }] } };
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, epicTargetField: "Custom.T", history: { ...settings.history, enabled: true } }} loaded={{ ...data, history: { "Custom.T": hist } } as unknown as Loaded} months={year} filters={noFilters()} />, h); });
+    expect(h.querySelectorAll(".gorig")).toHaveLength(1); expect(h.querySelector(".gline.later")).not.toBeNull();
+    const h2 = document.createElement("div"); document.body.appendChild(h2);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...data, history: { "Custom.T": hist } } as unknown as Loaded} months={year} filters={noFilters()} />, h2); });
+    expect(h2.querySelectorAll(".gorig")).toHaveLength(0);                                  // off: nothing is drawn
+  });
   it("finds Epics by keyword (id, title or state)", () => {
     const h = mount2(); const q = h.querySelector("input") as HTMLInputElement; if (!q) throw new Error(h.innerHTML.slice(0, 300));
     const type = (v: string) => act(() => { Simulate.change(q, { target: { value: v } } as never); });

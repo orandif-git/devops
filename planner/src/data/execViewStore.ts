@@ -4,7 +4,7 @@ import { ExecLayout } from "../core/types";
 import { ExecStatus } from "../core/executive";
 
 /** What a person sees on the Executive Dashboard: the layout and the filters (private to them when saved). */
-export interface ExecViewState { layout: ExecLayout; status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; dims: Record<string, string[]>; text: string; savedId: string }
+export interface ExecViewState { layout: ExecLayout; status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; dims: Record<string, string[]>; text: string; savedId: string }
 export interface ExecView { id: string; name: string; state: ExecViewState }
 export interface ExecViewDoc { views: ExecView[]; defaultId?: string }
 
@@ -16,7 +16,7 @@ const STATUSES = ["green", "amber", "red", "idle", "unknown", "done"];
 
 export function normalizeExecView(raw: unknown, layout: ExecLayout): ExecViewState {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, x = (r.dims && typeof r.dims === "object" ? r.dims : {}) as Record<string, unknown>;
-  return { layout: (["report", "map", "roadmap"].includes(String(r.layout)) ? r.layout : layout) as ExecLayout, status: strs(r.status).filter(s => STATUSES.includes(s)) as ExecStatus[], state: strs(r.state), team: strs(r.team), quarter: strs(r.quarter),
+  return { layout: (["report", "map", "roadmap"].includes(String(r.layout)) ? r.layout : layout) as ExecLayout, status: strs(r.status).filter(s => STATUSES.includes(s)) as ExecStatus[], state: strs(r.state), team: strs(r.team), quarter: strs(r.quarter), moved: strs(r.moved),
     dims: Object.fromEntries(Object.entries(x).map(([k, v]) => [k, strs(v)]).filter(([, v]) => (v as string[]).length)), text: typeof r.text === "string" ? r.text : "", savedId: typeof r.savedId === "string" ? r.savedId : "" };
 }
 export function normalizeExecDoc(raw: unknown, layout: ExecLayout): ExecViewDoc {

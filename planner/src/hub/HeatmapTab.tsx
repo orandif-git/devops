@@ -65,7 +65,7 @@ export function HeatmapTab(p: {
   if (!L) return (
     <div>
       <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the planner"}</button>
-        {p.progress && <span className="muted">{p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
+        {p.progress && <span className="muted">{p.progress.phase === "history" ? "Reading the go-live history…" : p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
   );

@@ -17,6 +17,8 @@ import { ViewsMenu } from "../hub/ViewsMenu";
 import { ExtraCol, LP, MapLayout, ReportLayout, RoadmapLayout } from "./layouts";
 import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
 import { Drawer } from "./parts";
+import { fetchEpicHistory } from "../data/history";
+import { Hist } from "../core/history";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
 const strip = (f: XF): XF => ({ ...f, saved: undefined, savedName: undefined });
@@ -35,9 +37,10 @@ export function ExecDashboard(p: {
   const [sel, setSel] = React.useState<number>();
   const [dialog, setDialog] = React.useState<number>();
   const fields = dimFields(p.settings);
+  const goLiveField = x.goLiveField || p.settings.epicTargetField, historyOn = !!L?.history && p.settings.history.enabled;
   const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
-  const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings }) : undefined), [L, p.settings]);
+  const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
   const all = React.useMemo(() => (L && built ? buildItems(built.rows, L, p.settings) : []), [L, built, p.settings]);
   const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
 
@@ -58,11 +61,18 @@ export function ExecDashboard(p: {
 
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today };
+  const [lazy, setLazy] = React.useState<{ id: number; hist?: Hist; err?: string; done: boolean }>();
+  React.useEffect(() => {                                           // one Epic's history, read when its panel opens and the history of all Epics is not on
+    if (!chosen || historyOn || !goLiveField) { setLazy(undefined); return; }
+    let live = true; setLazy({ id: chosen.id, done: false });
+    fetchEpicHistory(chosen.id, goLiveField).then(h => live && setLazy({ id: chosen.id, hist: h, done: true })).catch(e => live && setLazy({ id: chosen.id, err: (e as Error).message, done: true }));
+    return () => { live = false; };
+  }, [chosen?.id, historyOn, goLiveField]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, status: f.status, state: f.state, team: f.team, quarter: f.quarter, dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -78,7 +88,7 @@ export function ExecDashboard(p: {
   if (!L) return (
     <div>
       <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the dashboard"}</button>
-        {p.progress && <span className="muted">{p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
+        {p.progress && <span className="muted">{p.progress.phase === "history" ? "Reading the go-live history…" : p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
   );
@@ -101,9 +111,10 @@ export function ExecDashboard(p: {
       </div>
       {(chips.length > 0 || !isEmpty(fx)) && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="ex-fchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={() => { setF(emptyXF()); setSavedId(""); }}>Clear all</button>}<span className="muted">{items.length} of {all.length} Epics</span></div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
+      {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive} Epic(s) have no go-live date{built.noProgress ? `; ${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only` : ""}.</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
-      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} />
+      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} hist={chosen?.hist ?? (lazy && lazy.id === chosen?.id ? lazy.hist : undefined)} histState={chosen?.hist || historyOn ? "ok" : !goLiveField ? "none" : lazy && lazy.id === chosen?.id ? (lazy.err ? "error" : lazy.done ? "ok" : "loading") : "loading"} histError={lazy?.err} />
       {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
     </div>
   );
