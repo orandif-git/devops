@@ -1,5 +1,5 @@
-/* the planner pages: the same light look, a soft page colour and an indigo accent */
-:root { --page: #f4f6fb; --accent: #4f46e5; --card-shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px rgba(15,23,42,.06); --line: #e4e8f1; --fg: #0f172a; --fg2: #64748b; --hover: #f1f4fa; }
+/* the planner pages: the same light look, a soft page colour and a burgundy accent */
+:root { --page: #f4f6fb; --accent: #7a1a3c; --card-shadow: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px rgba(15,23,42,.06); --line: #e4e8f1; --fg: #0f172a; --fg2: #64748b; --hover: #f1f4fa; }
 .card { border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; margin-bottom: 10px; }
 .row { display: flex; gap: 8px; align-items: flex-end; margin: 4px 0; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 2px; min-width: 110px; }
@@ -137,14 +137,14 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .cc-bar .pill svg, .cc-bar .btn svg, .views .btn svg { flex: none; } .cc-bar .pill { gap: 6px; } .views .btn.icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; }
 .views button.btn { display: inline-flex; align-items: center; gap: 6px; }
 
-.tl-lane .gorig { position: absolute; top: 3px; width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #7a5af8; background: var(--bg); z-index: 2; }
+.tl-lane .gorig { position: absolute; top: 3px; width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #7a1a3c; background: var(--bg); z-index: 2; }
 .tl-lane .gline { position: absolute; top: 8px; height: 3px; border-radius: 2px; z-index: 1; } .tl-lane .gline.later { background: #d13438; } .tl-lane .gline.earlier { background: #1a9d57; }
 .tl-lane .gline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); }
 
 /* the history of a date as a timeline (Epic dialog and the Executive Dashboard panel) */
-.hist h4 { margin: 14px 0 6px; } .hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .hist li { padding: 3px 0 3px 12px; position: relative; } .hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a5af8; } .hist li.later::before { background: #d13438; } .hist li.earlier::before { background: #1a9d57; }
+.hist h4 { margin: 14px 0 6px; } .hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .hist li { padding: 3px 0 3px 12px; position: relative; } .hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a1a3c; } .hist li.later::before { background: #d13438; } .hist li.earlier::before { background: #1a9d57; }
 .ex-slip { color: #d13438; font-weight: 600; white-space: nowrap; } .ex-good { color: #1a9d57; font-weight: 600; }
-.tl-lane .gmv { position: absolute; top: -2px; font-size: 9px; line-height: 10px; background: var(--bg); padding: 0 2px; border-radius: 2px; font-weight: 600; color: #7a5af8; white-space: nowrap; z-index: 2; }
+.tl-lane .gmv { position: absolute; top: -2px; font-size: 9px; line-height: 10px; background: var(--bg); padding: 0 2px; border-radius: 2px; font-weight: 600; color: #7a1a3c; white-space: nowrap; z-index: 2; }
 
 /* the Epic dialog: a close button in the corner, buttons with their icon beside the text */
 .modal { position: relative; } .modal h3 { margin-right: 36px; }
@@ -162,7 +162,7 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .tile.gs .top { display: flex; justify-content: space-between; align-items: center; } .tile.gs .ic { width: 28px; height: 28px; border-radius: 9px; display: inline-grid; place-items: center; color: #fff; }
 .tile.gs .l { margin-top: 8px; } .tile.gs .v { font-size: 28px; letter-spacing: -.02em; } .tile.gs .d { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; }
 .gs-delta { font-size: 11px; font-weight: 600; padding: 0 7px; border-radius: 999px; background: #f1f5f9; color: var(--fg2); white-space: nowrap; } .gs-delta.up { background: #dcfce7; color: #15803d; } .gs-delta.down { background: #fee2e2; color: #b91c1c; }
-.keyrow { gap: 8px; } .keyrow .kbtn { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; } .keyrow .kbtn.on { background: #eef2ff; border-color: #6366f1; color: #4338ca; } .keyrow .kbtn i { width: 14px; height: 10px; border-radius: 3px; }
+.keyrow { gap: 8px; } .keyrow .kbtn { height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; } .keyrow .kbtn.on { background: #fbeff3; border-color: #a8325c; color: #6b1634; } .keyrow .kbtn i { width: 14px; height: 10px; border-radius: 3px; }
 .gantt-wrap .card { padding: 0; overflow: hidden; } .gantt-wrap .tl-head { grid-template-rows: auto auto; }
 .tl-q { display: grid; font-size: 11px; font-weight: 600; color: var(--fg2); background: #f8fafc; } .tl-q span { padding: 4px 0; text-align: center; border-left: 1px solid var(--line); } .tl-mo.off { display: none; }
 .tl-head > div:first-child { grid-row: 1 / 3; border-right: 1px solid var(--line); } .tl-head > div:nth-child(3) { display: none; } .tl-head:has(.tl-mo.off) > div:first-child { grid-row: 1; }
@@ -177,6 +177,6 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .modal { border-radius: 18px; border: 0; box-shadow: 0 30px 80px rgba(15,23,42,.4); padding: 24px 26px; animation: mup .2s; background: #fff; } @keyframes mup { from { transform: translateY(10px); opacity: 0; } }
 .modal h3 { font-size: 19px; letter-spacing: -.01em; } .modal h4 { margin: 18px 0 8px; font-size: 11px; letter-spacing: .07em; }
 .modal .mini { width: 100%; } .modal .toolbar { margin-top: 18px; }
-.modal .btn.primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; border: 0; border-radius: 10px; box-shadow: 0 6px 14px rgba(79,70,229,.3); } .modal .btn { border-radius: 10px; }
+.modal .btn.primary { background: linear-gradient(135deg, #a8325c, #7a1a3c); color: #fff; border: 0; border-radius: 10px; box-shadow: 0 6px 14px rgba(122,26,60,.3); } .modal .btn { border-radius: 10px; }
 .tl-name .tl-t { display: flex; align-items: center; gap: 7px; min-width: 0; } .tl-name .tl-t a.lk { flex: 1; min-width: 0; } .tl-name .idc { margin-bottom: 0; flex: none; }
 .gantt-wrap .tl-lane .gl { top: auto; margin-top: 0; }

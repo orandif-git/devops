@@ -24,7 +24,7 @@ const BAR_BG = (c: Category) => (c === "new" ? "repeating-linear-gradient(45deg,
 type Row = { kind: "group"; name: string; n: number } | { kind: "epic"; r: GanttRow };
 
 const TILE_ICON: Record<string, () => React.ReactElement> = { epics: IconLayers, progress: IconGauge, ok: IconCheck, late: IconAlert, new: IconFlag, done: IconCheck, due30: IconClock, hold: IconPause, slip: IconClock, nodates: IconCalendar, duration: IconCalendar, hours: IconClock };
-const TILE_COLOR: Record<string, string> = { epics: "#4f46e5", progress: "#0ea5e9", ok: "#16a34a", late: "#dc2626", new: "#64748b", done: "#2563eb", due30: "#d97706", hold: "#ea580c", slip: "#dc2626", nodates: "#64748b", duration: "#4f46e5", hours: "#4f46e5" };
+const TILE_COLOR: Record<string, string> = { epics: "#7a1a3c", progress: "#a8325c", ok: "#16a34a", late: "#dc2626", new: "#64748b", done: "#2563eb", due30: "#d97706", hold: "#ea580c", slip: "#dc2626", nodates: "#64748b", duration: "#7a1a3c", hours: "#7a1a3c" };
 /** the tiles that have a weekly measure, so they can show a trend and the change since last week */
 const TILE_METRIC: Record<string, { m: Metric; good?: boolean }> = { epics: { m: "total" }, progress: { m: "progress", good: true }, ok: { m: "green", good: true }, late: { m: "late", good: false }, due30: { m: "due30" }, hold: { m: "hold", good: false }, done: { m: "done", good: true }, new: { m: "idle" } };
 const Spark = ({ values, color }: { values: number[]; color: string }) => { if (values.length < 2) return null; const mx = Math.max(...values, 1), mn = Math.min(...values), w = 70, h = 26;
@@ -88,7 +88,7 @@ export function GanttTab(p: {
   );
   return (
     <div className={"gantt-wrap" + (p.density === "compact" ? " dense" : "")}>
-      <div className="gs-strip" role="group" aria-label="Epic statistics">{tileIds.filter(id => stats[id]).map(id => { const t = TILES.find(x => x.id === id)!, v = stats[id], on = !!v.filter && legend.includes(v.filter), Ic = TILE_ICON[id] ?? IconLayers, c = TILE_COLOR[id] ?? "#4f46e5", tm = TILE_METRIC[id], snaps: Snapshot[] = p.loaded.snapshots ?? [];
+      <div className="gs-strip" role="group" aria-label="Epic statistics">{tileIds.filter(id => stats[id]).map(id => { const t = TILES.find(x => x.id === id)!, v = stats[id], on = !!v.filter && legend.includes(v.filter), Ic = TILE_ICON[id] ?? IconLayers, c = TILE_COLOR[id] ?? "#7a1a3c", tm = TILE_METRIC[id], snaps: Snapshot[] = p.loaded.snapshots ?? [];
         const d = trend && tm ? deltaOf(snaps, tm.m) : undefined, body = <><div className="top"><span className="ic" style={{ background: c }}><Ic /></span>{trend && tm && <Spark values={series(snaps, tm.m)} color={c} />}</div><div className="l">{t.label}</div><div className="v">{v.value}</div>
           <div className="d"><span>{v.detail}</span>{d !== undefined && <span className={"gs-delta " + (d === 0 || tm?.good === undefined ? "flat" : (d > 0) === tm.good ? "up" : "down")} title="Whole portfolio, change since last week">{d === 0 ? "no change" : `${d > 0 ? "▲ +" : "▼ "}${d}`}</span>}</div></>;
         return v.filter ? <button key={id} type="button" className={"tile gs" + (on ? " on" : "")} aria-pressed={on} title={t.hint} onClick={() => toggleKey(v.filter!)}>{body}</button> : <div key={id} className="tile gs" title={t.hint}>{body}</div>; })}</div>
