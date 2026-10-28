@@ -27,9 +27,12 @@ export function GanttTab(p: {
   legend?: string[]; onLegend?(keys: string[]): void;
   /** the statistics shown above the chart (ids, in order) and a way to change them */
   tiles?: string[]; onTiles?(ids: string[]): void;
+  /** the grouping, when the page keeps it (saved views) */
+  group?: string; onGroup?(g: string): void;
 }) {
   const L = p.loaded;
-  const [group, setGroup] = React.useState<GroupBy>("area");
+  const [ownGroup, setOwnGroup] = React.useState<GroupBy>("area");
+  const group = (p.group ?? ownGroup) as GroupBy, setGroup = (v: GroupBy) => (p.onGroup ? p.onGroup(v) : setOwnGroup(v));
   const [dialog, setDialog] = React.useState<number>();
   const [tip, setTip] = React.useState<{ x: number; y: number; title: string; lines: string[] }>();
   const w = React.useMemo(() => windowOf(p.months), [p.months]);

@@ -6,6 +6,9 @@ import { describe, expect, it, vi } from "vitest";
 
 const opened: number[] = [];
 vi.mock("../src/shared/ado", () => ({ downloadFile: vi.fn() }));
+const store = vi.hoisted(() => ({ doc: { views: [] as unknown[], defaultId: undefined as string | undefined } }));
+vi.mock("../planner/src/data/viewStore", () => ({ loadViews: async () => JSON.parse(JSON.stringify(store.doc)), saveViews: async (_p: string, d: typeof store.doc) => { store.doc = JSON.parse(JSON.stringify(d)); } }));
+vi.mock("../planner/src/data/share", () => ({ buildLink: async () => "https://host/_apps/hub/x?pv=abc&full=1", readLink: async () => ({ full: false }), setHostFullScreen: async () => undefined }));
 vi.mock("../planner/src/data/related", () => ({ loadRelated: async () => [{ id: 50, title: "Address service", type: "Feature", state: "Active", relation: "Child" }] }));
 vi.mock("../planner/src/data/open", () => ({ openWorkItem: async (_p: string, id: number) => { opened.push(id); } }));
 
@@ -218,6 +221,22 @@ describe("Command center", () => {
     expect(h.querySelector(".tl-grp")).not.toBeNull(); expect(h.querySelector(".cc-bar")).not.toBeNull();
     click(Array.from(h.querySelectorAll(".seg button")).find(b => b.textContent === "Epic Gantt")!);
     expect(h.querySelectorAll(".tl-lane .gb").length).toBeGreaterThan(0);
+  });
+  it("saves a personal view, applies it again, sets it as default and offers a share link", async () => {
+    const h = host(); await act(async () => { await Promise.resolve(); await Promise.resolve(); });            // my views have been read
+    const type = (el: Element, v: string) => act(() => { Simulate.change(el, { target: { value: v } } as never); });
+    const btn = (t: string) => Array.from(h.querySelectorAll("button")).find(b => b.textContent!.includes(t))!;
+    click(h.querySelector('select[aria-label="Group by"]') ? btn("Views") : btn("Views"));
+    type(h.querySelector('input[aria-label="New view name"]')!, "Epics first");
+    click(Array.from(h.querySelectorAll(".views .btn.primary")).find(b => b.textContent === "Save")!);
+    await act(async () => { await Promise.resolve(); });
+    expect(store.doc.views).toHaveLength(1); expect((store.doc.views[0] as { name: string }).name).toBe("Epics first");
+    click(h.querySelector('.views button[aria-label^="Default view"]')!); await act(async () => { await Promise.resolve(); });
+    expect(store.doc.defaultId).toBe((store.doc.views[0] as { id: string }).id);
+    click(btn("Copy link to this view")); await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect((h.querySelector('input[aria-label="Link"]') as HTMLInputElement).value).toContain("pv=abc");
+    click(h.querySelector('.views button[aria-label^="Delete"]')!); await act(async () => { await Promise.resolve(); });
+    expect(store.doc.views).toHaveLength(0); expect(store.doc.defaultId).toBeUndefined();
   });
   it("opens the filters drawer with the Epic states", () => {
     const h = host();

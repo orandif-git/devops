@@ -19,6 +19,7 @@ import { diagnose, diagText } from "../core/diagnostics";
 import { PlannerSettings } from "../core/types";
 import { loadSettings, saveSettings, SettingsConflictError } from "../data/settingsStore";
 import { Access, checkAccess, NO_ACCESS } from "../data/access";
+import { readLink, setHostFullScreen } from "../data/share";
 
 interface Check { title: string; ok: boolean; detail: string; ms: number }
 const run = async (title: string, fn: () => Promise<string>): Promise<Check> => {
@@ -95,6 +96,10 @@ function App(p: { projectId: string; projectName: string }) {
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
   const [access, setAccess] = React.useState<Access>();
+  const [full, setFull] = React.useState(false);                           // full screen: no page header or tabs, and the Azure DevOps menus hidden
+  const [link, setLink] = React.useState<{ pv?: string; full: boolean }>();   // a view shared by link
+  React.useEffect(() => { readLink().then(setLink); }, []);
+  const goFull = React.useCallback((on: boolean) => { setFull(on); void setHostFullScreen(on); }, []);
   React.useEffect(() => { loadSettings(p.projectId).then(r => { setSaved(r.settings); setCur(r.settings); etag.current = r.etag; if (!validateSettings(r.settings).length) setTab("command"); checkAccess(p.projectId, r.settings.accessTeams).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const valid = !!saved && !validateSettings(saved).length;
@@ -119,8 +124,8 @@ function App(p: { projectId: string; projectName: string }) {
   if (cur && !access) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="muted">Checking access…</div></div>;
   if (access && !access.mayOpen) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="err" role="alert" style={{ marginTop: 8 }}>{NO_ACCESS}</div></div>;
   return (
-    <div style={{ padding: "16px 22px", maxWidth: tab === "command" ? undefined : 1400 }}>
-      <h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2>
+    <div style={{ padding: full && tab === "command" ? "8px 12px" : "16px 22px", maxWidth: tab === "command" ? undefined : 1400 }}>
+      {!(full && tab === "command") && <><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2>
       <div className="muted" style={{ marginBottom: 8 }}>Read-only: nothing is edited from the planner. Hours come from your Epics’ grids, available hours from Azure DevOps team capacity.</div>
       <div className="tabs" role="tablist" aria-label="Resource Planner views" onKeyDown={e => {
         const keys = (["command", "data", "settings"] as const).filter(k => (k !== "settings" && k !== "data") || isAdmin); const i = keys.indexOf(tab);
@@ -129,10 +134,10 @@ function App(p: { projectId: string; projectName: string }) {
       }} style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--line)", margin: "8px 0 12px" }}>
         {([["command", "Planner"], ["data", "Data & diagnostics"], ["settings", "Settings"]] as const).filter(([k]) => (k !== "settings" && k !== "data") || isAdmin).map(([k, l]) => <button key={k} id={"rp-tab-" + k} role="tab" aria-selected={tab === k} aria-controls="rp-panel" tabIndex={tab === k ? 0 : -1} className={"tab" + (tab === k ? " on" : "")} onClick={() => setTab(k)}
           style={{ background: "none", border: 0, borderBottom: "2px solid " + (tab === k ? "var(--accent)" : "transparent"), padding: "8px 14px", cursor: "pointer", fontWeight: tab === k ? 600 : 400, color: "inherit" }}>{l}</button>)}
-      </div>
+      </div></>}
       <div id="rp-panel" role="tabpanel" aria-labelledby={"rp-tab-" + tab}>
       {!cur ? <div className="muted">{msg || "Loading…"}</div> : (tab === "settings" || tab === "data") && !isAdmin ? <div className="err" role="alert">Only project administrators can open {tab === "settings" ? "the Resource Planner settings" : "Data & diagnostics"}.</div> : tab === "settings" ? <SettingsTab projectId={p.projectId} projectName={p.projectName} value={cur} saved={saved!} busy={busy} msg={msg} onChange={setCur} onSave={save} onDiscard={() => setCur(saved)} />
-        : tab === "command" ? (valid ? <CommandCenter project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} filters={filters} onFilters={setFilters} period={activePeriod} onPeriod={setPeriod} /> : <div className="err">Complete the settings first (Settings tab).</div>)
+        : tab === "command" ? (valid && !link ? <div className="muted">Loading…</div> : valid ? <CommandCenter project={{ id: p.projectId, name: p.projectName }} settings={saved!} loaded={loaded} months={months} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} filters={filters} onFilters={setFilters} period={activePeriod} onPeriod={setPeriod} full={full} onFull={goFull} link={link} /> : <div className="err">Complete the settings first (Settings tab).</div>)
         : <div><DataTab project={{ id: p.projectId, name: p.projectName }} settings={saved!} valid={valid} loaded={loaded} busy={loading} progress={progress} error={loadErr} queries={queries} queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} />
           <h2 style={{ margin: "24px 0 0", fontSize: 18 }}>Diagnostics</h2><Checks projectId={p.projectId} projectName={p.projectName} settings={saved} loaded={loaded} /></div>}
       </div>

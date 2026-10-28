@@ -67,3 +67,10 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Epic Gantt: an Epic in a state grouped under In Progress (e.g. Delivery Committed) is blue, Completed is green, Cancelled grey, and one past its target date (not completed) is red. The Gantt field set in Settings shows at the end of each bar.
 - [ ] A non-administrator sees only the Planner tab; Settings and Data & diagnostics are hidden.
 - [ ] The Filters button opens its drawer fully, also at the right edge of the page.
+
+## Views, full screen and sharing
+- [ ] Views › Save: name a view (e.g. Late Epics by area), change something, open it again from Views: everything comes back (view, grouping, filters, key selections, collapse level, statistics).
+- [ ] Mark a view with the star: reload the page, it opens by default. Another user does **not** see your views.
+- [ ] Full screen on the Heatmap and on the Epic Gantt hides the Azure DevOps menus and the page header; Esc or the button returns.
+- [ ] Views › Copy link: open the link in a new tab (and as another user with access): the same view opens full screen. If the copy is refused by the browser, the link is shown in a box to copy by hand.
+- [ ] Epic Gantt: Settings › Epic Gantt statistics picks the default tiles; Statistics (in the toolbar) changes them for your own view.

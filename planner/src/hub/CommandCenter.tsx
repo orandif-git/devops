@@ -12,6 +12,10 @@ import { cellText, totalText, Units, UNIT_LABEL } from "../core/units";
 import { buildPlan, GROUP_LABEL, nodeTotals, parents, PlanNode } from "../core/plan";
 import { TimelineTab } from "./TimelineTab";
 import { GanttTab } from "./GanttTab";
+import { ViewsMenu } from "./ViewsMenu";
+import { decodeView, newViewId, normalizeView, ViewDoc, ViewState } from "../core/views";
+import { loadViews, saveViews } from "../data/viewStore";
+import { buildLink } from "../data/share";
 
 type View = PlannerSettings["plan"]["view"];
 const bandText = (b: Exclude<Band, "none">) => (b === "full" ? "#0b0b0b" : b === "spare" ? "#0d366b" : "#fff");
@@ -23,6 +27,10 @@ export function CommandCenter(p: {
   project: { id: string; name: string }; settings: PlannerSettings; loaded?: Loaded; months: string[]; busy: boolean; progress?: LoadProgress; error: string;
   queries: SavedQuery[]; queryId: string; onQuery(id: string): void; onReload(force: boolean): void;
   filters: Filters; onFilters(f: Filters): void; period: Period; onPeriod(v: Period): void;
+  /** full screen: shown without the page header and tabs (the page decides); a shared link can open it this way */
+  full?: boolean; onFull?(on: boolean): void;
+  /** a view carried in the address of the page, applied once when the page opens */
+  link?: { pv?: string; full: boolean };
 }) {
   const L = p.loaded, f = p.filters, th = p.settings.thresholds;
   const [view, setView] = React.useState<View>(p.settings.plan.view);
@@ -35,6 +43,7 @@ export function CommandCenter(p: {
   const [group, setGroup] = React.useState<PlanGroup>(p.settings.plan.groupBy);
   const [rowsMode, setRowsMode] = React.useState<PlanRows>(p.settings.plan.rows);                    // how much of the plan starts open
   const [epicSearch, setEpicSearch] = React.useState("");                                          // Epic keyword search (Gantt)
+  const [ganttGroup, setGanttGroup] = React.useState("area");                                    // Epic Gantt grouping
   const [legend, setLegend] = React.useState<string[]>([]);                                       // Gantt key / statistic filters
   const [tiles, setTiles] = React.useState<string[]>(p.settings.plan.ganttTiles);
   const [toggled, setToggled] = React.useState<Set<string>>(new Set());     // rows opened or closed against their default
@@ -43,10 +52,39 @@ export function CommandCenter(p: {
   const [focus, setFocus] = React.useState(() => (p.months.includes(nowMonth) ? nowMonth : p.months[0]));
   React.useEffect(() => { if (!p.months.includes(focus)) setFocus(p.months.includes(nowMonth) ? nowMonth : p.months[0]); }, [p.months]);   // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => {
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { if (drawer) setDrawer(false); else setSel(undefined); } };
+    const k = (e: KeyboardEvent) => { if (e.key === "Escape") { if (drawer) setDrawer(false); else if (sel) setSel(undefined); else if (p.full) p.onFull?.(false); } };
     document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k);
-  }, [drawer]);
+  }, [drawer, sel, p.full]);
   const set = (patch: Partial<Filters>) => p.onFilters({ ...f, ...patch });
+
+  /** the standard view: what the settings say */
+  const standard = (): ViewState => ({ view: p.settings.plan.view, group: p.settings.plan.groupBy, units: p.settings.plan.units, rows: p.settings.plan.rows, period: p.settings.period, team: "", query: "", people: "", epics: "",
+    states: [], extra: {}, showIdle: true, ganttGroup: "area", legend: [], tiles: p.settings.plan.ganttTiles });
+  const snapshot = (): ViewState => ({ view, group, units, rows: rowsMode, period: p.period, team: f.team, query: p.queryId, people: f.search, epics: epicSearch, states: f.states, extra: f.extra, showIdle: f.showIdle, ganttGroup, legend, tiles });
+  const applyView = (raw: ViewState) => {
+    const v = normalizeView(raw, standard());
+    setView(v.view); setGroup(v.group); setUnits(v.units); setRowsMode(v.rows); setToggled(new Set()); setEpicSearch(v.epics); setGanttGroup(v.ganttGroup); setLegend(v.legend); setTiles(v.tiles); setHl(null); setSel(undefined);
+    if (v.period) p.onPeriod(v.period);
+    p.onFilters({ ...noFilters(), team: v.team, states: v.states, extra: v.extra, search: v.people, showIdle: v.showIdle });
+    if (v.query !== p.queryId) p.onQuery(v.query);
+  };
+  const [doc, setDoc] = React.useState<ViewDoc>({ views: [] });
+  const [viewErr, setViewErr] = React.useState("");
+  const started = React.useRef(false);
+  React.useEffect(() => {                                                                  // my saved views; a shared link wins over my default view
+    if (started.current) return; started.current = true;
+    const shared = p.link?.pv ? decodeView(p.link.pv, standard()) : undefined;
+    loadViews(p.project.id, standard()).then(d => { setDoc(d); const d0 = d.views.find(v => v.id === d.defaultId); if (!shared && d0) applyView(d0.state); }).catch(e => setViewErr("Could not read your saved views: " + (e as Error).message));
+    if (shared) applyView(shared);
+    if (p.link?.full) p.onFull?.(true);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const keepDoc = (next: ViewDoc) => { const prev = doc; setDoc(next); setViewErr(""); saveViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
+  const viewsMenu = <ViewsMenu views={doc.views} defaultId={doc.defaultId} error={viewErr}
+    onApply={v => applyView(v.state)} onSave={name => keepDoc({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
+    onUpdate={id => keepDoc({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })}
+    onRename={(id, name) => keepDoc({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
+    onDelete={id => keepDoc({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })}
+    onDefault={id => keepDoc({ ...doc, defaultId: id })} onReset={() => applyView(standard())} onLink={() => buildLink(snapshot(), standard())} />;
 
   const people = React.useMemo(() => (L ? buildPeople(L.bookings, L.epics, L.avail, p.months, f) : []), [L, p.months, f]);
   const summary = React.useMemo(() => monthSummary(people, focus, th), [people, focus, th]);
@@ -118,7 +156,7 @@ export function CommandCenter(p: {
   );
 
   return (
-    <div className="cc">
+    <div className={"cc" + (p.full ? " cc-full" : "")}>
       <div className="cc-bar">
         <div className="seg" role="tablist" aria-label="View">{([["heat", "Heatmap"], ["time", "Timeline"], ["gantt", "Epic Gantt"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
         {view === "heat" && <>
@@ -126,6 +164,8 @@ export function CommandCenter(p: {
           <div className="seg" role="group" aria-label="Units">{(Object.keys(UNIT_LABEL) as Units[]).map(u => <button key={u} aria-pressed={units === u} className={units === u ? "on" : ""} onClick={() => setUnits(u)}>{UNIT_LABEL[u]}</button>)}</div>
           <button className="pill icon" title="Expand all" aria-label="Expand all" onClick={expandAll}>⊞</button><button className="pill icon" title="Collapse all" aria-label="Collapse all" onClick={collapseAll}>⊟</button></>}
         <span className="grow" />
+        {viewsMenu}
+        {p.onFull && view !== "time" && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? "🗗" : "⛶"}</button>}
         <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics read · refreshed ${new Date(L.at).toLocaleTimeString()} · ${(L.load.ms / 1000).toFixed(1)} s`}>{p.busy ? "…" : "⟳"}</button>
         <button className="pill icon" disabled={!people.length} onClick={exportCsv} aria-label="Export CSV" title="Export CSV">⭳</button>
       </div>
@@ -166,7 +206,7 @@ export function CommandCenter(p: {
             <div className="legend">{BANDS.map(b => <span key={b} className="lg"><Sw b={b} />{RAG[b].label} ({{ spare: `under ${th.spare}%`, healthy: `${th.spare}–${th.healthy}%`, full: `${th.healthy}–${th.full}%`, over: `above ${th.full}%` }[b]})</span>)}
               <span className="lg"><span className="sw" style={{ background: "repeating-linear-gradient(45deg, var(--line) 0 4px, transparent 4px 8px)", color: "var(--fg2)" }}>?</span>Hours but no capacity entered</span></div></>)
             : view === "time" ? <TimelineTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} onPerson={key => setSel({ person: key, month: focus })} />
-            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} search={epicSearch} legend={legend} onLegend={setLegend} tiles={tiles} onTiles={setTiles} />}
+            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} search={epicSearch} legend={legend} onLegend={setLegend} tiles={tiles} onTiles={setTiles} group={ganttGroup} onGroup={setGanttGroup} />}
         </div>
         {selected && sel && (() => {
           const c = cellOf(selected, sel.month, th); const list = [...(selected.epics[sel.month] ?? [])].sort((a, b) => b.hours - a.hours);
