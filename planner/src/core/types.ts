@@ -91,6 +91,7 @@ export interface ExecFormula {
   decimals: number;
 }
 
+export type ExecLayout = "report" | "map" | "roadmap";
 export interface ExecSettings {
   /** show the Executive Dashboard tab in the Resource Planner (off by default) */
   enabled: boolean;
@@ -114,14 +115,16 @@ export interface ExecSettings {
   minElapsedPct: number;
   /** an Epic counts as likely to deliver at this confidence (%) or more */
   likelyPct: number;
-  /** named queries shown as chips under the Ask box */
+  /** the layout the dashboard opens in (each person's last choice is remembered for them) */
+  layout: ExecLayout;
+  /** named filters (conditions on Epics) offered next to the slicers as "Saved filters" */
   queries: ExecQuery[];
   /** calculated fields available to the queries */
   formulas: ExecFormula[];
 }
 
 export const defaultExec = (): ExecSettings => ({
-  enabled: false, categoryFields: [], goLiveField: "", progress: [],
+  enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
 });

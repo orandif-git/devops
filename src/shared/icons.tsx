@@ -28,3 +28,6 @@ export const IconSearch = ({ size }: P = {}) => base(<><circle cx="7" cy="7" r="
 export const IconOpen = ({ size }: P = {}) => base(<><path d="M9 2.5h4.5V7" /><path d="M13.5 2.5L7.5 8.5" /><path d="M11.5 9.5v3a1 1 0 0 1-1 1h-7a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3" /></>, size);
 export const IconSheet = ({ size }: P = {}) => base(<><rect x="2.5" y="2.5" width="11" height="11" rx="1.2" /><path d="M2.5 6.5h11M2.5 10h11M6.5 2.5v11" /></>, size);
 export const IconUpload = ({ size }: P = {}) => base(<><path d="M8 10V2" /><path d="M4.5 5L8 1.5 11.5 5" /><path d="M2.5 13.5h11" /></>, size);
+export const IconReport = ({ size }: P = {}) => base(<><path d="M3 13V8M7 13V3M11 13V6" /><path d="M2 13.5h12" /></>, size);
+export const IconMap = ({ size }: P = {}) => base(<><rect x="2" y="2.5" width="7" height="6" rx="1" /><rect x="10" y="2.5" width="4" height="6" rx="1" /><rect x="2" y="9.5" width="4" height="4" rx="1" /><rect x="7" y="9.5" width="7" height="4" rx="1" /></>, size);
+export const IconRoadmap = ({ size }: P = {}) => base(<><path d="M2 4h6M5 8h8M3 12h7" /></>, size);

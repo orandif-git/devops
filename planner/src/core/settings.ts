@@ -38,7 +38,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     return { id: str(p.id) || `pg${i + 1}`, kind: (kinds.includes(str(p.kind)) ? str(p.kind) : "percentField") as ProgressSource["kind"], field: str(p.field) || undefined, doneField: str(p.doneField) || undefined, totalField: str(p.totalField) || undefined, sourceId: str(p.sourceId) || undefined };
   });
   return {
-    enabled: r.enabled === true, categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
+    enabled: r.enabled === true, layout: (["report", "map", "roadmap"].includes(str(r.layout)) ? str(r.layout) : "report") as ExecSettings["layout"], categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
     doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
     slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
     minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries), formulas: normalizeFormulas(r.formulas),

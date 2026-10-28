@@ -1,11 +1,10 @@
 import * as React from "react";
-import { SavedView } from "../core/views";
 import { IconClose, IconLink, IconPencil, IconRefresh, IconStar } from "./icons";
 
 /** "Views": the person's own saved views (private to them), a link to share the current view, and a reset. */
 export function ViewsMenu(p: {
-  views: SavedView[]; defaultId?: string; error?: string;
-  onApply(v: SavedView): void; onSave(name: string): void; onUpdate(id: string): void; onRename(id: string, name: string): void; onDelete(id: string): void;
+  views: { id: string; name: string; sub?: string }[]; defaultId?: string; error?: string;
+  onApply(id: string): void; onSave(name: string): void; onUpdate(id: string): void; onRename(id: string, name: string): void; onDelete(id: string): void;
   onDefault(id: string | undefined): void; onReset(): void; onLink(): Promise<string>;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -29,7 +28,7 @@ export function ViewsMenu(p: {
         {p.views.map(v => <div key={v.id} className="vrow">
           {renaming?.id === v.id
             ? <input autoFocus value={renaming.text} aria-label="View name" onChange={e => setRenaming({ id: v.id, text: e.target.value })} onKeyDown={e => { if (e.key === "Enter" && renaming.text.trim()) { p.onRename(v.id, renaming.text.trim()); setRenaming(undefined); } if (e.key === "Escape") setRenaming(undefined); }} />
-            : <button className="lk vname" title="Open this view" onClick={() => { p.onApply(v); setOpen(false); }}>{v.name}<span className="muted"> · {{ heat: "Heatmap", time: "Timeline", gantt: "Epic Gantt" }[v.state.view]}</span></button>}
+            : <button className="lk vname" title="Open this view" onClick={() => { p.onApply(v.id); setOpen(false); }}>{v.name}{v.sub && <span className="muted"> · {v.sub}</span>}</button>}
           <button className={"btn icon" + (p.defaultId === v.id ? " on" : "")} aria-pressed={p.defaultId === v.id} title={p.defaultId === v.id ? "This opens by default. Click to stop." : "Open this view by default"} aria-label={`Default view: ${v.name}`} onClick={() => p.onDefault(p.defaultId === v.id ? undefined : v.id)}><IconStar filled={p.defaultId === v.id} /></button>
           <button className="btn icon" title="Replace this view with what is on screen now" aria-label={`Update ${v.name}`} onClick={() => p.onUpdate(v.id)}><IconRefresh /></button>
           <button className="btn icon" title="Rename" aria-label={`Rename ${v.name}`} onClick={() => setRenaming({ id: v.id, text: v.name })}><IconPencil /></button>

@@ -81,8 +81,8 @@ export function CommandCenter(p: {
     if (p.link?.full) p.onFull?.(true);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const keepDoc = (next: ViewDoc) => { const prev = doc; setDoc(next); setViewErr(""); saveViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
-  const viewsMenu = <ViewsMenu views={doc.views} defaultId={doc.defaultId} error={viewErr}
-    onApply={v => applyView(v.state)} onSave={name => keepDoc({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
+  const viewsMenu = <ViewsMenu views={doc.views.map(v => ({ id: v.id, name: v.name, sub: { heat: "Heatmap", time: "Timeline", gantt: "Epic Gantt" }[v.state.view] }))} defaultId={doc.defaultId} error={viewErr}
+    onApply={id => { const v = doc.views.find(x => x.id === id); if (v) applyView(v.state); }} onSave={name => keepDoc({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
     onUpdate={id => keepDoc({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })}
     onRename={(id, name) => keepDoc({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
     onDelete={id => keepDoc({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })}

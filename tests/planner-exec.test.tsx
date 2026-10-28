@@ -5,10 +5,12 @@ import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
 vi.mock("../src/shared/ado", () => ({ downloadFile: () => undefined, getProject: () => Promise.resolve({ id: "P", name: "Proj" }) }));
 vi.mock("../planner/src/data/related", () => ({ loadRelated: () => Promise.resolve({ parent: undefined, children: [], related: [] }) }));
+const store = vi.hoisted(() => ({ doc: { views: [] as unknown[], defaultId: undefined as string | undefined } }));
+vi.mock("../planner/src/data/execViewStore", async () => { const real = await vi.importActual<typeof import("../planner/src/data/execViewStore")>("../planner/src/data/execViewStore").catch(() => ({} as never)); return { ...real, loadExecViews: async () => JSON.parse(JSON.stringify(store.doc)), saveExecViews: async (_p: string, d: typeof store.doc) => { store.doc = JSON.parse(JSON.stringify(d)); } }; });
+vi.mock("../planner/src/data/share", () => ({ linkFor: async (t: string) => "https://host/hub?pv=" + t + "&full=1", readLink: async () => ({ full: false }), setHostFullScreen: async () => undefined }));
 vi.mock("../planner/src/data/open", () => ({ openWorkItem: () => undefined }));
 vi.mock("../src/shared/capacityStore", () => ({ listTeams: () => Promise.resolve([]) }));
 vi.mock("../planner/src/rest", () => ({ restGet: () => Promise.resolve({ value: [] }), restPost: () => Promise.resolve({ value: [] }) }));
-import { answer, interpret, mentions } from "../planner/src/core/ask";
 import { buildExec } from "../planner/src/core/executive";
 import { gridDoneOf, progressOf } from "../planner/src/core/progress";
 import { normalizeSettings, validateExec } from "../planner/src/core/settings";
@@ -87,43 +89,63 @@ describe("progress sources", () => {
   });
 });
 
-describe("asking questions", () => {
-  const vocab = { "Custom.Type": ["Regulatory", "Software upgrade", "Security"] };
-  it("matches words to values (prefixes, plurals) and to statuses", () => {
-    expect(mentions(["reg", "rag"], "Regulatory")).toBe(true);
-    expect(mentions(["software", "upgrades"], "Software upgrade")).toBe(true);
-    expect(mentions(["software"], "Software upgrade")).toBe(false);
-    const q = interpret("How many software upgrade projects are at risk?", vocab);
-    expect(q).toMatchObject({ dims: { "Custom.Type": ["Software upgrade"] }, statuses: ["red"], counting: true, recognised: true });
-    expect(interpret("Reg RAG", vocab)).toMatchObject({ dims: { "Custom.Type": ["Regulatory"] }, split: true });
-    expect(interpret("what is late?", vocab).late).toBe(true);
-    expect(interpret("banana", vocab).recognised).toBe(false);
-  });
-  it("answers from the data only", () => {
-    const rows = build().rows;
-    expect(answer(interpret("How many regulatory projects are red?", vocab), rows)).toBe("1 Regulatory Epic is at risk: Basel IV.");
-    expect(answer(interpret("Software upgrade RAG", vocab), rows)).toBe("Software upgrade Epics: 2 at risk, 0 needs attention, 0 on track, 0 not assessed, 0 not started, 0 done (2 in total).");
-    expect(answer(interpret("show security projects", vocab), rows)).toMatch(/^Showing 2 Security Epics/);
-  });
-});
-
 describe("Executive dashboard page", () => {
-  const loaded = { epics, bookings: [], gridDone: {}, avail: none, at: "", load: { ms: 10 } } as never;
-  const mount = () => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
-  it("shows counts, filters by a status tile, answers a typed question as chips and opens details", () => {
+  const loaded = { epics, bookings: [{ epicId: 1, sourceId: "g", person: "ann", personName: "Zed Qux <zed>", month: "2026-10", hours: 90 }], gridDone: {}, avail: { records: [{ key: "ann", name: "Zed Qux <zed>" }], hours: () => 100, team: () => "Team A" }, at: "", load: { ms: 10 } } as never;
+  const mount = (st = settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+  const rows = (h: HTMLElement) => h.querySelectorAll("tr.ex-row").length;
+  const type = (h: HTMLElement, v: string) => { const i = h.querySelector('input[aria-label="Search the Epics"]') as HTMLInputElement; act(() => { Simulate.change(i, { target: { value: v } } as never); }); };
+  it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount();
-    expect(h.querySelector(".ex-strip")!.textContent).toContain("Portfolio");
-    expect(h.querySelectorAll("tr.ex-row")).toHaveLength(8);                                   // the Removed Epic is not listed
-    const input = h.querySelector('input[aria-label="Ask the dashboard"]') as HTMLInputElement;
-    act(() => { input.value = "How many regulatory projects are red?"; Simulate.change(input); });
-    act(() => { Simulate.submit(h.querySelector("form")!); });
-    expect(h.querySelector(".ex-answer")!.textContent).toContain("1 Regulatory Epic is at risk: Basel IV.");
-    expect(h.querySelector(".ex-chips")!.textContent).toContain("Type: Regulatory");
-    expect(h.querySelectorAll("tr.ex-row")).toHaveLength(1);
+    expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");
+    expect(rows(h)).toBe(8);                                                                  // the Removed Epic is not listed
+    const risk = Array.from(h.querySelectorAll(".ex-kpi")).find(b => b.textContent!.includes("At risk"))!, n = Number(risk.querySelector(".v")!.textContent);
+    act(() => { Simulate.click(risk); });
+    expect(rows(h)).toBe(n); expect(h.querySelector(".ex-chips")!.textContent).toContain("At risk");
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-chips button")).find(b => b.textContent === "Clear all") ?? h.querySelector(".ex-chips button")!); });
+    expect(rows(h)).toBe(8);
+    type(h, "basel"); expect(rows(h)).toBe(1);
+    type(h, "regulatory"); expect(rows(h)).toBe(4);                                           // the category is searchable too
+    type(h, "qux"); expect(rows(h)).toBe(1);                                                  // and the people booked on the Epic
+    type(h, "zzz"); expect(h.textContent).toContain("No Epics match");
+    type(h, "basel");
     act(() => { Simulate.click(h.querySelector("tr.ex-row")!); });
-    expect(h.querySelector(".ex-panel")!.textContent).toContain("Why this status");
-    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-chips button")).find(b => b.textContent === "Clear all")!); });
-    expect(h.querySelectorAll("tr.ex-row")).toHaveLength(8);
+    expect(h.querySelector(".ex-drawer.open")!.textContent).toContain("Basel IV"); expect(h.querySelector(".ex-drawer.open")!.textContent).toContain("Forecast");
+    act(() => { document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+    expect(h.querySelector(".ex-drawer.open")).toBeNull();
+  });
+  it("switches between the three layouts and keeps the filters", () => {
+    const h = mount();
+    type(h, "regulatory");
+    const tab = (t: string) => act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-seg button")).find(b => b.textContent!.includes(t))!); });
+    tab("Portfolio map"); expect(h.querySelector(".ex-map")).not.toBeNull(); expect(h.querySelectorAll(".ex-blk")).toHaveLength(4);
+    tab("Roadmap"); expect(h.querySelector(".ex-head .hl")!.textContent).toContain("at risk"); act(() => { Simulate.click(h.querySelector(".ex-road .lane.cat button.nm")!); }); expect(h.querySelectorAll(".ex-road .gb").length).toBeGreaterThan(0);
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-tab")).find(b => b.textContent === "Scorecards")!); }); expect(h.querySelector(".ex-sc")).not.toBeNull();
+    tab("Report"); expect(h.querySelector(".ex-charts")).not.toBeNull(); expect(rows(h)).toBe(4);
+  });
+  it("a click on a chart or a slicer filters the Epics and shows a chip", () => {
+    const h = mount();
+    act(() => { Simulate.click(h.querySelector(".ex-charts circle.seg")!); });
+    expect(h.querySelector(".ex-chips")).not.toBeNull(); expect(rows(h)).toBeLessThan(8);
+    act(() => { Simulate.click(h.querySelector(".ex-chips button")!); });
+    const slicer = Array.from(h.querySelectorAll(".ex-slicer .ex-chip")).find(b => b.textContent!.includes("Type"))!;
+    act(() => { Simulate.click(slicer); });
+    act(() => { Simulate.change(Array.from(h.querySelectorAll(".ex-pop input[type=checkbox]"))[0], { target: { checked: true } } as never); });
+    expect(h.querySelector(".ex-chips")!.textContent).toContain("Type:"); expect(rows(h)).toBeLessThan(8);
+  });
+  it("saves a personal view, applies a saved filter from the settings and shows calculated fields as columns", async () => {
+    const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q1", name: "Regulatory only", show: "epics", month: "current", columns: [], conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }] }] } });
+    const h = mount(st);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(Array.from(h.querySelectorAll(".ex-table th")).map(x => x.textContent)).toContain("Half progress");
+    const sf = h.querySelector('select[aria-label="Saved filter"]') as HTMLSelectElement;
+    act(() => { sf.value = "q1"; Simulate.change(sf); });
+    expect(rows(h)).toBe(4); expect(h.querySelector(".ex-chips")!.textContent).toContain("Saved filter: Regulatory only");
+    const views = Array.from(h.querySelectorAll("button")).find(b => b.textContent!.includes("Views"))!;
+    act(() => { Simulate.click(views); });
+    const name = h.querySelector('input[aria-label="New view name"]') as HTMLInputElement; act(() => { Simulate.change(name, { target: { value: "My regulatory view" } } as never); });
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".views .btn.primary")).find(b => b.textContent!.trim() === "Save")!); });
+    await act(async () => { await Promise.resolve(); });
+    expect(store.doc.views).toHaveLength(1); expect((store.doc.views[0] as { state: { savedId: string; layout: string } }).state).toMatchObject({ savedId: "q1", layout: "report" });
   });
 });
 
@@ -139,7 +161,6 @@ describe("refreshed label", () => {
 });
 
 import { catalog, describeResult, matches, runQuery, test as condTest, validateQueries } from "../planner/src/core/execQuery";
-import { findQuery } from "../planner/src/core/ask";
 import { ExecQueries } from "../planner/src/hub/ExecQueries";
 import { ExecQuery } from "../planner/src/core/types";
 
@@ -203,40 +224,20 @@ describe("running queries", () => {
     expect(validateQueries(normalizeSettings({ ...settings, executive: { ...settings.executive, queries: [Q("Ok", "teams", [C("utilization", ">=", "85"), C("team", "in", "A, B", "or")])] } }))).toEqual([]);
     expect(catalog("epics", settings).some(f => f.key === "Custom.Type" && f.label === "Type")).toBe(true);
   });
-  it("finds a configured query from typed words", () => {
-    const qs = [Q("Late", "epics", []), Q("Software upgrades at risk", "epics", [])];
-    expect(findQuery("what is late?", qs)?.name).toBe("Late");
-    expect(findQuery("show software upgrades at risk please", qs)?.name).toBe("Software upgrades at risk");
-    expect(findQuery("banana", qs)).toBeUndefined();
-  });
 });
 
 describe("queries on the dashboard and in the settings", () => {
   const withQueries = normalizeSettings({ ...settings, executive: { ...settings.executive, queries: [Q("Regulatory red", "epics", [C("Custom.Type", "=", "Regulatory"), C("status", "=", "At risk")]), Q("Teams hot", "teams", [C("utilization", ">=", "85")])] } });
   const data = { epics, bookings: [{ epicId: 1, sourceId: "g", person: "ann", personName: "Ann A <ann>", month: new Date().toISOString().slice(0, 7), hours: 95 }], gridDone: {}, avail: { records: [{ key: "ann", name: "Ann A <ann>" }], hours: () => 100, team: () => "Team A" }, at: "", load: { ms: 1 } } as never;
   const mount = () => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={withQueries} loaded={data} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
-  it("shows each query as a chip; an Epics query filters the list, a Teams query shows a table", () => {
-    const h = mount();
-    const chips = Array.from(h.querySelectorAll(".ex-sugg .chip"));
-    expect(chips.map(c => c.textContent)).toEqual(["Regulatory red", "Teams hot"]);
-    act(() => { Simulate.click(chips[0]); });
-    expect(h.querySelectorAll("tr.ex-row")).toHaveLength(1); expect(h.querySelector(".ex-chips")!.textContent).toContain("Query: Regulatory red");
-    expect(h.querySelector(".ex-answer")!.textContent).toContain("Regulatory red: 1 Epic");
-    act(() => { Simulate.click(chips[1]); });
-    expect(h.querySelector(".ex-result")!.textContent).toContain("Team A"); expect(h.querySelector(".ex-result")!.textContent).toContain("95%");
-    const input = h.querySelector('input[aria-label="Ask the dashboard"]') as HTMLInputElement;
-    act(() => { input.value = "regulatory red"; Simulate.change(input); });
-    act(() => { Simulate.submit(h.querySelector("form")!); });
-    expect(h.querySelector(".ex-result")).toBeNull(); expect(h.querySelectorAll("tr.ex-row")).toHaveLength(1);
-  });
   it("the editor adds a query, a condition, changes its field and operator, and offers example queries", () => {
     const hostEl = document.createElement("div"); document.body.appendChild(hostEl);
     let s = settings;
     const render = () => ReactDOM.render(<ExecQueries s={s} onChange={n => { s = n; render(); }} />, hostEl);
     act(() => { render(); });
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add example queries")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add example filters")!); });
     expect(s.executive.queries.map(q => q.name)).toEqual(["At risk", "Late", "Teams highly utilized", "People over capacity"]);
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a query")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a saved filter")!); });
     expect(s.executive.queries).toHaveLength(5);
     const card = () => hostEl.querySelectorAll(".card")[4] as HTMLElement;
     act(() => { Simulate.click(Array.from(card().querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a condition")!); });
@@ -310,27 +311,13 @@ describe("calculated fields in the editor and on the dashboard", () => {
     expect(s.executive.formulas[0].formula).toBe("[Progress]");
     act(() => { ta().value = "[Progress] / 2"; Simulate.change(ta()); });
     expect(hostEl.textContent).toContain("Formula is valid"); void ins;
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a query")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a saved filter")!); });
     const add = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement;
     act(() => { add.value = "title"; Simulate.change(add); });
     act(() => { const a2 = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement; a2.value = "calc:" + s.executive.formulas[0].id; Simulate.change(a2); });
     expect(s.executive.queries[0].columns).toEqual(["title", "calc:" + s.executive.formulas[0].id]);
     act(() => { Simulate.click(hostEl.querySelector('[aria-label="Remove column Title"]')!); });
     expect(s.executive.queries[0].columns).toHaveLength(1);
-  });
-  it("an Epics query with columns shows a sortable result table including the calculated field", () => {
-    const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q", name: "Regulatory list", show: "epics", month: "current", conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }], columns: ["title", "progress", "calc:half"] }] } });
-    const data = { epics, bookings: [], gridDone: {}, avail: none, at: "", load: { ms: 1 } } as never;
-    const h = document.createElement("div"); document.body.appendChild(h);
-    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={data} busy={false} error="" onReload={() => undefined} />, h); });
-    act(() => { Simulate.click(h.querySelector(".ex-sugg .chip")!); });
-    const heads = Array.from(h.querySelectorAll(".ex-result th")).map(x => x.textContent);
-    expect(heads).toEqual(["Title", "Progress", "Half progress"]);
-    const firstRow = () => Array.from(h.querySelectorAll(".ex-result tbody tr")[0].querySelectorAll("td")).map(x => x.textContent);
-    act(() => { Simulate.click(h.querySelectorAll(".ex-result th button")[1]); });         // sort by progress, highest first
-    expect(firstRow()).toEqual(["FATCA", "100%", "50"]);
-    act(() => { Simulate.click(h.querySelectorAll(".ex-result th button")[1]); });         // again: lowest first
-    expect(firstRow()[1]).toBe("62%");
   });
 });
 
@@ -344,9 +331,9 @@ describe("enabling the Executive Dashboard", () => {
     let s = normalizeSettings({});
     const render = () => ReactDOM.render(<ExecSettingsView s={s} fields={[]} project="Proj" onChange={n => { s = n; render(); }} />, hostEl);
     act(() => { render(); });
-    expect(hostEl.textContent).toContain("Enable the Executive Dashboard"); expect(hostEl.textContent).not.toContain("Questions (queries)");
+    expect(hostEl.textContent).toContain("Enable the Executive Dashboard"); expect(hostEl.textContent).not.toContain("Saved filters");
     act(() => { Simulate.change(hostEl.querySelector('input[type="checkbox"]')!, { target: { checked: true } } as never); });
-    expect(s.executive.enabled).toBe(true); expect(hostEl.textContent).toContain("Questions (queries)");
+    expect(s.executive.enabled).toBe(true); expect(hostEl.textContent).toContain("Saved filters");
   });
   it("the tab explains what is missing when the settings are incomplete", () => {
     const h = document.createElement("div"); document.body.appendChild(h);

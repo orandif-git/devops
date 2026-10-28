@@ -1,86 +1,79 @@
 import * as React from "react";
 import "./exec.css";
-import { IconClose, IconOpen, IconRefresh, IconSearch } from "../../../src/shared/icons";
-import { answer, findQuery, interpret, matchesDims } from "../core/ask";
-import { describeResult, formatCell, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
-import { ExecQuery } from "../core/types";
+import { IconExitFullScreen, IconFullScreen, IconMap, IconRefresh, IconReport, IconRoadmap, IconSearch } from "../../../src/shared/icons";
 import { fmtDate } from "../core/dates";
-import { buildExec, dayText, dimFields, dimLabel, ExecEpic, ExecStatus, likely, NO_VALUE, STATUS_NAME, STATUS_ORDER } from "../core/executive";
+import { buildExec, dayText, dimFields } from "../core/executive";
+import { catalog, calcKey, formatCell, runQuery } from "../core/execQuery";
 import { monthsOfPeriod } from "../core/period";
-import { PlannerSettings } from "../core/types";
-import { Loaded } from "../data/loadAll";
+import { ExecLayout, PlannerSettings } from "../core/types";
+import { decodeJson, encodeJson, newViewId } from "../core/views";
 import { LoadProgress } from "../data/epics";
+import { Loaded } from "../data/loadAll";
+import { SavedQuery } from "../data/queries";
+import { ExecView, ExecViewDoc, ExecViewState, loadExecViews, normalizeExecView, saveExecViews } from "../data/execViewStore";
+import { linkFor } from "../data/share";
 import { EpicDialog } from "../hub/EpicDialog";
+import { ViewsMenu } from "../hub/ViewsMenu";
+import { ExtraCol, LP, MapLayout, ReportLayout, RoadmapLayout } from "./layouts";
+import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
+import { Drawer } from "./parts";
 
-const SYM: Record<ExecStatus, string> = { green: "✓", amber: "▲", red: "!", unknown: "?", idle: "○", done: "●" };
-const Sw = ({ s }: { s: ExecStatus }) => <i className={"ex-sw " + s} aria-hidden="true">{SYM[s]}</i>;
-const PAGE = 100;
+const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
+const strip = (f: XF): XF => ({ ...f, saved: undefined, savedName: undefined });
 
-interface Filters { dims: Record<string, string[]>; statuses: ExecStatus[]; late: boolean; hold: boolean; search: string; /** only these Epics (the result of a query) */ ids?: number[]; idsName?: string }
-const none = (): Filters => ({ dims: {}, statuses: [], late: false, hold: false, search: "" });
-const toggle = <T,>(a: T[], v: T) => (a.includes(v) ? a.filter(x => x !== v) : [...a, v]);
-
-/** Executive view of every Epic: status, go-live risk, a short brief, and questions that turn into filters. */
+/** The Executive Dashboard: three layouts of the same Epics, shared filters and search, and a detail panel. */
 export function ExecDashboard(p: {
   project: { id: string; name: string }; settings: PlannerSettings; loaded?: Loaded; busy: boolean; progress?: LoadProgress; error: string; onReload(force: boolean): void;
-  toolbar?: React.ReactNode;
+  queries?: SavedQuery[]; queryId?: string; onQuery?(id: string): void;
+  full?: boolean; onFull?(on: boolean): void; link?: { pv?: string; full: boolean };
 }) {
   const L = p.loaded, x = p.settings.executive;
-  const day = (t: number) => (p.settings.dateFormat ? fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) : dayText(t));      // the standard look until the administrator chooses a format
-  const [f, setF] = React.useState<Filters>(none());
-  const [group, setGroup] = React.useState(dimFields(p.settings)[0]);
+  const day = (t?: number) => (t === undefined ? "–" : p.settings.dateFormat ? fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) : dayText(t));      // the standard look until the administrator chooses a format
+  const [layout, setLayout] = React.useState<ExecLayout>(x.layout);
+  const [f, setF] = React.useState<XF>(emptyXF());
+  const [savedId, setSavedId] = React.useState("");
   const [sel, setSel] = React.useState<number>();
   const [dialog, setDialog] = React.useState<number>();
-  const [text, setText] = React.useState("");
-  const [said, setSaid] = React.useState<{ q: string; a: string }>();
-  const [limit, setLimit] = React.useState(PAGE);
-  const [run, setRun] = React.useState<QueryResult>();
-  const [sort, setSort] = React.useState<{ key: string; desc: boolean }>();
   const fields = dimFields(p.settings);
-  React.useEffect(() => { if (!fields.includes(group)) setGroup(fields[0]); }, [fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
   const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings }) : undefined), [L, p.settings]);
-  const rows = built?.rows ?? [];
-  const vocab = React.useMemo(() => Object.fromEntries(fields.map(k => [k, Array.from(new Set(rows.map(r => r.dims[k]))).filter(v => v !== NO_VALUE).sort()])), [rows, fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const idSet = React.useMemo(() => (f.ids ? new Set(f.ids) : undefined), [f.ids]);
-  const base = (r: ExecEpic) => (!idSet || idSet.has(r.epic.id)) && matchesDims(r, f.dims) && (!f.late || r.late) && (!f.hold || r.hold) && (!f.search || r.epic.title.toLowerCase().includes(f.search.toLowerCase()) || String(r.epic.id) === f.search.trim());
-  const B = rows.filter(base);                                                   // for the tiles: everything but the status filter
-  const V = B.filter(r => !f.statuses.length || f.statuses.includes(r.status));
-  const cnt = (list: ExecEpic[], s: ExecStatus) => list.filter(r => r.status === s).length;
-  const active = B.filter(r => r.status === "green" || r.status === "amber" || r.status === "red");
-  const likelyN = active.filter(r => likely(r, x)).length;
-  const sorted = React.useMemo(() => V.slice().sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || b.slip - a.slip || a.epic.title.localeCompare(b.epic.title)), [V.length, f, rows]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const chosen = rows.find(r => r.epic.id === sel);
-  const months = React.useMemo(() => monthsOfPeriod({ kind: "year" }), []);
+  const all = React.useMemo(() => (L && built ? buildItems(built.rows, L, p.settings) : []), [L, built, p.settings]);
+  const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
 
-  const runNamed = (x: ExecQuery, asked?: string) => {
-    if (!L || !built) return;
-    const res = runQuery(x, { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone });
-    setSel(undefined); setLimit(PAGE);
-    setSort(undefined);
-    if (x.show === "epics") { setRun(x.columns.length ? res : undefined); setF({ ...none(), ids: res.rows.map(r => r.epicId!), idsName: x.name }); } else { setRun(res); setF(none()); }
-    setSaid({ q: asked ?? x.name, a: describeResult(res) });
-  };
-  const ask = (q: string) => {
-    const t = q.trim(); if (!t) return;
-    const named = findQuery(t, x.queries);
-    if (named) { runNamed(named, t); return; }
-    setRun(undefined);
-    const Q = interpret(t, vocab);
-    if (!Q.recognised) { setSaid({ q: t, a: "I could not map that to the data. Try a category value with a status, for example “" + (Object.values(vocab).flat()[0] ?? "Regulatory") + " projects that are red”, “what is late?” or “RAG split”." }); return; }
-    setF({ dims: Q.dims, statuses: Q.split ? [] : Q.statuses, late: Q.late, hold: Q.hold, search: "" }); setSel(undefined); setLimit(PAGE);
-    setSaid({ q: t, a: answer(Q, rows) });
-  };
-  const first = Object.values(vocab).flat();
-  const queryChips = x.queries.filter(q => q.name.trim());
-  const suggestions = queryChips.length ? [] : [first[0] && `Which ${first[0]} projects are red?`, first[1] && `How many ${first[1]} projects are at risk?`, first[0] && `${first[0]} RAG`, "What is late?", "Show everything on hold"].filter(Boolean) as string[];
-  const chips: { label: string; clear(): void }[] = [
-    ...Object.entries(f.dims).flatMap(([k, vals]) => vals.map(v => ({ label: `${dimLabel(k)}: ${v}`, clear: () => setF({ ...f, dims: { ...f.dims, [k]: vals.filter(y => y !== v) } }) }))),
-    ...f.statuses.map(s => ({ label: "Status: " + STATUS_NAME[s], clear: () => setF({ ...f, statuses: f.statuses.filter(y => y !== s) }) })),
-    ...(f.late ? [{ label: "Late", clear: () => setF({ ...f, late: false }) }] : []), ...(f.hold ? [{ label: "On hold", clear: () => setF({ ...f, hold: false }) }] : []),
-    ...(f.search ? [{ label: "Search: " + f.search, clear: () => setF({ ...f, search: "" }) }] : []),
-    ...(f.ids ? [{ label: "Query: " + (f.idsName ?? ""), clear: () => setF({ ...f, ids: undefined, idsName: undefined }) }] : []),
-  ];
+  // saved filters: the named Epic queries of the settings, run on the current data
+  const saved = x.queries.filter(q => q.name.trim() && q.show === "epics");
+  const savedRun = React.useMemo(() => { const q = saved.find(y => y.id === savedId); if (!q || !input) return undefined; return { ids: runQuery(q, input).rows.map(r => r.epicId!), name: q.name }; }, [savedId, input, x.queries]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const fx: XF = { ...f, saved: savedRun?.ids, savedName: savedRun?.name };
+  const change = (n: XF) => { setF(strip(n)); if (fx.saved && !n.saved) setSavedId(""); };
+
+  // calculated fields as extra columns of the table
+  const extra: ExtraCol[] = React.useMemo(() => {
+    const cf = x.formulas.filter(c => c.show === "epics" && c.name.trim());
+    if (!cf.length || !input) return [];
+    const res = runQuery({ id: "_calc", name: "", show: "epics", month: "current", conditions: [], columns: cf.map(calcKey) }, input), defs = catalog("epics", p.settings);
+    const byId = new Map(res.rows.map(r => [r.epicId, r.values]));
+    return cf.map(c => ({ key: calcKey(c), label: c.name, get: (i: Item) => formatCell(defs.find(d => d.key === calcKey(c)), byId.get(i.id)?.[calcKey(c)]) }));
+  }, [x.formulas, input, p.settings]);
+
+  const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const chosen = all.find(i => i.id === sel);
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today };
+
+  // my saved views and a shared link
+  const snapshot = (): ExecViewState => ({ layout, status: f.status, state: f.state, team: f.team, quarter: f.quarter, dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
+  const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
+  React.useEffect(() => {
+    if (started.current) return; started.current = true;
+    const shared = p.link?.pv ? decodeJson(p.link.pv) : undefined;
+    loadExecViews(p.project.id, x.layout).then(d => { setDoc(d); const d0 = d.views.find(v => v.id === d.defaultId); if (!shared && d0) apply(d0.state); }).catch(e => setViewErr("Could not read your saved views: " + (e as Error).message));
+    if (shared) apply(shared);
+    if (p.link?.full) p.onFull?.(true);
+  }, []);   // eslint-disable-line react-hooks/exhaustive-deps
+  const keep = (next: ExecViewDoc) => { const prev = doc; setDoc(next); setViewErr(""); saveExecViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
+  const sub = (v: ExecView) => LAYOUTS.find(l => l.id === v.state.layout)?.label;
+  React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape" && !sel && p.full) p.onFull?.(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [sel, p.full]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!L) return (
     <div>
@@ -89,93 +82,29 @@ export function ExecDashboard(p: {
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
   );
-
-  const tile = (s: ExecStatus) => <button key={s} className={"ex-tile" + (f.statuses.includes(s) ? " on" : f.statuses.length ? " dim" : "")} aria-pressed={f.statuses.includes(s)} onClick={() => setF({ ...f, statuses: toggle(f.statuses, s) })}>
-    <div className="l"><Sw s={s} />{STATUS_NAME[s]}</div><div className="v">{cnt(B, s)}</div><div className="d">{B.length ? Math.round(cnt(B, s) / B.length * 100) : 0}% of Epics</div></button>;
-  const li = (r: ExecEpic, extra?: string) => <li key={r.epic.id}><a href="#" className="lk" onClick={e => { e.preventDefault(); setSel(r.epic.id); }}>{r.epic.title}</a> <span className="muted">· {Object.values(r.dims).filter(v => v !== NO_VALUE).join(", ") || r.epic.areaPath}{extra ? " · " + extra : ""}</span></li>;
-  const good = B.filter(r => r.status === "green").sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0)).slice(0, 4);
-  const warn = B.filter(r => r.status === "amber").sort((a, b) => b.slip - a.slip).slice(0, 4);
-  const bad = B.filter(r => r.status === "red").sort((a, b) => (b.late ? 1e4 : 0) + b.slip - (a.late ? 1e4 : 0) - a.slip).slice(0, 4);
-  const worst = Array.from(new Set(rows.map(r => r.dims[group]))).map(v => [v, B.filter(r => r.dims[group] === v && r.status === "red").length] as const).sort((a, b) => b[1] - a[1])[0];
-  const values = Array.from(new Set(rows.map(r => r.dims[group]))).sort((a, b) => (a === NO_VALUE ? 1 : 0) - (b === NO_VALUE ? 1 : 0) || a.localeCompare(b));
-
+  const chips = chipsOf(fx, change);
   return (
-    <div className="ex">
-      <form className="ex-ask" role="search" onSubmit={e => { e.preventDefault(); ask(text); }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input aria-label="Ask the dashboard" placeholder={`Ask the dashboard, e.g. “${queryChips[0]?.name ?? suggestions[1] ?? "What is late?"}”`} value={text} onChange={e => setText(e.target.value)} autoComplete="off" />
-          <button className="btn primary" type="submit"><IconSearch /> Ask</button>
-          {p.toolbar}
-        </div>
-        <div className="ex-sugg"><span className="muted">{queryChips.length ? "Questions" : "Try"}</span>{queryChips.map(q => <button type="button" key={q.id} className="chip" title={q.conditions.map((c, i) => `${i ? c.join.toUpperCase() + " " : ""}${c.field} ${OP_LABEL[c.op]} ${c.value}`).join(" ")} onClick={() => { setText(q.name); runNamed(q); }}>{q.name}</button>)}{suggestions.map(s => <button type="button" key={s} className="chip" onClick={() => { setText(s); ask(s); }}>{s}</button>)}</div>
-        {said && <div className="ex-answer" role="status" aria-live="polite"><div className="muted">You asked: “{said.q}”</div>{said.a}</div>}
-      </form>
-      {chips.length > 0 && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}><IconClose size={12} /></button></span>)}<button className="lk" onClick={() => { setF(none()); setSaid(undefined); setRun(undefined); }}>Clear all</button></div>}
+    <div className={"ex" + (p.full ? " ex-full" : "")}>
+      <div className="ex-bar">
+        <div className="ex-seg" role="tablist" aria-label="Layout">{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>
+        <label className="ex-search"><IconSearch /><input type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /></label>
+        {saved.length > 0 && <label className="ex-chip sel"><span className="k">Saved filter</span><select aria-label="Saved filter" value={savedId} onChange={e => setSavedId(e.target.value)}><option value="">None</option>{saved.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}</select></label>}
+        {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
+        <span className="grow" />
+        <ViewsMenu views={doc.views.map(v => ({ id: v.id, name: v.name, sub: sub(v) }))} defaultId={doc.defaultId} error={viewErr}
+          onApply={id => { const v = doc.views.find(y => y.id === id); if (v) apply(v.state); }} onSave={name => keep({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
+          onUpdate={id => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })} onRename={(id, name) => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
+          onDelete={id => keep({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })} onDefault={id => keep({ ...doc, defaultId: id })}
+          onReset={() => { setF(emptyXF()); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+        {p.onFull && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
+        <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics`}>{p.busy ? "…" : <IconRefresh />}</button>
+      </div>
+      {(chips.length > 0 || !isEmpty(fx)) && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="ex-fchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={() => { setF(emptyXF()); setSavedId(""); }}>Clear all</button>}<span className="muted">{items.length} of {all.length} Epics</span></div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
-      {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive > 0 && `${built.noGoLive} Epic(s) have no go-live date. `}{built.noProgress > 0 && `${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only. `}{built.ignored > 0 && `${built.ignored} left out by state.`}</div>}
-
-      {run && (() => {
-        const rowsSorted = sort ? run.rows.slice().sort((a, b) => { const x1 = a.values[sort.key], y1 = b.values[sort.key]; if (x1 === y1) return 0; if (x1 === undefined) return 1; if (y1 === undefined) return -1;   /* blanks stay last in both directions */ const d = typeof x1 === "number" && typeof y1 === "number" ? x1 - y1 : String(x1).localeCompare(String(y1)); return sort.desc ? -d : d; }) : run.rows;
-        return <div className="card ex-result" role="region" aria-label={run.query.name}>
-          <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.rows.length} {run.query.show === "epics" ? "Epics" : run.query.show} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}><IconClose /> Close</button></h3>
-          {!run.rows.length ? <div className="muted">Nothing matches.</div> : <div className="ex-scroll" style={{ maxHeight: 360 }}><table><thead><tr>{run.shown.map(c => <th key={c.key} aria-sort={sort?.key === c.key ? (sort.desc ? "descending" : "ascending") : undefined}><button className="lk" style={{ border: 0, background: "none", font: "inherit", fontWeight: 600, color: "inherit", cursor: "pointer", padding: 0 }} onClick={() => setSort(sort?.key === c.key ? { key: c.key, desc: !sort.desc } : { key: c.key, desc: c.type === "number" })}>{c.label}{sort?.key === c.key ? (sort.desc ? " ↓" : " ↑") : ""}</button></th>)}</tr></thead>
-            <tbody>{rowsSorted.map(r => <tr key={r.key}>{run.shown.map(c => <td key={c.key}>{formatCell(c, r.values[c.key])}</td>)}</tr>)}</tbody></table></div>}
-        </div>;
-      })()}
-      <div className="ex-strip">
-        <div className="ex-tile static"><div className="l">Portfolio</div><div className="v">{B.length}</div><div className="d">{cnt(B, "idle")} not started · {cnt(B, "unknown")} not assessed</div></div>
-        {(["green", "amber", "red", "done"] as ExecStatus[]).map(tile)}
-        <div className="ex-tile static"><div className="l">Likely to deliver by go-live</div><div className="v">{likelyN} of {active.length}</div>
-          <div className="ex-gauge" aria-hidden="true"><i style={{ width: (active.length ? likelyN / active.length * 100 : 0) + "%" }} /></div><div className="d">active Epics at {x.likelyPct}% confidence or more</div></div>
-      </div>
-
-      <div className="ex-brief">
-        <div className="card"><h3><Sw s="green" />Progressing well</h3><div className="muted">{cnt(B, "green")} on track, {cnt(B, "done")} delivered.</div><ul>{good.map(r => li(r, r.pct !== undefined ? r.pct + "% done" : undefined))}{!good.length && <li className="muted">None in this view.</li>}</ul></div>
-        <div className="card"><h3><Sw s="amber" />Needs attention</h3><div className="muted">{cnt(B, "amber")} could slip without action.</div><ul>{warn.map(r => li(r, r.reasons[0]))}{!warn.length && <li className="muted">None in this view.</li>}</ul></div>
-        <div className="card"><h3><Sw s="red" />Go-live risk</h3><div className="muted">{cnt(B, "red")} will probably miss their go-live date{worst && worst[1] > 0 ? `; most in ${worst[0]} (${worst[1]})` : ""}.</div><ul>{bad.map(r => li(r, r.reasons[0]))}{!bad.length && <li className="muted">None in this view.</li>}</ul></div>
-      </div>
-
-      <div className={"ex-main" + (chosen ? " withpanel" : "")}>
-        <div className="card">
-          <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>By {dimLabel(group).toLowerCase()}
-            {fields.length > 1 && <select aria-label="Group by" value={group} onChange={e => setGroup(e.target.value)}>{fields.map(k => <option key={k} value={k}>{dimLabel(k)}</option>)}</select>}</h3>
-          {values.map(v => { const l = rows.filter(r => r.dims[group] === v); const on = (f.dims[group] ?? []).includes(v);
-            return <button key={v} className={"ex-cat" + (on ? " on" : "")} aria-pressed={on} onClick={() => setF({ ...f, dims: { ...f.dims, [group]: toggle(f.dims[group] ?? [], v) } })}>
-              <span className="n"><span>{v}</span><span className="muted">{l.length}</span></span>
-              <span className="ex-stack" aria-hidden="true">{(["red", "amber", "green", "unknown", "idle", "done"] as ExecStatus[]).map(s => <i key={s} className={s} style={{ width: (l.length ? cnt(l, s) / l.length * 100 : 0) + "%" }} />)}</span>
-              <span className="muted">{cnt(l, "red")} at risk · {cnt(l, "amber")} attention · {cnt(l, "green")} on track</span></button>; })}
-        </div>
-        <div className="card" style={{ padding: 0, minWidth: 0 }}>
-          {!sorted.length ? <div className="muted" style={{ padding: 20 }}>No Epics match. Clear a filter or ask a different question.</div> : (
-            <div className="ex-scroll"><table><thead><tr><th>Status</th><th>Epic</th>{fields.map(k => <th key={k}>{dimLabel(k)}</th>)}<th>Progress vs time</th><th>Go-live</th><th>Forecast</th><th>Confidence</th><th>Why</th></tr></thead>
-              <tbody>{sorted.slice(0, limit).map(r => (
-                <tr key={r.epic.id} className={"ex-row" + (sel === r.epic.id ? " sel" : "")} tabIndex={0} onClick={() => setSel(r.epic.id)} onKeyDown={e => { if (e.key === "Enter") setSel(r.epic.id); }}>
-                  <td><span className="ex-pill"><Sw s={r.status} />{STATUS_NAME[r.status]}</span></td>
-                  <td><b>{r.epic.title}</b><div className="muted">{r.epic.id}</div></td>
-                  {fields.map(k => <td key={k}>{r.dims[k]}</td>)}
-                  <td>{r.pct === undefined || r.status === "idle" ? <span className="muted">–</span> : <div className="ex-prog" role="img" aria-label={`${r.pct}% done${r.elapsed !== undefined ? `, ${Math.round(r.elapsed * 100)}% of the time used` : ""}`}><i className={r.status} style={{ width: r.pct + "%" }} />{r.elapsed !== undefined && <u style={{ left: Math.min(100, r.elapsed * 100) + "%" }} />}</div>}</td>
-                  <td>{r.goLive !== undefined ? day(r.goLive) : "–"}</td><td>{r.forecast !== undefined && r.status !== "done" ? day(r.forecast) : "–"}</td>
-                  <td className="ex-conf">{r.conf === null ? "–" : r.conf + "%"}</td><td className="ex-reason">{r.reasons[0] ?? ""}</td></tr>))}</tbody></table>
-              {sorted.length > limit && <div style={{ padding: 10 }}><button className="btn" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, sorted.length - limit)} more ({sorted.length - limit} not shown)</button></div>}</div>)}
-        </div>
-        {chosen && <div className="card ex-panel" role="complementary" aria-label={`Details for ${chosen.epic.title}`}>
-          <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}><IconClose /></button>
-          <h3 style={{ margin: 0 }}>{chosen.epic.title}</h3><div className="muted">Epic {chosen.epic.id} · {chosen.epic.state}</div>
-          <div style={{ margin: "8px 0" }}><span className="ex-pill"><Sw s={chosen.status} />{STATUS_NAME[chosen.status]}</span></div>
-          <dl>
-            {fields.map(k => <React.Fragment key={k}><dt>{dimLabel(k)}</dt><dd>{chosen.dims[k]}</dd></React.Fragment>)}
-            <dt>Start</dt><dd>{chosen.start !== undefined ? day(chosen.start) : "–"}</dd><dt>Go-live</dt><dd>{chosen.goLive !== undefined ? day(chosen.goLive) : "–"}</dd>
-            <dt>Forecast</dt><dd>{chosen.forecast !== undefined && chosen.status !== "done" ? day(chosen.forecast) + (chosen.slip > 0 ? ` (${chosen.slip} days late)` : "") : "–"}</dd>
-            <dt>Progress</dt><dd>{chosen.pct !== undefined ? `${chosen.pct}%${chosen.elapsed !== undefined ? ` (time used ${Math.round(Math.min(chosen.elapsed, 1.5) * 100)}%)` : ""}` : "no value"}{chosen.pctFrom && <div className="muted">from {chosen.pctFrom}</div>}</dd>
-            <dt>Confidence</dt><dd>{chosen.conf === null ? "–" : chosen.conf + "% of delivering by go-live"}</dd>
-          </dl>
-          <b>Why this status</b><ul>{chosen.reasons.map((s, i) => <li key={i}>{s}</li>)}</ul>
-          {chosen.over.length > 0 && <div className="muted">Over capacity: {chosen.over.join(", ")}</div>}
-          <p><button className="btn" onClick={() => setDialog(chosen.epic.id)}><IconOpen /> Open the Epic details</button></p>
-        </div>}
-      </div>
-      <div className="ex-legend"><span><Sw s="green" />On track</span><span><Sw s="amber" />Needs attention</span><span><Sw s="red" />At risk</span><span><Sw s="unknown" />Not assessed</span><span><Sw s="idle" />Not started</span><span><Sw s="done" />Done</span><span className="muted">Bar = progress · black tick = share of time used</span></div>
-      {dialog !== undefined && chosen && <EpicDialog epic={chosen.epic} project={p.project.name} bookings={L.bookings} months={months} onClose={() => setDialog(undefined)} />}
+      {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive} Epic(s) have no go-live date{built.noProgress ? `; ${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only` : ""}.</div>}
+      {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
+      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} />
+      {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

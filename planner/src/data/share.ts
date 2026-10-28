@@ -12,7 +12,8 @@ export async function readLink(): Promise<{ pv?: string; full: boolean }> {
 }
 
 /** An address that opens this page with the given view, full screen. */
-export async function buildLink(state: ViewState, defaults: ViewState): Promise<string> {
+export const buildLink = (state: ViewState, defaults: ViewState): Promise<string> => linkFor(encodeView(state, defaults));
+export async function linkFor(pv: string): Promise<string> {
   const nav = await SDK.getService<IHostNavigationService>(CommonServiceIds.HostNavigationService);
   let base = "";
   try {
@@ -21,7 +22,7 @@ export async function buildLink(state: ViewState, defaults: ViewState): Promise<
   } catch { /* use the page that holds this one */ }
   if (!base) base = document.referrer.split("#")[0].split("?")[0];
   if (!base) throw new Error("The address of this page could not be read.");
-  return `${base}?pv=${encodeView(state, defaults)}&full=1`;
+  return `${base}?pv=${pv}&full=1`;
 }
 
 /** Full screen of the Azure DevOps page (hides the menus and header), the way the expand icon on boards does. Best effort. */

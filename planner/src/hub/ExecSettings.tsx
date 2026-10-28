@@ -49,8 +49,11 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
     <div>
       <h3>Executive dashboard</h3>
       <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={x.enabled} onChange={e => setX({ enabled: e.target.checked })} /> <b>Enable the Executive Dashboard</b> (the “Executive Dashboard” board under Boards shows it; until this is ticked it only shows a “not enabled” message)</label>
-      <div className="help">Off by default. When it is off the tab does not appear and the settings below are hidden.</div>
+      <div className="help">Off by default. When it is off the board only says it is not enabled and the settings below are hidden.</div>
       {!x.enabled ? null : <>
+      <label className="field" style={{ width: 240 }}><span>Layout the dashboard opens in</span>
+        <select value={x.layout} onChange={ev => setX({ layout: ev.target.value as Exec["layout"] })}><option value="report">Report (charts and table)</option><option value="map">Portfolio map</option><option value="roadmap">Roadmap</option></select></label>
+      <div className="help">Everyone can switch layout on the dashboard; the last layout a person used is remembered for them in their saved views.</div>
       {problems.length > 0 && <ul className="err" style={{ margin: "4px 0 8px 18px" }}>{problems.map(e => <li key={e}>{e}</li>)}</ul>}
 
       <div className="help"><b>Category fields</b>: Epic fields that classify an Epic, for example project type or regulatory. They become filters, the “by category” panel and words you can use when asking questions. None chosen = the area path is used.</div>

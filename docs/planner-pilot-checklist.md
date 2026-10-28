@@ -76,3 +76,11 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Epic Gantt: Settings › Epic Gantt statistics picks the default tiles; Statistics (in the toolbar) changes them for your own view.
 - [ ] Settings › Epic Gantt grouping: add Delivery Status; the Epic Gantt Group by list now has it; groups sort in order (1., 2., … 10.) with “(none)” last. Remove the field in Settings: a view that used it falls back to Area.
 - [ ] Settings › Date format / Month format: choose DD/MM/YYYY and MM/YYYY, save, reload: Gantt bars, tooltips, the Epic dialog and the cell tooltips use them; the Executive dates too. The custom period offers a month picker.
+
+## Executive Dashboard (three layouts)
+- [ ] Boards › Executive Dashboard opens styled in the Report layout (or the layout chosen in Settings › Executive dashboard); the switch at the top changes to Portfolio map and Roadmap and keeps the filters.
+- [ ] Click a slice, a bar, a column, a status card, a map block, a scorecard: the other charts and the table follow, with a chip; Clear all resets.
+- [ ] The search box finds an Epic by id, title, state, a category value, a reason word, a person booked on it and a go-live date (in your date format).
+- [ ] Click an Epic (row, block or bar): the detail panel opens (Esc closes); “Open the Epic details” shows the Epic dialog.
+- [ ] A named filter of the settings appears in “Saved filter”; a calculated field appears as a table column.
+- [ ] Views: save, set as default, copy link; Full screen button. With about 485 Epics the three layouts stay quick (note the load time).

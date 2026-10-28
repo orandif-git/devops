@@ -140,12 +140,12 @@ export function ExecQueries(p: { s: PlannerSettings; onChange(s: PlannerSettings
         {!fs.length && <button className="btn" onClick={() => setF(exampleFormulas())}><IconPlus /> Add example calculated fields</button>}
       </div>
 
-      <h3>Questions (queries)</h3>
-      <div className="help">Build a query like in Azure DevOps: field, operator, value, joined with And / Or (And binds tighter than Or). Give it a name and it appears as a chip under the Ask box; clicking it, or typing its name, runs it. A query can return <b>Epics</b>, <b>people</b> or <b>teams</b>. People and teams are read for a month from the planner's grids and team capacity, for example <i>Utilization &gt;= 85</i>. Dates accept YYYY-MM-DD, today, today-30, today+7.</div>
+      <h3>Saved filters</h3>
+      <div className="help">Build a filter like an Azure DevOps query: field, operator, value, joined with And / Or (And binds tighter than Or). Give it a name and it appears in the dashboard's <b>Saved filter</b> list; choosing it shows only the Epics that match. Only filters that return <b>Epics</b> are offered on the dashboard (people and team filters are not used there).</div>
       {qs.map((q, i) => <QueryCard key={q.id} q={q} s={p.s} first={i === 0} last={i === qs.length - 1} onChange={n => setQ(qs.map((x, j) => (j === i ? n : x)))} onRemove={() => setQ(qs.filter((_, j) => j !== i))} onMove={d => move(i, d)} />)}
       <div className="row">
-        <button className="btn" onClick={() => setQ([...qs, { id: id(), name: "", show: "epics", month: "current", columns: [], conditions: [] }])}><IconPlus /> Add a query</button>
-        {!qs.length && <button className="btn" onClick={() => setQ(exampleQueries())}><IconPlus /> Add example queries</button>}
+        <button className="btn" onClick={() => setQ([...qs, { id: id(), name: "", show: "epics", month: "current", columns: [], conditions: [] }])}><IconPlus /> Add a saved filter</button>
+        {!qs.length && <button className="btn" onClick={() => setQ(exampleQueries())}><IconPlus /> Add example filters</button>}
       </div>
     </div>
   );

@@ -56,3 +56,7 @@ export function decodeView(text: string, d: ViewState): ViewState | undefined {
   try { return normalizeView(JSON.parse(unb64(text)), d); } catch { return undefined; }
 }
 export const newViewId = () => "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/** Any small value as link text and back (used by the Planner and by the Executive Dashboard). */
+export const encodeJson = (o: unknown): string => b64(JSON.stringify(o));
+export const decodeJson = (text: string): unknown => { try { return JSON.parse(unb64(text)); } catch { return undefined; } };
