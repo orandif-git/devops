@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import * as React from "react";
 import * as ReactDOM from "react-dom";
-import { act } from "react-dom/test-utils";
+import { act, Simulate } from "react-dom/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 const opened: number[] = [];
@@ -115,6 +115,34 @@ describe("Epic Gantt tab", () => {
   });
 });
 
+describe("Epic Gantt statistics, key filter and search", () => {
+  const e3 = { ...epic(3, "Portal revamp", "2026-02-01", "2026-12-31"), state: "Delivery Committed" }, e4 = { ...epic(4, "Old launch", "2026-01-05", "2026-02-28"), state: "Closed" };
+  const data = { ...loaded, epics: [...loaded.epics, e3, e4], stateGroups: { "delivery committed": "inprogress", closed: "complete" } } as unknown as Loaded;
+  function G() {
+    const [legend, setLegend] = React.useState<string[]>([]); const [q, setQ] = React.useState("");
+    return <div><input id="q" onChange={e => setQ(e.target.value)} /><GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={data} months={year} filters={noFilters()} search={q} legend={legend} onLegend={setLegend} tiles={["epics", "late", "done"]} onTiles={() => undefined} /></div>;
+  }
+  const mount2 = () => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<G />, h); }); return h; };
+  const bars = (h: HTMLElement) => h.querySelectorAll(".tl-lane .gb").length;
+  it("shows Epic statistics, and clicking a state in the key or a statistic filters the Epics", () => {
+    const h = mount2();
+    expect(h.querySelector(".gs-strip")!.textContent).toContain("Epics in view");
+    expect(bars(h)).toBe(4);
+    const key = Array.from(h.querySelectorAll(".kbtn")).find(b => b.textContent === "Closed")!;
+    click(key); expect(bars(h)).toBe(1); expect(key.getAttribute("aria-pressed")).toBe("true");
+    click(Array.from(h.querySelectorAll(".kbtn")).find(b => b.textContent === "Delivery Committed")!); expect(bars(h)).toBe(2);   // add a second entry
+    click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "Clear filter")!); expect(bars(h)).toBe(4);
+    click(Array.from(h.querySelectorAll(".gs")).find(b => b.textContent!.startsWith("Late"))!); expect(bars(h)).toBeGreaterThan(0); expect(bars(h)).toBeLessThan(4);
+  });
+  it("finds Epics by keyword (id, title or state)", () => {
+    const h = mount2(); const q = h.querySelector("input") as HTMLInputElement; if (!q) throw new Error(h.innerHTML.slice(0, 300));
+    const type = (v: string) => act(() => { Simulate.change(q, { target: { value: v } } as never); });
+    type("portal"); expect(bars(h)).toBe(1);
+    type("2"); expect(bars(h)).toBeGreaterThan(0);
+    type("zzz"); expect(bars(h)).toBe(0); expect(h.textContent).toContain("No Epics");
+  });
+});
+
 describe("Resource timeline tab", () => {
   it("shows people grouped by team with their task bars and an over-capacity flag", () => {
     const host = document.createElement("div"); document.body.appendChild(host);
@@ -147,8 +175,9 @@ describe("Command center", () => {
   it("collapses a team, opens the detail panel from a cell and closes it with Escape", () => {
     const h = host();
     const team = h.querySelector(".cc-team")!;
-    const before = h.querySelectorAll(".cell").length;
-    click(team); expect(h.querySelectorAll(".cell").length).toBeLessThan(before); click(team);
+    expect(h.querySelectorAll(".cell")).toHaveLength(0);                                   // teams start collapsed
+    click(team); const before = h.querySelectorAll(".cell").length; expect(before).toBeGreaterThan(0);
+    click(team); expect(h.querySelectorAll(".cell")).toHaveLength(0); click(team);
     expect(h.querySelectorAll(".cell")).toHaveLength(before);
     click(h.querySelector('.cell[role="button"]')!);
     expect(h.querySelector(".cc-panel")!.textContent).toContain("Epic");
@@ -159,6 +188,7 @@ describe("Command center", () => {
     const h = host();
     expect(h.querySelector(".cc-h.cc-s2")!.textContent).toBe("Total");
     expect(h.querySelectorAll(".cc-epic")).toHaveLength(0);
+    click(h.querySelector(".cc-team")!);                                                   // open the team, then the person
     click(h.querySelector(".cc-xp")!);
     expect(h.querySelectorAll(".cc-epic").length).toBeGreaterThan(0);
     click(Array.from(h.querySelectorAll("button")).find(b => b.getAttribute("aria-label") === "Collapse all")!);

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { Band } from "../core/aggregate";
 import { buildPeople, cellOf, epicsInView, Filters, heatmapCsv, monthSummary, noFilters, NO_TEAM, PersonRow, shortName } from "../core/model";
-import { Period, PlanGroup, PlannerSettings } from "../core/types";
+import { Period, PlanGroup, PlannerSettings, PlanRows } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { SavedQuery } from "../data/queries";
 import { LoadProgress } from "../data/epics";
@@ -33,6 +33,10 @@ export function CommandCenter(p: {
   const [hov, setHov] = React.useState<string>();
   const [units, setUnits] = React.useState<Units>(p.settings.plan.units);
   const [group, setGroup] = React.useState<PlanGroup>(p.settings.plan.groupBy);
+  const [rowsMode, setRowsMode] = React.useState<PlanRows>(p.settings.plan.rows);                    // how much of the plan starts open
+  const [epicSearch, setEpicSearch] = React.useState("");                                          // Epic keyword search (Gantt)
+  const [legend, setLegend] = React.useState<string[]>([]);                                       // Gantt key / statistic filters
+  const [tiles, setTiles] = React.useState<string[]>(p.settings.plan.ganttTiles);
   const [toggled, setToggled] = React.useState<Set<string>>(new Set());     // rows opened or closed against their default
   const [tip, setTip] = React.useState<{ x: number; y: number; title: string; lines: string[] }>();
   const nowMonth = new Date().toISOString().slice(0, 7);
@@ -74,11 +78,11 @@ export function CommandCenter(p: {
   const exportCsv = () => downloadFile(`resource-utilization-${p.months[0]}-${p.months[p.months.length - 1]}.csv`, "﻿" + heatmapCsv(people, p.months, th), "text/csv");
 
   const cols = `300px 96px repeat(${p.months.length}, minmax(58px, 1fr))`;
-  const defaultOpen = (n: PlanNode) => group === "team" && n.level === 0;       // teams start open, everything else closed
+  const defaultOpen = (n: PlanNode) => rowsMode === "all" || (rowsMode === "teams" && group === "team" && n.level === 0);       // by default every row starts closed
   const isOpen = (n: PlanNode) => defaultOpen(n) !== toggled.has(n.key);
   const flip = (key: string) => setToggled(t => { const x = new Set(t); if (x.has(key)) x.delete(key); else x.add(key); return x; });
-  const expandAll = () => setToggled(new Set(parents(plan).filter(n => !defaultOpen(n)).map(n => n.key)));
-  const collapseAll = () => setToggled(new Set(parents(plan).filter(defaultOpen).map(n => n.key)));
+  const expandAll = () => { setRowsMode("all"); setToggled(new Set()); };
+  const collapseAll = () => { setRowsMode("collapsed"); setToggled(new Set()); };
   const bandCell = (n: PlanNode, m: string) => {
     const pp = n.person!, c = cellOf(pp, m, th), v = paint(p.settings.colourMode, c), dim = hl !== null && c.band !== hl;
     const pick = () => { setSel({ person: pp.key, month: m }); setFocus(m); };
@@ -133,7 +137,9 @@ export function CommandCenter(p: {
           <input aria-label="To month" value={p.period.to ?? ""} placeholder="YYYY-MM" style={{ width: 62 }} onChange={e => p.onPeriod({ ...p.period, to: e.target.value })} /></label>}
         <label className="pill"><span className="k">Team</span><select value={f.team} onChange={e => set({ team: e.target.value })}><option value="">All teams</option>{teams.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
         <label className="pill"><span className="k">Epics</span><select value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>
-        <label className="pill search"><span className="k">⌕</span><input type="search" aria-label="Find a person" placeholder="Find a person…" value={f.search} onChange={e => set({ search: e.target.value })} /></label>
+        <label className="pill search"><span className="k">⌕</span>{view === "gantt"
+          ? <input type="search" aria-label="Find an Epic" placeholder="Find an Epic (id or keyword)…" value={epicSearch} onChange={e => setEpicSearch(e.target.value)} />
+          : <input type="search" aria-label="Find a person" placeholder="Find a person…" value={f.search} onChange={e => set({ search: e.target.value })} />}</label>
         <span className="cc-anchor"><button className="pill" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}>⚙ Filters{extraCount ? ` (${extraCount})` : ""}</button>
           {drawer && <div className="cc-drawer" role="dialog" aria-label="More filters">
             <h4>{p.settings.workItemType} state</h4><div className="g">{states.map(s => <label key={s}><input type="checkbox" checked={f.states.includes(s)} onChange={e => set({ states: e.target.checked ? [...f.states, s] : f.states.filter(x => x !== s) })} />{s}</label>)}</div>
@@ -145,13 +151,13 @@ export function CommandCenter(p: {
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {L.stats.unscheduled + L.stats.errored > 0 && <div className="muted" style={{ marginBottom: 6 }}>{L.stats.unscheduled} row(s) have no monthly hours and {L.stats.errored} have a scheduling error, so they are not counted (see Diagnostics).</div>}
 
-      <div className="cc-strip">
+      {view !== "gantt" && <div className="cc-strip">
         <div className="tile"><div className="l">Utilization · {monthLabel(focus)}</div><div className="v">{pctOf(summary.utilization)}</div><div className="d">{summary.hours} of {summary.available} h</div></div>
         <div className="tile"><div className="l">Over capacity</div><div className="v">{summary.over > 0 && <Sw b="over" />}{summary.over}</div><div className="d">people above {th.full}%</div></div>
         <div className="tile"><div className="l">Free capacity</div><div className="v">{summary.free.toLocaleString()} h</div><div className="d">not yet booked · {summary.epics} of {inView} Epics</div></div>
         <div className="tile"><div className="l">{monthLabel(focus)}: how the {people.length} people spread across the bands</div>
           <div className="cc-bands">{BANDS.map(b => <button key={b} className={"band" + (hl === b ? " on" : hl ? " dim" : "")} aria-pressed={hl === b} onClick={() => setHl(hl === b ? null : b)}><Sw b={b} /><b>{summary.counts[b]}</b><span>{RAG[b].label}</span></button>)}</div></div>
-      </div>
+      </div>}
 
       <div className={"cc-main" + (selected && sel ? " withpanel" : "")}>
         <div className="card" style={{ minWidth: 0 }}>
@@ -160,7 +166,7 @@ export function CommandCenter(p: {
             <div className="legend">{BANDS.map(b => <span key={b} className="lg"><Sw b={b} />{RAG[b].label} ({{ spare: `under ${th.spare}%`, healthy: `${th.spare}–${th.healthy}%`, full: `${th.healthy}–${th.full}%`, over: `above ${th.full}%` }[b]})</span>)}
               <span className="lg"><span className="sw" style={{ background: "repeating-linear-gradient(45deg, var(--line) 0 4px, transparent 4px 8px)", color: "var(--fg2)" }}>?</span>Hours but no capacity entered</span></div></>)
             : view === "time" ? <TimelineTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} onPerson={key => setSel({ person: key, month: focus })} />
-            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} />}
+            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} search={epicSearch} legend={legend} onLegend={setLegend} tiles={tiles} onTiles={setTiles} />}
         </div>
         {selected && sel && (() => {
           const c = cellOf(selected, sel.month, th); const list = [...(selected.epics[sel.month] ?? [])].sort((a, b) => b.hours - a.hours);

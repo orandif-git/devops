@@ -121,7 +121,7 @@ function App(p: { projectId: string; projectName: string }) {
   if (cur && !access) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="muted">Checking access…</div></div>;
   if (access && !access.mayOpen) return <div style={{ padding: "16px 22px" }}><h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2><div className="err" role="alert" style={{ marginTop: 8 }}>{NO_ACCESS}</div></div>;
   return (
-    <div style={{ padding: "16px 22px", maxWidth: tab === "command" ? 1500 : 1100 }}>
+    <div style={{ padding: "16px 22px", maxWidth: tab === "command" ? undefined : 1400 }}>
       <h2 style={{ margin: 0 }}>Resource Planner &amp; Heatmap</h2>
       <div className="muted" style={{ marginBottom: 8 }}>Read-only: nothing is edited from the planner. Hours come from your Epics’ grids, available hours from Azure DevOps team capacity.</div>
       <div className="tabs" role="tablist" aria-label="Resource Planner views" onKeyDown={e => {

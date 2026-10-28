@@ -2,6 +2,8 @@ import * as React from "react";
 import { toCsv } from "../../../src/core/csv";
 import { epicsInView, Filters } from "../core/model";
 import { barOf, buildGantt, Category, GanttRow, GroupBy, windowOf } from "../core/timeline";
+import { epicTiles, passes, TILES } from "../core/epicStats";
+import { progressOf } from "../core/progress";
 import { PlannerSettings } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { downloadFile } from "../../../src/shared/ado";
@@ -17,7 +19,15 @@ const BAR_BG = (c: Category) => (c === "new" ? "repeating-linear-gradient(45deg,
 type Row = { kind: "group"; name: string; n: number } | { kind: "epic"; r: GanttRow };
 
 /** Epics as bars from the start-date field to the target-date field, grouped, coloured by state, with a flag for late ones. */
-export function GanttTab(p: { project: { id: string; name: string }; settings: PlannerSettings; loaded: Loaded; months: string[]; filters: Filters }) {
+export function GanttTab(p: {
+  project: { id: string; name: string }; settings: PlannerSettings; loaded: Loaded; months: string[]; filters: Filters;
+  /** Epic keyword search (id, title, state, area, the label field) */
+  search?: string;
+  /** selected key entries ("s:<state>" or "t:<statistic>"); the Epics matching any of them are shown */
+  legend?: string[]; onLegend?(keys: string[]): void;
+  /** the statistics shown above the chart (ids, in order) and a way to change them */
+  tiles?: string[]; onTiles?(ids: string[]): void;
+}) {
   const L = p.loaded;
   const [group, setGroup] = React.useState<GroupBy>("area");
   const [dialog, setDialog] = React.useState<number>();
@@ -25,15 +35,23 @@ export function GanttTab(p: { project: { id: string; name: string }; settings: P
   const w = React.useMemo(() => windowOf(p.months), [p.months]);
   const today = new Date().toISOString().slice(0, 10);
   const epicById = React.useMemo(() => new Map(L.epics.map(e => [e.id, e])), [L]);
-  const groups = React.useMemo(() => buildGantt({ epics: L.epics, bookings: L.bookings, months: p.months, inView: epicsInView(L.epics, p.filters), group, teamOf: k => L.avail.team(k), today, stateGroups: L.stateGroups }), [L, p.months, p.filters, group, today]);
+  const all = React.useMemo(() => buildGantt({ epics: L.epics, bookings: L.bookings, months: p.months, inView: epicsInView(L.epics, p.filters), group, teamOf: k => L.avail.team(k), today, stateGroups: L.stateGroups }), [L, p.months, p.filters, group, today]);
   const labelField = p.settings.ganttLabelField;
+  const legend = p.legend ?? [], tileIds = p.tiles ?? p.settings.plan.ganttTiles;
+  const [menu, setMenu] = React.useState(false);
+  const q = (p.search ?? "").trim().toLowerCase();
+  const hit = (r: GanttRow) => !q || [String(r.epic.id), r.epic.title, r.epic.state, r.epic.areaPath, labelField ? r.epic.extra[labelField] ?? "" : ""].some(x => x.toLowerCase().includes(q));
+  const searched = React.useMemo(() => all.map(g => ({ ...g, rows: g.rows.filter(hit) })).filter(g => g.rows.length), [all, q, labelField]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = React.useMemo(() => searched.map(g => ({ ...g, rows: g.rows.filter(r => passes(r, legend, today)) })).filter(g => g.rows.length), [searched, legend, today]);
+  const stats = React.useMemo(() => epicTiles(searched.flatMap(g => g.rows), L.epics.filter(e => epicsInView(L.epics, p.filters).has(e.id)), today, e => progressOf(e, p.settings.executive, L.gridDone?.[e.id], p.settings.sources)?.pct), [searched, L, p.filters, p.settings, today]);
+  const toggleKey = (k: string) => p.onLegend?.(legend.includes(k) ? legend.filter(x => x !== k) : [...legend, k]);
   const rows: Row[] = React.useMemo(() => groups.flatMap(g => [...(group === "none" ? [] : [{ kind: "group" as const, name: g.name, n: g.rows.length }]), ...g.rows.map(r => ({ kind: "epic" as const, r }))] as Row[]), [groups, group]);
   /** the Epic states behind each bar colour, so the key names real states (not the colour groups) */
   const key = React.useMemo(() => {
     const m = new Map<Category, Set<string>>(); let late = false, est = false;
-    for (const r of groups.flatMap(g => g.rows)) { (m.get(r.category) ?? m.set(r.category, new Set()).get(r.category)!).add(r.epic.state || "(no state)"); late = late || r.late; est = est || r.derived; }
+    for (const r of searched.flatMap(g => g.rows)) { (m.get(r.category) ?? m.set(r.category, new Set()).get(r.category)!).add(r.epic.state || "(no state)"); late = late || r.late; est = est || r.derived; }
     return { cats: Array.from(m, ([c, s]) => ({ c, states: Array.from(s).sort() })), late, est };
-  }, [groups]);
+  }, [searched]);
   const nowPct = today >= w.start && today <= w.end ? ((Date.parse(today) - Date.parse(w.start)) / 86400000) / w.days * 100 : undefined;
   const mm = p.months.length;
   const total = groups.reduce((a, g) => a + g.rows.length, 0);
@@ -45,12 +63,21 @@ export function GanttTab(p: { project: { id: string; name: string }; settings: P
   );
   return (
     <div>
+      <div className="gs-strip" role="group" aria-label="Epic statistics">{tileIds.filter(id => stats[id]).map(id => { const t = TILES.find(x => x.id === id)!, v = stats[id], on = !!v.filter && legend.includes(v.filter);
+        return v.filter ? <button key={id} type="button" className={"tile gs" + (on ? " on" : "")} aria-pressed={on} title={t.hint} onClick={() => toggleKey(v.filter!)}><div className="l">{t.label}</div><div className="v">{v.value}</div><div className="d">{v.detail}</div></button>
+          : <div key={id} className="tile gs" title={t.hint}><div className="l">{t.label}</div><div className="v">{v.value}</div><div className="d">{v.detail}</div></div>; })}</div>
       <div className="toolbar filters">
         <label>Group by <select value={group} onChange={e => setGroup(e.target.value as GroupBy)}><option value="area">Area</option><option value="state">State</option><option value="team">Team with most hours</option><option value="none">Nothing</option></select></label>
         <button className="btn" onClick={exportCsv} disabled={!total}>Export CSV</button>
-        <span className="muted">{total} Epics in this period</span>
+        <span className="muted">{total} Epics shown</span>
+        {p.onTiles && <span className="cc-anchor"><button className="pill" aria-expanded={menu} onClick={() => setMenu(!menu)}>▦ Statistics</button>
+          {menu && <div className="cc-drawer" role="dialog" aria-label="Choose the statistics" style={{ width: 280 }}><h4>Statistics shown above the chart</h4>
+            {TILES.map(t => <label key={t.id} title={t.hint} style={{ display: "flex", gap: 6, padding: "2px 0" }}><input type="checkbox" checked={tileIds.includes(t.id)} onChange={e => p.onTiles!(e.target.checked ? TILES.map(x => x.id).filter(id => id === t.id || tileIds.includes(id)) : tileIds.filter(x => x !== t.id))} />{t.label}</label>)}</div>}</span>}
       </div>
-      <div className="keyrow">{key.cats.map(k => <span key={k.c} title={LABEL[k.c]}><i style={{ background: BAR_BG(k.c) }} />{k.states.join(", ")}</span>)}{key.late && <span><i style={{ background: LATE }} />Late: target date passed, not completed</span>}{key.est && <span>dashed outline = dates taken from the hours (no start/target date)</span>}</div>
+      <div className="keyrow" role="group" aria-label="Filter the Epics by state">{key.cats.flatMap(k => k.states.map(s => <button key={k.c + s} type="button" className={"kbtn" + (legend.includes("s:" + s) ? " on" : legend.length ? " dim" : "")} aria-pressed={legend.includes("s:" + s)} title={`Show only ${s} Epics (${LABEL[k.c]})`} onClick={() => toggleKey("s:" + s)}><i style={{ background: BAR_BG(k.c) }} />{s}</button>))}
+        {key.late && <button type="button" className={"kbtn" + (legend.includes("t:late") ? " on" : legend.length ? " dim" : "")} aria-pressed={legend.includes("t:late")} title="Show only the late Epics" onClick={() => toggleKey("t:late")}><i style={{ background: LATE }} />Late: target date passed, not completed</button>}
+        {key.est && <span className="muted">dashed outline = dates taken from the hours (no start/target date)</span>}
+        {legend.length > 0 && <button type="button" className="lk" onClick={() => p.onLegend?.([])}>Clear filter</button>}</div>
       {!settingsDates(p.settings) && <div className="muted">No Epic start or target date field is chosen in Settings, so bars use the months with hours.</div>}
       {!rows.length ? <div className="card muted">No Epics in this period match the filters.</div> : (
         <div className="card" style={{ padding: 0 }}>

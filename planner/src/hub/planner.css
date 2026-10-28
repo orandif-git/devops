@@ -120,3 +120,11 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .tl-lane .gl { position: absolute; top: 9px; font-size: 11px; color: var(--fg2); white-space: nowrap; z-index: 2; }
 /* the toolbar must not clip the Filters drawer that opens below it */
 .cc-bar { overflow: visible; flex-wrap: wrap; } .cc-bar .grow { flex: 1 1 0; }
+
+/* Epic Gantt: statistics and a key whose entries filter the Epics */
+.gs-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.tile.gs { text-align: left; font: inherit; color: inherit; padding: 8px 14px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; } button.tile.gs { cursor: pointer; } button.tile.gs:hover { background: var(--hover); } .tile.gs.on { outline: 2px solid var(--accent); }
+.tile.gs .l { color: var(--fg2); font-size: 12px; } .tile.gs .v { font-size: 24px; font-weight: 600; line-height: 1.2; } .tile.gs .d { color: var(--fg2); font-size: 12px; }
+.keyrow .kbtn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: none; color: inherit; font: inherit; padding: 2px 8px; border-radius: 12px; cursor: pointer; }
+.keyrow .kbtn:hover { background: var(--hover); } .keyrow .kbtn.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg)); font-weight: 600; } .keyrow .kbtn.dim { opacity: .55; }
+.keyrow .kbtn i { display: inline-block; width: 14px; height: 10px; border-radius: 2px; }

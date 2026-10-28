@@ -19,6 +19,7 @@ export interface Thresholds { spare: number; healthy: number; full: number }
 export type PlanGroup = "team" | "epic" | "person";
 export type PlanUnits = "h" | "p" | "f";
 export type PlanView = "heat" | "time" | "gantt";
+export type PlanRows = "collapsed" | "teams" | "all";
 
 export interface PlannerSettings {
   version: 1;
@@ -37,7 +38,7 @@ export interface PlannerSettings {
   thresholds: Thresholds;
   colourMode: "rag" | "shades";
   /** how the Planner opens: grouping of the plan, units of the figures and the view (users can change them on screen) */
-  plan: { groupBy: PlanGroup; units: PlanUnits; view: PlanView };
+  plan: { groupBy: PlanGroup; units: PlanUnits; view: PlanView; /** how much of the plan starts open */ rows: PlanRows; /** the statistics shown above the Epic Gantt (ids, in order) */ ganttTiles: string[] };
   /** who may open the planner (empty = every project member); a display guard, not access control */
   accessTeams: TeamRef[];
   /** extra Epic fields offered as filters */
@@ -122,7 +123,7 @@ export const defaultExec = (): ExecSettings => ({
 
 export const defaultSettings = (): PlannerSettings => ({
   version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
-  period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat" }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
+  period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat", rows: "collapsed", ganttTiles: ["epics", "progress", "ok", "late", "due30", "hold"] }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 
 /** What the planner keeps of one Epic. `grids` holds the raw text of each source's data field. */

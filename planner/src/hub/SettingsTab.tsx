@@ -1,4 +1,5 @@
 import * as React from "react";
+import { TILES } from "../core/epicStats";
 import { listTeams, TeamRef } from "../../../src/shared/capacityStore";
 import { autoMap, Slot } from "../core/detect";
 import { isDateType, isLongTextType } from "../core/fieldTypes";
@@ -164,9 +165,15 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
           <select value={s.plan.view} onChange={e => set({ plan: { ...s.plan, view: e.target.value as PlannerSettings["plan"]["view"] } })}><option value="heat">Heatmap</option><option value="time">Timeline</option><option value="gantt">Epic Gantt</option></select></label>
         <label className="field" style={{ width: 220 }}><span>Group the plan by</span>
           <select value={s.plan.groupBy} onChange={e => set({ plan: { ...s.plan, groupBy: e.target.value as PlannerSettings["plan"]["groupBy"] } })}><option value="team">Team › Person › Epic</option><option value="epic">Epic › Team › Person</option><option value="person">Person › Epic</option></select></label>
+        <label className="field" style={{ width: 200 }}><span>Plan rows start</span>
+          <select value={s.plan.rows} onChange={e => set({ plan: { ...s.plan, rows: e.target.value as PlannerSettings["plan"]["rows"] } })}><option value="collapsed">Collapsed</option><option value="teams">Teams open</option><option value="all">All open</option></select></label>
         <label className="field" style={{ width: 160 }}><span>Show figures as</span>
           <select value={s.plan.units} onChange={e => set({ plan: { ...s.plan, units: e.target.value as PlannerSettings["plan"]["units"] } })}><option value="h">Hours</option><option value="p">% of capacity</option><option value="f">FTE</option></select></label>
       </div>
+
+      <h3>Epic Gantt statistics</h3>
+      <div className="help">The statistics shown above the Epic Gantt by default. Each person can change them for their own saved views.</div>
+      <div className="row" style={{ flexWrap: "wrap", gap: "4px 18px" }}>{TILES.map(t => <label key={t.id} title={t.hint} style={{ display: "flex", gap: 6 }}><input type="checkbox" checked={s.plan.ganttTiles.includes(t.id)} onChange={e => set({ plan: { ...s.plan, ganttTiles: e.target.checked ? TILES.map(x => x.id).filter(id => id === t.id || s.plan.ganttTiles.includes(id)) : s.plan.ganttTiles.filter(x => x !== t.id) } })} />{t.label}</label>)}</div>
 
       <ExecSettings s={s} fields={fields} project={p.projectName} onChange={p.onChange} />
 

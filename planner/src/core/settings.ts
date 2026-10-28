@@ -1,3 +1,4 @@
+import { cleanTiles } from "./epicStats";
 import { validateQueries } from "./execQuery";
 import { defaultExec, defaultSettings, ExecFormula, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
 
@@ -70,7 +71,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },
     thresholds: { spare: num(th.spare, d.thresholds.spare), healthy: num(th.healthy, d.thresholds.healthy), full: num(th.full, d.thresholds.full) },
     colourMode: r.colourMode === "shades" ? "shades" : "rag",
-    plan: { groupBy: pick(pl.groupBy, ["team", "epic", "person"], d.plan.groupBy), units: pick(pl.units, ["h", "p", "f"], d.plan.units), view: pick(pl.view, ["heat", "time", "gantt"], d.plan.view) }, accessTeams: teams(r.accessTeams),
+    plan: { groupBy: pick(pl.groupBy, ["team", "epic", "person"], d.plan.groupBy), units: pick(pl.units, ["h", "p", "f"], d.plan.units), view: pick(pl.view, ["heat", "time", "gantt"], d.plan.view), rows: pick(pl.rows, ["collapsed", "teams", "all"], d.plan.rows), ganttTiles: cleanTiles(pl.ganttTiles, d.plan.ganttTiles) }, accessTeams: teams(r.accessTeams),
     extraFilterFields: (Array.isArray(r.extraFilterFields) ? r.extraFilterFields : []).map(str).filter(Boolean),
     executive: normalizeExec(r.executive),
   };
