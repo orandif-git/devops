@@ -5,6 +5,7 @@ import { PlannerSettings } from "../core/types";
 import { shortName } from "../core/model";
 import { Booking, EpicRecord } from "../core/types";
 import { Hist } from "../core/history";
+import { dimLabel } from "../core/executive";
 import { HistoryTimeline, useEpicHistory } from "./HistoryTimeline";
 import { openWorkItem } from "../data/open";
 import { loadRelated, Related } from "../data/related";
@@ -24,9 +25,10 @@ export function EpicDialog(p: { settings?: PlannerSettings; /** the date field w
   return (
     <div className="modal-back" role="presentation" onClick={e => { if (e.target === e.currentTarget) p.onClose(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="epic-title">
+        <button className="modal-x" aria-label="Close" title="Close (Esc)" onClick={p.onClose}><IconClose /></button>
         <h3 id="epic-title">{epic.id} · {epic.title}</h3>
         <div className="muted">{epic.state} · {epic.areaPath}{epic.start || epic.target ? ` · ${fmtDate(p.settings, epic.start) || "?"} → ${fmtDate(p.settings, epic.target) || "?"}` : ""}</div>
-        {p.history?.field && <HistoryTimeline title={`History of the ${(p.history.field.split(".").pop() ?? "date").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase()}`} hist={eh.hist} state={eh.state} error={eh.error} day={t => (t === undefined ? "–" : fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) || "–")} />}
+        {p.history?.field && <HistoryTimeline title={`${dimLabel(p.history.field)} history`} hist={eh.hist} state={eh.state} error={eh.error} day={t => (t === undefined ? "–" : fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) || "–")} />}
         <h4>People and hours in the period</h4>
         {people.length ? <table className="mini"><tbody>{people.slice(0, 12).map(x => <tr key={x.name}><td>{shortName(x.name)}</td><td>{x.hours} h</td></tr>)}</tbody></table> : <div className="muted">No hours in this period.</div>}
         <h4>Related work items</h4>
@@ -38,7 +40,6 @@ export function EpicDialog(p: { settings?: PlannerSettings; /** the date field w
         <div className="toolbar" style={{ marginTop: 12 }}>
           <button className="btn primary" onClick={() => void openWorkItem(p.project, epic.id)}><IconOpen /> Open the Epic form</button>
           <button className="btn" onClick={() => void openWorkItem(p.project, epic.id, true)}>Open in a new tab</button>
-          <button className="btn" onClick={p.onClose}><IconClose /> Close</button>
         </div>
         <div className="muted" style={{ fontSize: 12 }}>Nothing is edited from the planner.</div>
       </div>

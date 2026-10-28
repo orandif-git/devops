@@ -143,3 +143,8 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .hist h4 { margin: 14px 0 6px; } .hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .hist li { padding: 3px 0 3px 12px; position: relative; } .hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a5af8; } .hist li.later::before { background: #d13438; } .hist li.earlier::before { background: #1a9d57; }
 .ex-slip { color: #d13438; font-weight: 600; white-space: nowrap; } .ex-good { color: #1a9d57; font-weight: 600; }
 .tl-lane .gmv { position: absolute; top: -2px; font-size: 9px; line-height: 10px; background: var(--bg); padding: 0 2px; border-radius: 2px; font-weight: 600; color: #7a5af8; white-space: nowrap; z-index: 2; }
+
+/* the Epic dialog: a close button in the corner, buttons with their icon beside the text */
+.modal { position: relative; } .modal h3 { margin-right: 36px; }
+.modal-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: none; color: var(--fg2); cursor: pointer; padding: 0; } .modal-x:hover, .modal-x:focus-visible { background: var(--hover); color: var(--fg); }
+.modal .btn, .ex-drawer .btn, .cc .btn, .toolbar .btn { display: inline-flex; align-items: center; gap: 6px; }

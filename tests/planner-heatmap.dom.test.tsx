@@ -80,7 +80,7 @@ describe("heatmap tab", () => {
     expect(dlg.textContent).toContain("50 · Address service");
     click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent!.trim() === "Open the Epic form")!);
     expect(opened).toEqual([1]);
-    click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent!.trim() === "Close")!);
+    click(dlg.querySelector('button[aria-label="Close"]')!);
     expect(document.querySelector(".modal")).toBeNull();
   });
   it("filters by team and switches to the table view", () => {
@@ -115,7 +115,7 @@ describe("Epic Gantt tab", () => {
     click(host3.querySelectorAll(".tl-lane .gb")[0]);
     await act(async () => { await Promise.resolve(); });
     expect(document.querySelector(".modal")!.textContent).toContain("Migration");   // rows run in start-date order
-    click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent!.trim() === "Close")!);
+    click(document.querySelector('.modal button[aria-label="Close"]')!);
   });
 });
 
@@ -161,7 +161,7 @@ describe("Epic Gantt statistics, key filter and search", () => {
     expect(h.querySelectorAll(".gorig")).toHaveLength(1); expect(h.querySelector(".gline.later")).not.toBeNull(); expect(h.querySelector(".gmv")!.textContent).toContain("1×");
     act(() => { click(h.querySelector('.tl-lane .gb[aria-label^="Epic 1,"]')!); });                                // the Epic dialog in the middle of the page shows the history too
     expect(document.querySelector(".modal .hist")!.textContent).toContain("original date"); expect(document.querySelector(".modal .hist")!.textContent).toContain("Ann");
-    click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent!.trim() === "Close")!);
+    click(document.querySelector('.modal button[aria-label="Close"]')!);
     const h2 = document.createElement("div"); document.body.appendChild(h2);
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...data, history: { "Custom.T": hist } } as unknown as Loaded} months={year} filters={noFilters()} />, h2); });
     expect(h2.querySelectorAll(".gorig")).toHaveLength(0);                                  // off: nothing is drawn
