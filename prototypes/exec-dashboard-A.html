@@ -1,0 +1,113 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Executive Dashboard – Prototype A (report canvas)</title>
+<style>
+:root{--bg:#f3f2f1;--card:#fff;--fg:#201f1e;--fg2:#605e5c;--line:#e1dfdd;--accent:#0f6cbd}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:13px "Segoe UI",system-ui,sans-serif}
+header{background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:5}
+header h1{font-size:18px;margin:0} .live{color:var(--fg2);font-size:12px} .live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#1a9d57;margin-right:5px}
+.ask{flex:1;max-width:560px;display:flex;gap:6px} .ask input{flex:1;border:1px solid var(--line);border-radius:18px;padding:6px 14px;font:inherit}
+.btn{border:1px solid var(--line);background:#fff;border-radius:16px;padding:5px 12px;cursor:pointer;font:inherit} .btn:hover{background:#f3f2f1} .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.slicers{display:flex;gap:8px;flex-wrap:wrap;padding:10px 20px;align-items:center}
+.sl{display:flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:3px 4px 3px 12px} .sl b{font-weight:600;color:var(--fg2);font-size:12px}
+.chip{border:0;background:none;border-radius:12px;padding:3px 9px;cursor:pointer;font:inherit} .chip:hover{background:#f3f2f1} .chip.on{background:var(--accent);color:#fff}
+.grid{display:grid;gap:12px;padding:0 20px 20px;grid-template-columns:repeat(12,1fr)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px;min-width:0}
+.card h3{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center} .card h3 span{font-weight:400;color:var(--fg2);font-size:12px}
+.kpi{grid-column:span 2;cursor:pointer;transition:box-shadow .15s} .kpi:hover{box-shadow:0 2px 10px rgba(0,0,0,.12)} .kpi.on{outline:2px solid var(--accent)} .kpi.dim{opacity:.5}
+.kpi .l{color:var(--fg2);display:flex;gap:6px;align-items:center} .kpi .v{font-size:30px;font-weight:600;line-height:1.15} .kpi .d{color:var(--fg2);font-size:12px}
+.sw{display:inline-flex;width:16px;height:16px;border-radius:4px;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center}
+.c4{grid-column:span 4} .c5{grid-column:span 5} .c3{grid-column:span 3} .c7{grid-column:span 7} .c12{grid-column:span 12}
+svg text{font:11px "Segoe UI",sans-serif;fill:#605e5c} .seg{cursor:pointer;transition:opacity .15s} .dimmed{opacity:.28}
+table{border-collapse:collapse;width:100%} th{text-align:left;color:var(--fg2);font-weight:600;padding:6px 8px;border-bottom:2px solid var(--line);cursor:pointer;white-space:nowrap;position:sticky;top:0;background:#fff}
+td{padding:6px 8px;border-bottom:1px solid var(--line)} tr.row{cursor:pointer} tr.row:hover td{background:#f3f9fd}
+.pill{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:1px 9px;font-weight:600}
+.bar{height:8px;background:#e1dfdd;border-radius:4px;position:relative;width:120px;display:inline-block} .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px} .bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#201f1e}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:380px;background:#fff;border-left:1px solid var(--line);box-shadow:-6px 0 24px rgba(0,0,0,.15);padding:18px;transform:translateX(100%);transition:transform .2s;z-index:20;overflow:auto} .drawer.open{transform:none}
+.drawer h2{margin:0 0 4px;font-size:16px} .kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;margin:12px 0} .kv dt{color:var(--fg2)} .kv dd{margin:0}
+.filters{padding:0 20px 8px;display:flex;gap:6px;align-items:center;min-height:30px;flex-wrap:wrap} .fchip{background:#deecf9;border-radius:12px;padding:2px 4px 2px 10px;display:inline-flex;gap:6px;align-items:center} .fchip button{border:0;background:none;cursor:pointer;color:var(--fg2)}
+.tip{position:fixed;pointer-events:none;background:#201f1e;color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;z-index:30;display:none;max-width:260px}
+</style></head><body>
+<header><h1>Executive Dashboard</h1><span class="live"><i></i>Live · refreshed just now</span>
+ <form class="ask" onsubmit="return false"><input id="q" placeholder="Ask the dashboard, e.g. “Which Regulatory Epics are at risk?”"><button class="btn pri">Ask</button></form>
+ <span style="flex:1"></span><button class="btn" id="reset">Clear filters</button><button class="btn">⟳ Refresh</button></header>
+<div class="slicers" id="slicers"></div><div class="filters" id="filters"></div>
+<div class="grid" id="kpis"></div>
+<div class="grid" style="padding-top:0">
+ <div class="card c4"><h3>Delivery status <span>click a slice</span></h3><div id="donut"></div></div>
+ <div class="card c4"><h3>By type <span>Epics, by status</span></h3><div id="bytype"></div></div>
+ <div class="card c4"><h3>Go-live by quarter <span>Epics</span></h3><div id="byq"></div></div>
+ <div class="card c12"><h3>Epics <span id="cnt"></span></h3><div style="max-height:380px;overflow:auto"><table id="tbl"></table></div></div>
+</div>
+<aside class="drawer" id="drawer"></aside><div class="tip" id="tip"></div>
+<script>
+/* shared sample data and helpers for the three Executive Dashboard prototypes (not part of the extension) */
+const CATS=["Regulatory","Software upgrade","Customer experience","Infrastructure","Security","Data & Analytics"];
+const TEAMS=["Platform","Payments","Risk & Credit","Mobile","Data","Security"];
+const TITLES=["Basel IV reporting","AML transaction monitoring","GDPR data retention","FATCA/CRS update","PSD3 readiness","Sanctions screening upgrade","Regulatory capital reporting","ERP v12 upgrade","Core banking patch 9.4","CRM platform upgrade","Database 19c migration","Mobile SDK 5 upgrade","Middleware 8 upgrade","Windows 11 rollout","Digital onboarding","Loyalty app revamp","Self-service portal","Chatbot v2","Branch queue system","Cloud landing zone","Network refresh","DR failover test","Observability platform","Data centre exit","Zero trust rollout","PAM implementation","SOC automation","Vulnerability management","Data lake migration","Reporting warehouse","ML credit scoring","Open banking APIs","Card tokenisation","Treasury workstation","Customer 360"];
+const CATOF=[0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4,4,4,5,5,5,2,0,1,5];
+let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+const TODAY=new Date("2026-10-28T00:00:00Z"), DAY=864e5;
+const iso=d=>new Date(d).toISOString().slice(0,10);
+const addDays=(d,n)=>new Date(+new Date(d)+n*DAY);
+const STATES=["Not Started","Doing","Delivery Committed","On Hold","Completed"];
+const EP=TITLES.map((t,i)=>{
+  const state=i%11===3?"Not Started":i%9===4?"Completed":i%13===6?"On Hold":i%2?"Doing":"Delivery Committed";
+  const goLive=addDays("2026-09-15",Math.floor(rnd()*270)), dur=140+Math.floor(rnd()*160), start=addDays(goLive,-dur);
+  const elapsed=Math.max(0,Math.min(1,(TODAY-start)/(goLive-start)));
+  let pct=state==="Completed"?100:state==="Not Started"?0:Math.round(Math.min(98,elapsed*100*(0.55+rnd()*0.6)));
+  let slip=state==="Completed"||state==="Not Started"?0:Math.round((elapsed*100-pct)*dur/100*0.5+(state==="On Hold"?40:0)-4);
+  slip=Math.max(0,slip); if(state==="Doing"&&rnd()<.4)slip=0;
+  const status=state==="Completed"?"done":state==="Not Started"?"idle":(slip>30||state==="On Hold")?"red":slip>7?"amber":"green";
+  const conf=state==="Completed"?100:state==="Not Started"?null:Math.max(3,Math.min(97,Math.round(100-slip*1.6-(state==="On Hold"?30:0))));
+  const reasons={red:state==="On Hold"?"On hold; go-live at risk":`Forecast ${slip} days after go-live`,amber:`Could slip ${slip} days without action`,green:"Progress in line with time",done:"Delivered",idle:"Not started yet"}[status];
+  return {id:1100+i*7,title:t,cat:CATS[CATOF[i]],team:TEAMS[Math.floor(rnd()*6)],state,status,pct,conf,goLive:iso(goLive),start:iso(start),forecast:iso(addDays(goLive,slip)),slip,hours:Math.round(200+rnd()*1800),reasons,
+    q:"Q"+(Math.floor(goLive.getUTCMonth()/3)+1)+" "+String(goLive.getUTCFullYear()).slice(2)};
+});
+const ST={green:{name:"On track",c:"#1a9d57",i:"✓"},amber:{name:"Needs attention",c:"#f2a900",i:"▲"},red:{name:"At risk",c:"#d13438",i:"!"},idle:{name:"Not started",c:"#8a8886",i:"○"},done:{name:"Done",c:"#2b6cb0",i:"●"}};
+const ORDER=["green","amber","red","idle","done"];
+const QS=[...new Set(EP.map(e=>e.q))].sort((a,b)=>(a.slice(4)+a[1]).localeCompare(b.slice(4)+b[1]));
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="class")e.className=v;else if(x==="html")e.innerHTML=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(x,v);}k.flat().forEach(c=>e.append(c?.nodeType?c:document.createTextNode(c??"")));return e;};
+const nice=d=>new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
+const count=(arr,f)=>arr.filter(f).length;
+
+const F={status:null,cat:null,q:null,state:null,team:null,text:""}; let sort={k:"slip",d:-1};
+const keyOf={status:e=>e.status,cat:e=>e.cat,q:e=>e.q,state:e=>e.state,team:e=>e.team};
+const pass=(e,skip)=>Object.keys(keyOf).every(k=>k===skip||F[k]==null||keyOf[k](e)===F[k])&&(!F.text||(e.title+" "+e.cat+" "+e.state+" "+e.id).toLowerCase().includes(F.text));
+const set=(k,v)=>{F[k]=F[k]===v?null:v;draw();};
+const tip=$("#tip"); const showTip=(ev,t)=>{tip.innerHTML=t;tip.style.display="block";tip.style.left=Math.min(ev.clientX+12,innerWidth-270)+"px";tip.style.top=ev.clientY+12+"px";}; const hideTip=()=>tip.style.display="none";
+function slicers(){const box=$("#slicers");box.innerHTML="";
+ for(const[lab,k,opts]of [["State","state",STATES],["Type","cat",CATS],["Team","team",TEAMS]]){const s=h("div",{class:"sl"},h("b",{},lab));
+  opts.forEach(o=>s.append(h("button",{class:"chip"+(F[k]===o?" on":""),onclick:()=>set(k,o)},o)));box.append(s);}}
+function kpis(){const base=EP.filter(e=>pass(e,"status")),box=$("#kpis");box.innerHTML="";
+ const tot=h("div",{class:"card kpi",onclick:()=>{F.status=null;draw();}},h("div",{class:"l"},"Portfolio"),h("div",{class:"v"},String(base.length)),h("div",{class:"d"},count(base,e=>e.status==="idle")+" not started"));box.append(tot);
+ for(const s of ORDER){const n=count(base,e=>e.status===s);box.append(h("div",{class:"card kpi"+(F.status===s?" on":F.status?" dim":""),onclick:()=>set("status",s)},h("div",{class:"l"},h("span",{class:"sw",style:`background:${ST[s].c}`},ST[s].i),ST[s].name),h("div",{class:"v"},String(n)),h("div",{class:"d"},base.length?Math.round(n/base.length*100)+"% of Epics":"–")));}}
+function donut(){const base=EP.filter(e=>pass(e,"status")),n=base.length||1,R=70,C=2*Math.PI*R;let off=0;let s=`<svg viewBox="0 0 320 190" width="100%"><g transform="translate(90,95) rotate(-90)">`;
+ for(const k of ORDER){const v=count(base,e=>e.status===k);if(!v)continue;const len=v/n*C;s+=`<circle class="seg ${F.status&&F.status!==k?"dimmed":""}" r="${R}" fill="none" stroke="${ST[k].c}" stroke-width="30" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" data-k="${k}" data-t="<b>${ST[k].name}</b><br>${v} Epics (${Math.round(v/n*100)}%)"/>`;off+=len;}
+ s+=`</g><text x="90" y="92" text-anchor="middle" style="font-size:26px;font-weight:600;fill:#201f1e;pointer-events:none">${base.length}</text><text x="90" y="110" text-anchor="middle" style="pointer-events:none">Epics</text>`;
+ ORDER.forEach((k,i)=>{s+=`<g class="seg ${F.status&&F.status!==k?"dimmed":""}" data-k="${k}" transform="translate(190,${40+i*26})"><rect width="14" height="14" rx="3" fill="${ST[k].c}"/><text x="22" y="11">${ST[k].name} · ${count(base,e=>e.status===k)}</text></g>`;});
+ $("#donut").innerHTML=s+"</svg>";$$("#donut [data-k]").forEach(e=>{e.onclick=()=>set("status",e.dataset.k);if(e.dataset.t){e.onmousemove=ev=>showTip(ev,e.dataset.t);e.onmouseleave=hideTip;}});}
+function stacked(host,groups,keyf,field,labelw){const base=EP.filter(e=>pass(e,field)),mx=Math.max(1,...groups.map(g=>count(base,e=>keyf(e)===g)));let s=`<svg viewBox="0 0 400 ${groups.length*34+6}" width="100%">`;
+ groups.forEach((g,i)=>{const y=i*34+4,items=base.filter(e=>keyf(e)===g);let x=labelw;const W=400-labelw-30,dim=F[field]&&F[field]!==g;
+  s+=`<text x="0" y="${y+16}" class="seg" data-g="${g}" style="${dim?"opacity:.4":""}">${g.length>17?g.slice(0,16)+"…":g}</text>`;
+  for(const k of ORDER){const v=count(items,e=>e.status===k);if(!v)continue;const w=v/mx*W;s+=`<rect class="seg ${dim||(F.status&&F.status!==k)?"dimmed":""}" x="${x}" y="${y}" width="${w-1}" height="22" rx="2" fill="${ST[k].c}" data-g="${g}" data-k="${k}" data-t="<b>${g}</b><br>${ST[k].name}: ${v}"/>`;x+=w;}
+  s+=`<text x="${x+5}" y="${y+16}">${items.length}</text>`;});
+ host.innerHTML=s+"</svg>";$$("[data-g]",host).forEach(e=>{e.onclick=()=>{if(e.dataset.k&&F.status!==e.dataset.k&&F[field]===e.dataset.g){F.status=e.dataset.k;draw();}else set(field,e.dataset.g);};if(e.dataset.t){e.onmousemove=ev=>showTip(ev,e.dataset.t);e.onmouseleave=hideTip;}});}
+function qchart(){const base=EP.filter(e=>pass(e,"q")),mx=Math.max(1,...QS.map(q=>count(base,e=>e.q===q))),W=400,H=200;let s=`<svg viewBox="0 0 ${W} ${H+30}" width="100%">`,bw=W/QS.length;
+ QS.forEach((q,i)=>{const items=base.filter(e=>e.q===q);let y=H;const dim=F.q&&F.q!==q;for(const k of ORDER){const v=count(items,e=>e.status===k);if(!v)continue;const hh=v/mx*(H-20);y-=hh;s+=`<rect class="seg ${dim||(F.status&&F.status!==k)?"dimmed":""}" x="${i*bw+8}" y="${y}" width="${bw-16}" height="${hh-1}" rx="2" fill="${ST[k].c}" data-q="${q}" data-t="<b>${q}</b><br>${ST[k].name}: ${v}"/>`;}
+  s+=`<text x="${i*bw+bw/2}" y="${H+16}" text-anchor="middle" class="seg" data-q="${q}">${q}</text><text x="${i*bw+bw/2}" y="${y-4}" text-anchor="middle">${items.length||""}</text>`;});
+ $("#byq").innerHTML=s+"</svg>";$$("#byq [data-q]").forEach(e=>{e.onclick=()=>set("q",e.dataset.q);if(e.dataset.t){e.onmousemove=ev=>showTip(ev,e.dataset.t);e.onmouseleave=hideTip;}});}
+function table(){const rows=EP.filter(e=>pass(e)).sort((a,b)=>((a[sort.k]>b[sort.k])-(a[sort.k]<b[sort.k]))*sort.d);$("#cnt").textContent=rows.length+" of "+EP.length;
+ const cols=[["status","Status"],["title","Epic"],["cat","Type"],["state","State"],["pct","Progress vs time"],["goLive","Go-live"],["forecast","Forecast"],["conf","Confidence"],["reasons","Why"]];
+ const t=$("#tbl");t.innerHTML="";t.append(h("thead",{},h("tr",{},cols.map(([k,l])=>h("th",{onclick:()=>{sort={k,d:sort.k===k?-sort.d:-1};draw();}},l+(sort.k===k?(sort.d>0?" ▲":" ▼"):""))))));
+ const b=h("tbody");rows.forEach(e=>{const el=Math.max(0,Math.min(100,(TODAY-new Date(e.start))/(new Date(e.goLive)-new Date(e.start))*100));
+  b.append(h("tr",{class:"row",onclick:()=>openDrawer(e)},h("td",{},h("span",{class:"pill"},h("span",{class:"sw",style:`background:${ST[e.status].c}`},ST[e.status].i),ST[e.status].name)),h("td",{html:`<b>${e.title}</b><br><span style="color:#605e5c">${e.id}</span>`}),h("td",{},e.cat),h("td",{},e.state),
+   h("td",{html:`<span class="bar"><i style="width:${e.pct}%;background:${ST[e.status].c}"></i><u style="left:${el}%"></u></span> ${e.pct}%`}),h("td",{},nice(e.goLive)),h("td",{html:nice(e.forecast)+(e.slip>0?` <span style="color:#d13438">+${e.slip}d</span>`:"")}),h("td",{},e.conf==null?"–":e.conf+"%"),h("td",{style:"color:#605e5c"},e.reasons)));});t.append(b);}
+function openDrawer(e){const d=$("#drawer");d.innerHTML=`<button class="btn" style="float:right" onclick="this.parentNode.classList.remove('open')">✕ Close</button><h2>${e.title}</h2><div style="color:#605e5c">${e.id} · ${e.cat} · ${e.team}</div>
+ <p><span class="pill"><span class="sw" style="background:${ST[e.status].c}">${ST[e.status].i}</span>${ST[e.status].name}</span></p><p>${e.reasons}</p>
+ <dl class="kv"><dt>State</dt><dd>${e.state}</dd><dt>Progress</dt><dd>${e.pct}%</dd><dt>Start</dt><dd>${nice(e.start)}</dd><dt>Go-live</dt><dd>${nice(e.goLive)}</dd><dt>Forecast</dt><dd>${nice(e.forecast)} ${e.slip?`(+${e.slip} days)`:""}</dd><dt>Confidence</dt><dd>${e.conf==null?"–":e.conf+"%"}</dd><dt>Hours booked</dt><dd>${e.hours.toLocaleString()} h</dd></dl><button class="btn pri">Open the Epic</button>`;d.classList.add("open");}
+function filters(){const box=$("#filters");box.innerHTML="";const names={status:k=>ST[k].name};Object.entries(F).forEach(([k,v])=>{if(k!=="text"&&v)box.append(h("span",{class:"fchip"},(names[k]?names[k](v):v),h("button",{onclick:()=>set(k,v)},"✕")));});if(F.text)box.append(h("span",{class:"fchip"},"“"+F.text+"”",h("button",{onclick:()=>{F.text="";$("#q").value="";draw();}},"✕")));}
+function draw(){slicers();filters();kpis();donut();stacked($("#bytype"),CATS,e=>e.cat,"cat",118);qchart();table();}
+$("#reset").onclick=()=>{Object.keys(F).forEach(k=>F[k]=k==="text"?"":null);$("#q").value="";draw();};
+$("#q").oninput=e=>{F.text=e.target.value.toLowerCase().trim();draw();}; document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#drawer").classList.remove("open");});
+draw();
+</script></body></html>

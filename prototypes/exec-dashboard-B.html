@@ -1,0 +1,100 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Executive Dashboard – Prototype B (slicer rail + portfolio map)</title>
+<style>
+:root{--bg:#10151c;--panel:#18202b;--card:#1d2733;--fg:#e8edf3;--fg2:#9fb0c3;--line:#2b394a;--accent:#4ea1ff}
+*{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--fg);font:13px "Segoe UI",system-ui,sans-serif;display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+aside.rail{background:var(--panel);border-right:1px solid var(--line);padding:16px 14px;overflow:auto;height:100vh;position:sticky;top:0}
+aside.rail h1{font-size:16px;margin:0 0 2px} .live{color:var(--fg2);font-size:12px;margin-bottom:12px} .live i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34c27a;margin-right:5px}
+.rail h4{margin:16px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg2);display:flex;justify-content:space-between}
+.rail label{display:flex;align-items:center;gap:8px;padding:3px 4px;border-radius:4px;cursor:pointer} .rail label:hover{background:#243142} .rail label span.n{margin-left:auto;color:var(--fg2)}
+.rail input[type=checkbox]{accent-color:var(--accent)} .dot{width:10px;height:10px;border-radius:3px;display:inline-block}
+.rail input[type=search]{width:100%;background:#0f151c;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 9px;font:inherit}
+main{padding:16px 20px;min-width:0} .top{display:flex;gap:10px;align-items:center;margin-bottom:12px} .top .t{font-size:18px;font-weight:600;flex:1}
+.btn{background:#243142;border:1px solid var(--line);color:var(--fg);border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit} .btn:hover{background:#2d3d52}
+.strip{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:12px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer;border-left:4px solid var(--c,#555)} .k:hover{background:#243142} .k.on{outline:2px solid var(--accent)}
+.k .l{color:var(--fg2);font-size:12px} .k .v{font-size:26px;font-weight:600} .k .d{color:var(--fg2);font-size:12px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px 14px} .panel h3{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between} .panel h3 span{color:var(--fg2);font-weight:400}
+.cols{display:grid;grid-template-columns:1.7fr 1fr;gap:12px} #map{position:relative;height:430px;border-radius:6px;overflow:hidden}
+.cat{position:absolute;overflow:hidden} .cat{background:#0b1016}.cat>.cl{position:absolute;left:6px;top:1px;font-size:11px;font-weight:600;color:#9fb0c3;pointer-events:none;letter-spacing:.03em}
+.blk{position:absolute;border:2px solid var(--bg);border-radius:4px;overflow:hidden;cursor:pointer;color:#fff;padding:4px 6px;font-size:11px;line-height:1.2;transition:filter .15s,opacity .15s} .blk:hover{filter:brightness(1.18)} .blk.dim{opacity:.22} .blk b{display:block;font-weight:600}
+.list .it{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line);cursor:pointer} .list .it:hover{background:#243142}
+.sw{display:inline-flex;width:18px;height:18px;border-radius:5px;color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center}
+.mini{height:6px;background:#2b394a;border-radius:3px;position:relative;margin-top:4px} .mini i{position:absolute;left:0;top:0;bottom:0;border-radius:3px} .mini u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#fff}
+.sub{color:var(--fg2);font-size:12px} .slip{color:#ff7b7b;font-weight:600}
+.drawer{position:fixed;right:0;top:0;bottom:0;width:380px;background:var(--panel);border-left:1px solid var(--line);box-shadow:-8px 0 30px rgba(0,0,0,.5);padding:18px;transform:translateX(100%);transition:transform .2s;z-index:20;overflow:auto} .drawer.open{transform:none}
+.drawer h2{margin:0 0 4px;font-size:16px} .kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;margin:12px 0} .kv dt{color:var(--fg2)} .kv dd{margin:0}
+.tip{position:fixed;pointer-events:none;background:#000;color:#fff;padding:6px 9px;border-radius:5px;font-size:12px;z-index:30;display:none;border:1px solid var(--line)}
+.fchips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;min-height:26px} .fchip{background:#254266;border-radius:12px;padding:2px 4px 2px 10px;display:inline-flex;gap:6px;align-items:center} .fchip button{background:none;border:0;color:var(--fg2);cursor:pointer}
+</style></head><body>
+<aside class="rail"><h1>Executive Dashboard</h1><div class="live"><i></i>Live · refreshed just now</div>
+ <input id="q" type="search" placeholder="Find an Epic…"><div id="rail"></div></aside>
+<main><div class="top"><div class="t">Portfolio map</div><span class="sub">Block size = hours booked · colour = delivery status</span><button class="btn" id="reset">Clear filters</button><button class="btn">⟳ Refresh</button></div>
+ <div class="fchips" id="chips"></div><div class="strip" id="strip"></div>
+ <div class="cols"><div class="panel"><h3>Where is the portfolio at risk? <span id="mapcnt"></span></h3><div id="map"></div></div>
+ <div class="panel"><h3>Needs your attention <span>worst first</span></h3><div class="list" id="list"></div></div></div></main>
+<aside class="drawer" id="drawer"></aside><div class="tip" id="tip"></div>
+<script>
+/* shared sample data and helpers for the three Executive Dashboard prototypes (not part of the extension) */
+const CATS=["Regulatory","Software upgrade","Customer experience","Infrastructure","Security","Data & Analytics"];
+const TEAMS=["Platform","Payments","Risk & Credit","Mobile","Data","Security"];
+const TITLES=["Basel IV reporting","AML transaction monitoring","GDPR data retention","FATCA/CRS update","PSD3 readiness","Sanctions screening upgrade","Regulatory capital reporting","ERP v12 upgrade","Core banking patch 9.4","CRM platform upgrade","Database 19c migration","Mobile SDK 5 upgrade","Middleware 8 upgrade","Windows 11 rollout","Digital onboarding","Loyalty app revamp","Self-service portal","Chatbot v2","Branch queue system","Cloud landing zone","Network refresh","DR failover test","Observability platform","Data centre exit","Zero trust rollout","PAM implementation","SOC automation","Vulnerability management","Data lake migration","Reporting warehouse","ML credit scoring","Open banking APIs","Card tokenisation","Treasury workstation","Customer 360"];
+const CATOF=[0,0,0,0,0,0,0,1,1,1,1,1,1,1,2,2,2,2,2,3,3,3,3,3,4,4,4,4,5,5,5,2,0,1,5];
+let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646;};
+const TODAY=new Date("2026-10-28T00:00:00Z"), DAY=864e5;
+const iso=d=>new Date(d).toISOString().slice(0,10);
+const addDays=(d,n)=>new Date(+new Date(d)+n*DAY);
+const STATES=["Not Started","Doing","Delivery Committed","On Hold","Completed"];
+const EP=TITLES.map((t,i)=>{
+  const state=i%11===3?"Not Started":i%9===4?"Completed":i%13===6?"On Hold":i%2?"Doing":"Delivery Committed";
+  const goLive=addDays("2026-09-15",Math.floor(rnd()*270)), dur=140+Math.floor(rnd()*160), start=addDays(goLive,-dur);
+  const elapsed=Math.max(0,Math.min(1,(TODAY-start)/(goLive-start)));
+  let pct=state==="Completed"?100:state==="Not Started"?0:Math.round(Math.min(98,elapsed*100*(0.55+rnd()*0.6)));
+  let slip=state==="Completed"||state==="Not Started"?0:Math.round((elapsed*100-pct)*dur/100*0.5+(state==="On Hold"?40:0)-4);
+  slip=Math.max(0,slip); if(state==="Doing"&&rnd()<.4)slip=0;
+  const status=state==="Completed"?"done":state==="Not Started"?"idle":(slip>30||state==="On Hold")?"red":slip>7?"amber":"green";
+  const conf=state==="Completed"?100:state==="Not Started"?null:Math.max(3,Math.min(97,Math.round(100-slip*1.6-(state==="On Hold"?30:0))));
+  const reasons={red:state==="On Hold"?"On hold; go-live at risk":`Forecast ${slip} days after go-live`,amber:`Could slip ${slip} days without action`,green:"Progress in line with time",done:"Delivered",idle:"Not started yet"}[status];
+  return {id:1100+i*7,title:t,cat:CATS[CATOF[i]],team:TEAMS[Math.floor(rnd()*6)],state,status,pct,conf,goLive:iso(goLive),start:iso(start),forecast:iso(addDays(goLive,slip)),slip,hours:Math.round(200+rnd()*1800),reasons,
+    q:"Q"+(Math.floor(goLive.getUTCMonth()/3)+1)+" "+String(goLive.getUTCFullYear()).slice(2)};
+});
+const ST={green:{name:"On track",c:"#1a9d57",i:"✓"},amber:{name:"Needs attention",c:"#f2a900",i:"▲"},red:{name:"At risk",c:"#d13438",i:"!"},idle:{name:"Not started",c:"#8a8886",i:"○"},done:{name:"Done",c:"#2b6cb0",i:"●"}};
+const ORDER=["green","amber","red","idle","done"];
+const QS=[...new Set(EP.map(e=>e.q))].sort((a,b)=>(a.slice(4)+a[1]).localeCompare(b.slice(4)+b[1]));
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const h=(t,a={},...k)=>{const e=document.createElement(t);for(const[x,v]of Object.entries(a)){if(x==="class")e.className=v;else if(x==="html")e.innerHTML=v;else if(x.startsWith("on"))e.addEventListener(x.slice(2),v);else if(v!==false&&v!=null)e.setAttribute(x,v);}k.flat().forEach(c=>e.append(c?.nodeType?c:document.createTextNode(c??"")));return e;};
+const nice=d=>new Date(d).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric",timeZone:"UTC"});
+const count=(arr,f)=>arr.filter(f).length;
+
+const F={status:new Set(),cat:new Set(),state:new Set(),q:new Set(),text:""};
+const get={status:e=>e.status,cat:e=>e.cat,state:e=>e.state,q:e=>e.q};
+const pass=(e,skip)=>Object.keys(get).every(k=>k===skip||!F[k].size||F[k].has(get[k](e)))&&(!F.text||(e.title+" "+e.cat+" "+e.id).toLowerCase().includes(F.text));
+const tog=(k,v)=>{F[k].has(v)?F[k].delete(v):F[k].add(v);draw();};
+const tip=$("#tip");const show=(ev,t)=>{tip.innerHTML=t;tip.style.display="block";tip.style.left=Math.min(ev.clientX+12,innerWidth-240)+"px";tip.style.top=ev.clientY+12+"px";};
+function rail(){const box=$("#rail");box.innerHTML="";
+ const grp=(title,k,opts,color)=>{box.append(h("h4",{},title,F[k].size?h("a",{style:"cursor:pointer;color:#4ea1ff",onclick:()=>{F[k].clear();draw();}},"clear"):""));opts.forEach(o=>{const n=count(EP.filter(e=>pass(e,k)),e=>get[k](e)===o);
+  box.append(h("label",{},h("input",{type:"checkbox",checked:F[k].has(o)?"":null,onchange:()=>tog(k,o)}),color?h("span",{class:"dot",style:`background:${color(o)}`}):"",k==="status"?ST[o].name:o,h("span",{class:"n"},String(n))));});};
+ grp("Status","status",ORDER,o=>ST[o].c);grp("State","state",STATES);grp("Type","cat",CATS);grp("Go-live quarter","q",QS);
+ $$("input[type=checkbox]",box).forEach(c=>{if(c.getAttribute("checked")==null)c.checked=false;});}
+function strip(){const base=EP.filter(e=>pass(e,"status")),box=$("#strip");box.innerHTML="";
+ box.append(h("div",{class:"k",style:"--c:#9fb0c3",onclick:()=>{F.status.clear();draw();}},h("div",{class:"l"},"Portfolio"),h("div",{class:"v"},String(base.length)),h("div",{class:"d"},Math.round(base.reduce((a,e)=>a+e.hours,0)/1000)+"k hours")));
+ for(const s of ORDER){const n=count(base,e=>e.status===s);box.append(h("div",{class:"k"+(F.status.has(s)?" on":""),style:`--c:${ST[s].c}`,onclick:()=>tog("status",s)},h("div",{class:"l"},ST[s].name),h("div",{class:"v"},String(n)),h("div",{class:"d"},base.length?Math.round(n/base.length*100)+"% of Epics":"–")));}}
+function map(){const all=EP.filter(e=>pass(e,"status")),m=$("#map");m.innerHTML="";const W=m.clientWidth,H=m.clientHeight;
+ const groups=CATS.map(c=>({c,items:all.filter(e=>e.cat===c)})).filter(g=>g.items.length),tot=groups.reduce((a,g)=>a+g.items.reduce((x,e)=>x+e.hours,0),0)||1;$("#mapcnt").textContent=all.length+" Epics";
+ // two rows of categories, then Epics stacked inside each
+ const rows=[groups.slice(0,Math.ceil(groups.length/2)),groups.slice(Math.ceil(groups.length/2))].filter(r=>r.length),rowT=rows.map(r=>r.reduce((a,g)=>a+g.items.reduce((x,e)=>x+e.hours,0),0)),all2=rowT.reduce((a,b)=>a+b,0)||1;let y=0;
+ rows.forEach((r,ri)=>{const rh=H*rowT[ri]/all2;let x=0;r.forEach(g=>{const gt=g.items.reduce((a,e)=>a+e.hours,0),gw=W*gt/rowT[ri];const box=h("div",{class:"cat",style:`left:${x}px;top:${y}px;width:${gw}px;height:${rh}px`},h("div",{class:"cl"},g.c));
+   // slice Epics into columns of ~3
+   const cols=Math.max(1,Math.round(Math.sqrt(g.items.length*gw/rh/1.6)));const per=Math.ceil(g.items.length/cols);const sorted=[...g.items].sort((a,b)=>b.hours-a.hours);let cx=0;
+   for(let c=0;c<cols;c++){const part=sorted.slice(c*per,(c+1)*per);if(!part.length)continue;const ct=part.reduce((a,e)=>a+e.hours,0),cw=gw*ct/gt;let cy=16;part.forEach(e=>{const bh=(rh-16)*e.hours/ct,dim=F.status.size&&!F.status.has(e.status);
+     const b=h("div",{class:"blk"+(dim?" dim":""),style:`left:${cx}px;top:${cy}px;width:${cw}px;height:${bh}px;background:${ST[e.status].c}${e.status==="amber"?";color:#1b1b1b":""}`,onclick:()=>openDrawer(e),onmousemove:ev=>show(ev,`<b>${e.title}</b><br>${ST[e.status].name} · ${e.pct}% done<br>${e.hours.toLocaleString()} h · go-live ${nice(e.goLive)}`),onmouseleave:()=>tip.style.display="none"},h("b",{},bh>34&&cw>70?e.title:""),bh>52&&cw>90?e.pct+"% · "+e.state:"");box.append(b);cy+=bh;});cx+=cw;}
+   m.append(box);x+=gw;});y+=rh;});}
+function list(){const box=$("#list");box.innerHTML="";EP.filter(e=>pass(e)&&(e.status==="red"||e.status==="amber")).sort((a,b)=>b.slip-a.slip).slice(0,9).forEach(e=>{const el=Math.max(0,Math.min(100,(TODAY-new Date(e.start))/(new Date(e.goLive)-new Date(e.start))*100));
+ box.append(h("div",{class:"it",onclick:()=>openDrawer(e)},h("span",{class:"sw",style:`background:${ST[e.status].c}`},ST[e.status].i),h("div",{},h("b",{},e.title),h("div",{class:"sub"},e.cat+" · "+e.reasons),h("div",{class:"mini",html:`<i style="width:${e.pct}%;background:${ST[e.status].c}"></i><u style="left:${el}%"></u>`})),h("div",{class:"slip"},e.slip?"+"+e.slip+"d":"")));});
+ if(!box.children.length)box.append(h("div",{class:"sub"},"Nothing needs attention in this view."));}
+function openDrawer(e){const d=$("#drawer");d.innerHTML=`<button class="btn" style="float:right" onclick="this.parentNode.classList.remove('open')">✕ Close</button><h2>${e.title}</h2><div class="sub">${e.id} · ${e.cat} · ${e.team}</div><p><span class="sw" style="background:${ST[e.status].c}">${ST[e.status].i}</span> <b>${ST[e.status].name}</b></p><p>${e.reasons}</p>
+ <dl class="kv"><dt>State</dt><dd>${e.state}</dd><dt>Progress</dt><dd>${e.pct}%</dd><dt>Go-live</dt><dd>${nice(e.goLive)}</dd><dt>Forecast</dt><dd>${nice(e.forecast)} ${e.slip?`(+${e.slip}d)`:""}</dd><dt>Confidence</dt><dd>${e.conf==null?"–":e.conf+"%"}</dd><dt>Hours booked</dt><dd>${e.hours.toLocaleString()} h</dd></dl><button class="btn">Open the Epic</button>`;d.classList.add("open");}
+function chips(){const box=$("#chips");box.innerHTML="";for(const k of ["status","state","cat","q"])F[k].forEach(v=>box.append(h("span",{class:"fchip"},k==="status"?ST[v].name:v,h("button",{onclick:()=>tog(k,v)},"✕"))));if(F.text)box.append(h("span",{class:"fchip"},"“"+F.text+"”"));}
+function draw(){rail();chips();strip();map();list();}
+$("#reset").onclick=()=>{["status","cat","state","q"].forEach(k=>F[k].clear());F.text="";$("#q").value="";draw();};$("#q").oninput=e=>{F.text=e.target.value.toLowerCase().trim();draw();};
+document.addEventListener("keydown",e=>{if(e.key==="Escape")$("#drawer").classList.remove("open");});addEventListener("resize",map);draw();
+</script></body></html>
