@@ -66,7 +66,7 @@ export function TimelineTab(p: { project: { id: string; name: string }; settings
         </div>)}
       <div className="muted" style={{ marginTop: 6 }}>{rows.filter(r => r.kind === "person").length} people shown{rows.some(r => r.kind === "group" && r.team === NO_TEAM) ? " (some without team capacity)" : ""}.</div>
       {tip && <div className="tip" style={{ left: Math.min(tip.x + 14, window.innerWidth - 280), top: tip.y + 14 }}><b>{tip.title}</b>{tip.lines.map((l, i) => <div key={i} className="muted">{l}</div>)}</div>}
-      {dialog !== undefined && epicById.get(dialog) && <EpicDialog settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
+      {dialog !== undefined && epicById.get(dialog) && <EpicDialog history={{ field: p.settings.epicTargetField, hist: p.loaded?.history?.[p.settings.epicTargetField]?.[dialog!], allRead: !!(p.settings.history.enabled && p.loaded?.history) }} settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

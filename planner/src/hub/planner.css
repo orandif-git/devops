@@ -138,3 +138,8 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .tl-lane .gorig { position: absolute; top: 3px; width: 10px; height: 10px; transform: rotate(45deg); border: 2px solid #7a5af8; background: var(--bg); z-index: 2; }
 .tl-lane .gline { position: absolute; top: 8px; height: 3px; border-radius: 2px; z-index: 1; } .tl-lane .gline.later { background: #d13438; } .tl-lane .gline.earlier { background: #1a9d57; }
 .tl-lane .gline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); }
+
+/* the history of a date as a timeline (Epic dialog and the Executive Dashboard panel) */
+.hist h4 { margin: 14px 0 6px; } .hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .hist li { padding: 3px 0 3px 12px; position: relative; } .hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a5af8; } .hist li.later::before { background: #d13438; } .hist li.earlier::before { background: #1a9d57; }
+.ex-slip { color: #d13438; font-weight: 600; white-space: nowrap; } .ex-good { color: #1a9d57; font-weight: 600; }
+.tl-lane .gmv { position: absolute; top: -2px; font-size: 9px; line-height: 10px; background: var(--bg); padding: 0 2px; border-radius: 2px; font-weight: 600; color: #7a5af8; white-space: nowrap; z-index: 2; }

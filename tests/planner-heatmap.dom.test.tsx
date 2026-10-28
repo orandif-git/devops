@@ -9,6 +9,7 @@ vi.mock("../src/shared/ado", () => ({ downloadFile: vi.fn() }));
 const store = vi.hoisted(() => ({ doc: { views: [] as unknown[], defaultId: undefined as string | undefined } }));
 vi.mock("../planner/src/data/viewStore", () => ({ loadViews: async () => JSON.parse(JSON.stringify(store.doc)), saveViews: async (_p: string, d: typeof store.doc) => { store.doc = JSON.parse(JSON.stringify(d)); } }));
 vi.mock("../planner/src/data/share", () => ({ buildLink: async () => "https://host/_apps/hub/x?pv=abc&full=1", readLink: async () => ({ full: false }), setHostFullScreen: async () => undefined }));
+vi.mock("../planner/src/data/history", () => ({ fetchEpicHistory: async () => undefined, loadHistory: async () => ({}) }));
 vi.mock("../planner/src/data/related", () => ({ loadRelated: async () => [{ id: 50, title: "Address service", type: "Feature", state: "Active", relation: "Child" }] }));
 vi.mock("../planner/src/data/open", () => ({ openWorkItem: async (_p: string, id: number) => { opened.push(id); } }));
 
@@ -157,7 +158,10 @@ describe("Epic Gantt statistics, key filter and search", () => {
     const hist = { 1: { baseline: "2026-08-01", current: "2026-12-15", rev: 2, changes: [{ at: "2026-05-01T00:00:00Z", by: "Ann", from: "2026-08-01", to: "2026-12-15" }] } };
     const h = document.createElement("div"); document.body.appendChild(h);
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, epicTargetField: "Custom.T", history: { ...settings.history, enabled: true } }} loaded={{ ...data, history: { "Custom.T": hist } } as unknown as Loaded} months={year} filters={noFilters()} />, h); });
-    expect(h.querySelectorAll(".gorig")).toHaveLength(1); expect(h.querySelector(".gline.later")).not.toBeNull();
+    expect(h.querySelectorAll(".gorig")).toHaveLength(1); expect(h.querySelector(".gline.later")).not.toBeNull(); expect(h.querySelector(".gmv")!.textContent).toContain("1×");
+    act(() => { click(h.querySelector('.tl-lane .gb[aria-label^="Epic 1,"]')!); });                                // the Epic dialog in the middle of the page shows the history too
+    expect(document.querySelector(".modal .hist")!.textContent).toContain("original date"); expect(document.querySelector(".modal .hist")!.textContent).toContain("Ann");
+    click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent!.trim() === "Close")!);
     const h2 = document.createElement("div"); document.body.appendChild(h2);
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...data, history: { "Custom.T": hist } } as unknown as Loaded} months={year} filters={noFilters()} />, h2); });
     expect(h2.querySelectorAll(".gorig")).toHaveLength(0);                                  // off: nothing is drawn

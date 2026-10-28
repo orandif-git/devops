@@ -2,6 +2,7 @@ import * as React from "react";
 import { IconClose, IconOpen } from "../../../src/shared/icons";
 import { dimLabel, ExecStatus, STATUS_NAME } from "../core/executive";
 import { Hist } from "../core/history";
+import { HistoryTimeline } from "../hub/HistoryTimeline";
 import { Item, SHOWN } from "./model";
 
 export const COLOR: Record<ExecStatus, string> = { green: "#1a9d57", amber: "#f2a900", red: "#d13438", unknown: "#a19f9d", idle: "#8a8886", done: "#2b6cb0" };
@@ -51,13 +52,7 @@ export function Drawer(p: { item?: Item; onClose(): void; onDetails(id: number):
           <dt>Confidence</dt><dd>{r.conf === null ? "–" : r.conf + " %"}</dd><dt>Hours booked</dt><dd>{i.hours.toLocaleString()} h</dd>
           {r.over.length > 0 && <><dt>Over capacity</dt><dd>{r.over.join(", ")}</dd></>}
         </dl>
-        <div className="ex-hist"><h4>Go-live history</h4>
-          {p.histState === "loading" ? <div className="muted">Reading the history…</div> : p.histState === "error" ? <div className="err">Could not read the history: {p.histError}</div> : p.histState === "none" ? <div className="muted">No go-live date field is set.</div>
-            : !p.hist ? <div className="muted">No go-live date change is recorded for this Epic.</div>
-            : <ol><li><b>{p.day(Date.parse(p.hist.baseline + "T00:00:00Z"))}</b> <span className="muted">original date</span></li>
-              {p.hist.changes.map((c, k) => { const d = Math.round((Date.parse(c.to) - Date.parse(c.from)) / 864e5); return <li key={k} className={d > 0 ? "later" : "earlier"}><b>{p.day(Date.parse(c.to + "T00:00:00Z"))}</b> <span className={d > 0 ? "ex-slip" : "ex-good"}>{d > 0 ? "+" : ""}{d} days</span> <span className="muted">{c.at ? new Date(c.at).toLocaleDateString() : ""}{c.by ? " · " + c.by : ""}</span></li>; })}</ol>}
-          {p.hist && !p.hist.changes.length && <div className="muted">Never moved.</div>}
-        </div>
+        <HistoryTimeline hist={p.hist} state={p.histState ?? "loading"} error={p.histError} day={p.day} />
         <button className="btn primary" onClick={() => p.onDetails(i.id)}><IconOpen /> Open the Epic details</button>
       </>}
     </aside>

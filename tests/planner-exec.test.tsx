@@ -144,7 +144,7 @@ describe("Executive dashboard page", () => {
     act(() => { Simulate.click(card); });
     expect(rows(h)).toBe(1); expect(h.querySelector(".ex-chips")!.textContent).toContain("moved recently");
     act(() => { Simulate.click(h.querySelector("tr.ex-row")!); });
-    expect(h.querySelector(".ex-hist")!.textContent).toContain("original date"); expect(h.querySelector(".ex-hist")!.textContent).toContain("Bo");
+    expect(h.querySelector(".hist")!.textContent).toContain("original date"); expect(h.querySelector(".hist")!.textContent).toContain("Bo");
   });
   it("saves a personal view, applies a saved filter from the settings and shows calculated fields as columns", async () => {
     const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q1", name: "Regulatory only", show: "epics", month: "current", columns: [], conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }] }] } });

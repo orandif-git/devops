@@ -94,7 +94,7 @@ export interface ExecFormula {
 }
 
 export interface HistorySettings {
-  /** read the history of the go-live (and Epic target) date field; off by default (the first read goes through all revisions) */
+  /** read the history of the go-live (and Epic target) date field (the first read goes through all revisions) */
   enabled: boolean;
   /** "recently" means this many days */
   windowDays: number;
@@ -141,7 +141,7 @@ export const defaultExec = (): ExecSettings => ({
 });
 
 export const defaultSettings = (): PlannerSettings => ({
-  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], history: { enabled: false, windowDays: 90, movesAmber: 2, affectStatus: true }, dateFormat: "", monthFormat: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
+  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], history: { enabled: true, windowDays: 90, movesAmber: 2, affectStatus: true }, dateFormat: "", monthFormat: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
   period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat", rows: "collapsed", ganttTiles: ["epics", "progress", "ok", "late", "due30", "hold"] }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 

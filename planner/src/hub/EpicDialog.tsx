@@ -4,13 +4,16 @@ import { fmtDate } from "../core/dates";
 import { PlannerSettings } from "../core/types";
 import { shortName } from "../core/model";
 import { Booking, EpicRecord } from "../core/types";
+import { Hist } from "../core/history";
+import { HistoryTimeline, useEpicHistory } from "./HistoryTimeline";
 import { openWorkItem } from "../data/open";
 import { loadRelated, Related } from "../data/related";
 
 /** An Epic on top of the page: who works on it, its dates, and its parent, children and related items (read when the dialog opens). */
-export function EpicDialog(p: { settings?: PlannerSettings; epic: EpicRecord; project: string; bookings: Booking[]; months: string[]; onClose(): void }) {
+export function EpicDialog(p: { settings?: PlannerSettings; /** the date field whose history is shown (target / go-live), what is known of it, and whether the history of all Epics was read */ history?: { field: string; hist?: Hist; allRead: boolean }; epic: EpicRecord; project: string; bookings: Booking[]; months: string[]; onClose(): void }) {
   const [related, setRelated] = React.useState<Related[] | string>();
   const { epic } = p;
+  const eh = useEpicHistory(epic.id, p.history?.field ?? "", p.history?.hist, !!p.history?.allRead);
   React.useEffect(() => { let live = true; loadRelated(epic.id).then(r => live && setRelated(r)).catch(e => live && setRelated("Could not read the related work items: " + (e as Error).message)); return () => { live = false; }; }, [epic.id]);
   React.useEffect(() => { const h = (e: KeyboardEvent) => { if (e.key === "Escape") p.onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [p]);
   const people = React.useMemo(() => {
@@ -23,6 +26,7 @@ export function EpicDialog(p: { settings?: PlannerSettings; epic: EpicRecord; pr
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="epic-title">
         <h3 id="epic-title">{epic.id} · {epic.title}</h3>
         <div className="muted">{epic.state} · {epic.areaPath}{epic.start || epic.target ? ` · ${fmtDate(p.settings, epic.start) || "?"} → ${fmtDate(p.settings, epic.target) || "?"}` : ""}</div>
+        {p.history?.field && <HistoryTimeline title={`History of the ${(p.history.field.split(".").pop() ?? "date").replace(/([a-z0-9])([A-Z])/g, "$1 $2").toLowerCase()}`} hist={eh.hist} state={eh.state} error={eh.error} day={t => (t === undefined ? "–" : fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) || "–")} />}
         <h4>People and hours in the period</h4>
         {people.length ? <table className="mini"><tbody>{people.slice(0, 12).map(x => <tr key={x.name}><td>{shortName(x.name)}</td><td>{x.hours} h</td></tr>)}</tbody></table> : <div className="muted">No hours in this period.</div>}
         <h4>Related work items</h4>

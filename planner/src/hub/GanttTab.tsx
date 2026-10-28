@@ -104,14 +104,14 @@ export function GanttTab(p: {
                       onClick={() => setDialog(g.epic.id)} onKeyDown={ev => { if (ev.key === "Enter") setDialog(g.epic.id); }}
                       onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${g.epic.id} · ${g.epic.title}`, lines: [`${g.epic.state} · ${g.epic.areaPath}`, `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}${g.derived ? " (from the hours)" : ""}`, `${g.people} people · ${g.hours} h in the period`, g.late ? "Late: target date has passed" : "", label ? `${labelField.split(".").pop()}: ${label}` : "", hh && hh.changes.length ? `Target date moved ${hh.changes.length}× (${signed(daysBetween(hh.baseline, hh.current))} days); originally ${fmtDate(p.settings, hh.baseline)}` : ""].filter(Boolean) })}
                       onPointerLeave={() => setTip(undefined)}>{b.width > (p.settings.dateFormat ? 16 : 9) ? <span>{p.settings.dateFormat ? `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}` : `${g.start.slice(5)} → ${g.end.slice(5)}`}</span> : null}{label && inside && <span className="gbl">{label}</span>}</div>
-                    {moved && bo && <><div className={"gline " + (hh!.baseline < hh!.current ? "later" : "earlier")} style={{ left: Math.min(bo.left, b.left + b.width) + "%", width: Math.max(.2, Math.abs(b.left + b.width - bo.left)) + "%" }} /><div className="gorig" style={{ left: `calc(${bo.left}% - 5px)` }} title={`Original target date ${fmtDate(p.settings, hh!.baseline)}`} /></>}
+                    {moved && bo && <><div className={"gline " + (hh!.baseline < hh!.current ? "later" : "earlier")} style={{ left: Math.min(bo.left, b.left + b.width) + "%", width: Math.max(.2, Math.abs(b.left + b.width - bo.left)) + "%" }} /><div className="gorig" style={{ left: `calc(${bo.left}% - 5px)` }} title={`Original target date ${fmtDate(p.settings, hh!.baseline)}`} /><span className="gmv" style={{ left: `calc(${bo.left}% + 8px)` }}>{hh!.changes.length}× {signed(daysBetween(hh!.baseline, hh!.current))}d</span></>}
                     {label && !inside && <span className="gl" style={{ left: `calc(${b.left + b.width}% + 6px)` }}>{label}</span>}
                   </div>
                 </div>);
             })()} />
         </div>)}
       {tip && <div className="tip" style={{ left: Math.min(tip.x + 14, window.innerWidth - 280), top: tip.y + 14 }}><b>{tip.title}</b>{tip.lines.map((l, i) => <div key={i} className="muted">{l}</div>)}</div>}
-      {dialog !== undefined && epicById.get(dialog) && <EpicDialog settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
+      {dialog !== undefined && epicById.get(dialog) && <EpicDialog history={{ field: p.settings.epicTargetField, hist: L.history?.[p.settings.epicTargetField]?.[dialog!], allRead: !!(p.settings.history.enabled && L.history) }} settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

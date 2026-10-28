@@ -17,8 +17,7 @@ import { ViewsMenu } from "../hub/ViewsMenu";
 import { ExtraCol, LP, MapLayout, ReportLayout, RoadmapLayout } from "./layouts";
 import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
 import { Drawer } from "./parts";
-import { fetchEpicHistory } from "../data/history";
-import { Hist } from "../core/history";
+import { useEpicHistory } from "../hub/HistoryTimeline";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
 const strip = (f: XF): XF => ({ ...f, saved: undefined, savedName: undefined });
@@ -61,13 +60,7 @@ export function ExecDashboard(p: {
 
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
-  const [lazy, setLazy] = React.useState<{ id: number; hist?: Hist; err?: string; done: boolean }>();
-  React.useEffect(() => {                                           // one Epic's history, read when its panel opens and the history of all Epics is not on
-    if (!chosen || historyOn || !goLiveField) { setLazy(undefined); return; }
-    let live = true; setLazy({ id: chosen.id, done: false });
-    fetchEpicHistory(chosen.id, goLiveField).then(h => live && setLazy({ id: chosen.id, hist: h, done: true })).catch(e => live && setLazy({ id: chosen.id, err: (e as Error).message, done: true }));
-    return () => { live = false; };
-  }, [chosen?.id, historyOn, goLiveField]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
   const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn };
 
   // my saved views and a shared link
@@ -114,8 +107,8 @@ export function ExecDashboard(p: {
       {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive} Epic(s) have no go-live date{built.noProgress ? `; ${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only` : ""}.</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
-      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} hist={chosen?.hist ?? (lazy && lazy.id === chosen?.id ? lazy.hist : undefined)} histState={chosen?.hist || historyOn ? "ok" : !goLiveField ? "none" : lazy && lazy.id === chosen?.id ? (lazy.err ? "error" : lazy.done ? "ok" : "loading") : "loading"} histError={lazy?.err} />
-      {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
+      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} hist={eh.hist} histState={eh.state} histError={eh.error} />
+      {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog history={{ field: goLiveField, hist: all.find(i => i.id === dialog)?.hist, allRead: historyOn }} settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }
