@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconClose, IconDown, IconPlus, IconSearch, IconTrash, IconUp } from "./icons";
 import { isCategoryType, isDateType, isNumberType } from "../core/fieldTypes";
 import { validateExec } from "../core/settings";
 import { ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource } from "../core/types";
@@ -29,7 +30,7 @@ function GridDonePick(p: { src?: GridSource; sources: GridSource[]; project: str
       {p.src && <label className="field" style={{ width: 240 }}><span>Done (tick box) column</span>
         {cols.length ? <select value={p.src.columns.done ?? ""} onChange={e => p.onSource({ ...p.src!, columns: { ...p.src!.columns, done: e.target.value || undefined } })}><option value="">(choose)</option>{sorted.map(c => <option key={c.key} value={c.key}>{c.key}{tick(c) ? " · tick box" : ` · ${c.kind}`}</option>)}</select>
           : <input value={p.src.columns.done ?? ""} placeholder="column id" onChange={e => p.onSource({ ...p.src!, columns: { ...p.src!.columns, done: e.target.value.trim() || undefined } })} />}</label>}
-      {p.src && <button className="btn" onClick={find}>Find columns</button>}
+      {p.src && <button className="btn" onClick={find}><IconSearch /> Find columns</button>}
       {msg && <span className="muted" role="status">{msg}</span>}
     </>
   );
@@ -54,7 +55,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
 
       <div className="help"><b>Category fields</b>: Epic fields that classify an Epic, for example project type or regulatory. They become filters, the “by category” panel and words you can use when asking questions. None chosen = the area path is used.</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
-        {x.categoryFields.map(f => <span key={f} className="chip on">{name(f)} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => setX({ categoryFields: x.categoryFields.filter(y => y !== f) })}>×</button></span>)}
+        {x.categoryFields.map(f => <span key={f} className="chip on">{name(f)} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => setX({ categoryFields: x.categoryFields.filter(y => y !== f) })}><IconClose size={12} /></button></span>)}
         {!x.categoryFields.length && <span className="muted">None (area path is used).</span>}
       </div>
       <div className="row"><FieldPick label="Add a category field" value="" fields={p.fields} accept={f => isCategoryType(f.type)} placeholder="Custom.ProjectType" onChange={v => { if (v && !x.categoryFields.includes(v)) setX({ categoryFields: [...x.categoryFields, v] }); }} />
@@ -72,12 +73,12 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
               <FieldPick label="Total (number field)" value={g.totalField ?? ""} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Microsoft.VSTS.Scheduling.OriginalEstimate" onChange={v => setProg(i, { ...g, totalField: v || undefined })} /></>}
             {g.kind === "gridDone" && <GridDonePick src={s.sources.find(q => q.id === g.sourceId)} sources={s.sources} project={p.project} type={s.workItemType} value={g} onChange={v => setProg(i, v)} onSource={n => p.onChange({ ...s, sources: s.sources.map(q => (q.id === n.id ? n : q)) })} />}
             <span style={{ flex: 1 }} />
-            <button className="btn icon" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>↑</button><button className="btn icon" aria-label="Move down" disabled={i === x.progress.length - 1} onClick={() => move(i, 1)}>↓</button>
-            <button className="btn danger" onClick={() => setX({ progress: x.progress.filter((_, j) => j !== i) })}>Remove</button>
+            <button className="btn icon" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}><IconUp /></button><button className="btn icon" aria-label="Move down" disabled={i === x.progress.length - 1} onClick={() => move(i, 1)}><IconDown /></button>
+            <button className="btn danger" onClick={() => setX({ progress: x.progress.filter((_, j) => j !== i) })}><IconTrash /> Remove</button>
           </div>
           {g.kind === "gridDone" && <div className="help">The share of rows ticked done; weighted by the effort column when every row has one. Add the tick-box column to the grid first.</div>}
         </div>))}
-      <button className="btn" onClick={() => setX({ progress: [...x.progress, { id: "pg" + Date.now().toString(36), kind: "percentField" }] })}>+ Add a progress source</button>
+      <button className="btn" onClick={() => setX({ progress: [...x.progress, { id: "pg" + Date.now().toString(36), kind: "percentField" }] })}><IconPlus /> Add a progress source</button>
 
       <div className="help" style={{ marginTop: 10 }}><b>States</b> (comma separated, as they appear on the Epic)</div>
       <div className="row">

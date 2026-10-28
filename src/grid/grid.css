@@ -65,3 +65,4 @@
 .wig .ro { display: block; padding: 3px 6px; overflow-wrap: anywhere; line-height: 1.3; } .wig td.num .ro { text-align: right; font-variant-numeric: tabular-nums; }
 .wig td.status .ro { font-weight: 600; } .wig .ro.calc { font-weight: 600; }
 .wig td:has(> .ro) { white-space: normal; }
+.wig .btn { display: inline-flex; align-items: center; gap: 5px; } .wig .btn.icon { justify-content: center; }

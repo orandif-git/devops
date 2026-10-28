@@ -6,6 +6,7 @@ import { epicTiles, passes, TILES } from "../core/epicStats";
 import { progressOf } from "../core/progress";
 import { dimLabel } from "../core/executive";
 import { fmtDate } from "../core/dates";
+import { IconDownload, IconStats } from "./icons";
 import { PlannerSettings } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { downloadFile } from "../../../src/shared/ado";
@@ -75,9 +76,9 @@ export function GanttTab(p: {
           : <div key={id} className="tile gs" title={t.hint}><div className="l">{t.label}</div><div className="v">{v.value}</div><div className="d">{v.detail}</div></div>; })}</div>
       <div className="toolbar filters">
         <label>Group by <select value={group} onChange={e => setGroup(e.target.value as GroupBy)}><option value="area">Area</option><option value="state">State</option><option value="team">Team with most hours</option>{groupFields.map(f => <option key={f} value={"f:" + f}>{dimLabel(f)}</option>)}<option value="none">Nothing</option></select></label>
-        <button className="btn" onClick={exportCsv} disabled={!total}>Export CSV</button>
+        <button className="btn" onClick={exportCsv} disabled={!total}><IconDownload /> Export CSV</button>
         <span className="muted">{total} Epics shown</span>
-        {p.onTiles && <span className="cc-anchor"><button className="pill" aria-expanded={menu} onClick={() => setMenu(!menu)}>▦ Statistics</button>
+        {p.onTiles && <span className="cc-anchor"><button className="pill" aria-expanded={menu} onClick={() => setMenu(!menu)}><IconStats /> Statistics</button>
           {menu && <div className="cc-drawer" role="dialog" aria-label="Choose the statistics" style={{ width: 280 }}><h4>Statistics shown above the chart</h4>
             {TILES.map(t => <label key={t.id} title={t.hint} style={{ display: "flex", gap: 6, padding: "2px 0" }}><input type="checkbox" checked={tileIds.includes(t.id)} onChange={e => p.onTiles!(e.target.checked ? TILES.map(x => x.id).filter(id => id === t.id || tileIds.includes(id)) : tileIds.filter(x => x !== t.id))} />{t.label}</label>)}</div>}</span>}
       </div>

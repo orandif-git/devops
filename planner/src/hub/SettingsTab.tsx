@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconClose, IconPlus, IconSave, IconSearch, IconTrash, IconUndo } from "./icons";
 import { TILES } from "../core/epicStats";
 import { DATE_CHOICES, MONTH_CHOICES } from "../core/dates";
 import { isCategoryType } from "../core/fieldTypes";
@@ -66,7 +67,7 @@ function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; project: string; 
         <label className="field" style={{ flex: 1 }}><span>Name</span><input value={s.name} placeholder="SDLC Timesheet" onChange={e => set({ name: e.target.value })} /></label>
         <FieldPick label="Grid's data field (the long-text field that holds its rows)" value={s.dataField} fields={p.fields} accept={f => isLongTextType(f.type)} placeholder="Custom.ResourceGrid" flex={2}
           onChange={v => { const nm = s.name || p.fields.find(f => f.referenceName === v)?.name || ""; set({ dataField: v, name: nm }); void detect(v, { ...s, dataField: v, name: nm }); }} />
-        <button className="btn danger" onClick={p.onRemove}>Remove</button>
+        <button className="btn danger" onClick={p.onRemove}><IconTrash /> Remove</button>
       </div>
       {state.msg && <div className={state.sample ? "ok" : "muted"} role="status">{state.busy ? "⏳ " : ""}{state.msg}</div>}
       <div className="row" style={{ flexWrap: "wrap" }}>
@@ -92,7 +93,7 @@ function SourceEditor(p: { s: GridSource; fields: FieldInfo[]; project: string; 
           ) : <input defaultValue={s.excludedStatuses.join(", ")} placeholder="e.g. Rejected" onBlur={e => set({ excludedStatuses: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} />}
         </div>
       )}
-      {s.dataField && <div className="row"><button className="btn" disabled={state.busy} onClick={() => detect(s.dataField, s)}>Detect the columns again</button></div>}
+      {s.dataField && <div className="row"><button className="btn" disabled={state.busy} onClick={() => detect(s.dataField, s)}><IconSearch /> Detect the columns again</button></div>}
     </div>
   );
 }
@@ -124,8 +125,8 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
   return (
     <div>
       <div className="toolbar">
-        <button className="btn primary" disabled={!dirty || p.busy || errors.length > 0} onClick={p.onSave}>{p.busy ? "Saving…" : "Save settings"}</button>
-        <button className="btn" disabled={!dirty} onClick={p.onDiscard}>Discard</button>
+        <button className="btn primary" disabled={!dirty || p.busy || errors.length > 0} onClick={p.onSave}><IconSave /> {p.busy ? "Saving…" : "Save settings"}</button>
+        <button className="btn" disabled={!dirty} onClick={p.onDiscard}><IconUndo /> Discard</button>
         {dirty && <span className="badge">unsaved</span>}<span className={errors.length ? "err" : "ok"}>{errors.length ? `${errors.length} thing(s) to fix` : "Settings are complete"}</span>
         <span className="muted" role="status">{p.msg}</span>
       </div>
@@ -143,7 +144,7 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       <h3>Hours sources (grids)</h3>
       <div className="help">Add a grid and pick its data field: the planner reads a sample Epic and chooses the columns for you. Hours from all grids are added per person and month.</div>
       {s.sources.map((g, i) => <SourceEditor key={g.id} s={g} fields={fields} project={p.projectName} type={s.workItemType} onChange={n => set({ sources: s.sources.map((x, j) => (j === i ? n : x)) })} onRemove={() => set({ sources: s.sources.filter((_, j) => j !== i) })} />)}
-      <button className="btn" onClick={() => set({ sources: [...s.sources, { id: "src" + Date.now().toString(36), name: "", dataField: "", columns: { resource: "" }, excludedStatuses: [] }] })}>+ Add a grid</button>
+      <button className="btn" onClick={() => set({ sources: [...s.sources, { id: "src" + Date.now().toString(36), name: "", dataField: "", columns: { resource: "" }, excludedStatuses: [] }] })}><IconPlus /> Add a grid</button>
       <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={s.estimateUnscheduled} onChange={e => set({ estimateUnscheduled: e.target.checked })} /> When a row has no monthly hours stored, estimate them from its start date, end date and effort (flagged as estimated)</label>
 
       <h3>Capacity</h3>
@@ -180,7 +181,7 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       <h3>Epic Gantt grouping</h3>
       <div className="help">Epic fields offered in the Epic Gantt “Group by” list besides Area, State and Team, for example Delivery Status or Business Unit. Epics with an empty value go to a “(none)” group.</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
-        {s.ganttGroupFields.map(f => <span key={f} className="chip on">{fields.find(y => y.referenceName.toLowerCase() === f.toLowerCase())?.name ?? f} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => set({ ganttGroupFields: s.ganttGroupFields.filter(y => y !== f) })}>×</button></span>)}
+        {s.ganttGroupFields.map(f => <span key={f} className="chip on">{fields.find(y => y.referenceName.toLowerCase() === f.toLowerCase())?.name ?? f} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => set({ ganttGroupFields: s.ganttGroupFields.filter(y => y !== f) })}><IconClose size={12} /></button></span>)}
         {!s.ganttGroupFields.length && <span className="muted">None.</span>}
       </div>
       <div className="row"><FieldPick label="Add a grouping field" value="" fields={fields} accept={f => isCategoryType(f.type)} placeholder="Custom.DeliveryStatus" onChange={v => { if (v && !s.ganttGroupFields.includes(v)) set({ ganttGroupFields: [...s.ganttGroupFields, v] }); }} /></div>

@@ -77,9 +77,9 @@ describe("heatmap tab", () => {
     const dlg = document.querySelector(".modal")!;
     expect(dlg.textContent).toContain("1 · Credit score");
     expect(dlg.textContent).toContain("50 · Address service");
-    click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent === "Open the Epic form")!);
+    click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent!.trim() === "Open the Epic form")!);
     expect(opened).toEqual([1]);
-    click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent === "Close")!);
+    click(Array.from(dlg.querySelectorAll("button")).find(b => b.textContent!.trim() === "Close")!);
     expect(document.querySelector(".modal")).toBeNull();
   });
   it("filters by team and switches to the table view", () => {
@@ -114,7 +114,7 @@ describe("Epic Gantt tab", () => {
     click(host3.querySelectorAll(".tl-lane .gb")[0]);
     await act(async () => { await Promise.resolve(); });
     expect(document.querySelector(".modal")!.textContent).toContain("Migration");   // rows run in start-date order
-    click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent === "Close")!);
+    click(Array.from(document.querySelectorAll(".modal button")).find(b => b.textContent!.trim() === "Close")!);
   });
 });
 
@@ -244,7 +244,7 @@ describe("Command center", () => {
     const btn = (t: string) => Array.from(h.querySelectorAll("button")).find(b => b.textContent!.includes(t))!;
     click(h.querySelector('select[aria-label="Group by"]') ? btn("Views") : btn("Views"));
     type(h.querySelector('input[aria-label="New view name"]')!, "Epics first");
-    click(Array.from(h.querySelectorAll(".views .btn.primary")).find(b => b.textContent === "Save")!);
+    click(Array.from(h.querySelectorAll(".views .btn.primary")).find(b => b.textContent!.trim() === "Save")!);
     await act(async () => { await Promise.resolve(); });
     expect(store.doc.views).toHaveLength(1); expect((store.doc.views[0] as { name: string }).name).toBe("Epics first");
     click(h.querySelector('.views button[aria-label^="Default view"]')!); await act(async () => { await Promise.resolve(); });

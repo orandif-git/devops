@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconCopy, IconSearch } from "./icons";
 import * as ReactDOM from "react-dom";
 import * as SDK from "azure-devops-extension-sdk";
 import "../../../src/shared/styles.css";
@@ -58,7 +59,7 @@ function Checks(p: { projectId: string; projectName: string; settings?: PlannerS
   const copy = () => { const t = [...checks.map(c => `${c.ok ? "OK  " : "FAIL"} ${c.title}: ${c.detail} (${c.ms} ms)`), diagText(diag)].join("\n"); void navigator.clipboard?.writeText(t).then(() => setCopied(true)); };
   return (
     <div>
-      <div className="toolbar"><button className="btn" onClick={copy}>Copy results</button>{copied && <span className="muted" role="status">Copied.</span>}</div>
+      <div className="toolbar"><button className="btn" onClick={copy}><IconCopy /> Copy results</button>{copied && <span className="muted" role="status">Copied.</span>}</div>
       <h3>Setup and data</h3>
       <table style={{ borderCollapse: "collapse", width: "100%" }}><tbody>
         {diag.map((d, i) => <tr key={i}><td style={{ width: 24 }} className={d.level === "ok" ? "ok" : "err"} aria-label={d.level}>{d.level === "ok" ? "✔" : d.level === "warn" ? "⚠" : "✖"}</td><td style={{ width: 200 }}><b>{d.title}</b></td><td>{d.detail}</td></tr>)}
@@ -73,7 +74,7 @@ function Checks(p: { projectId: string; projectName: string; settings?: PlannerS
       <div style={{ display: "flex", gap: 8, margin: "8px 0", flexWrap: "wrap" }}>
         <input placeholder="Epic id" value={id} onChange={e => setId(e.target.value)} style={{ width: 90 }} />
         <input placeholder="Field reference name, e.g. Custom.ResourceGrid" value={field} onChange={e => setField(e.target.value)} style={{ width: 340 }} />
-        <button className="btn" disabled={!/^\d+$/.test(id)} onClick={readOne}>Read</button>
+        <button className="btn" disabled={!/^\d+$/.test(id)} onClick={readOne}><IconSearch /> Read</button>
       </div>
       <div role="status">{probe}</div>
     </div>

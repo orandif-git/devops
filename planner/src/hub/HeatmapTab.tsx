@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconDownload, IconRefresh } from "./icons";
 import { Band } from "../core/aggregate";
 import { buildPeople, cellOf, epicsInView, Filters, groupByTeam, heatmapCsv, monthSummary, PersonRow, shortName } from "../core/model";
 import { PlannerSettings, Thresholds } from "../core/types";
@@ -63,7 +64,7 @@ export function HeatmapTab(p: {
 
   if (!L) return (
     <div>
-      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Loading…" : "Load the planner"}</button>
+      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the planner"}</button>
         {p.progress && <span className="muted">{p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
@@ -98,8 +99,8 @@ export function HeatmapTab(p: {
             {(["spare", "healthy", "full"] as const).map(k => <label key={k}>{{ spare: "Spare below %", healthy: "Healthy up to %", full: "Nearly full up to %" }[k]}<input type="number" value={th[k]} onChange={e => setTh({ ...th, [k]: Number(e.target.value) })} /></label>)}
             <div className="muted">For this session. The default is set in Settings.</div></div>}</span>
         <button className="btn" onClick={() => setTable(!table)}>{table ? "Heatmap view" : "Table view"}</button>
-        <button className="btn" onClick={exportCsv} disabled={!people.length}>Export CSV</button>
-        <button className="btn" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Refreshing…" : "Refresh"}</button>
+        <button className="btn" onClick={exportCsv} disabled={!people.length}><IconDownload /> Export CSV</button>
+        <button className="btn" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Refreshing…" : "Refresh"}</button>
         <span className="muted">{L.epics.length} Epics read · refreshed {new Date(L.at).toLocaleTimeString()} · {(L.load.ms / 1000).toFixed(1)} s</span>
       </div>
       {p.error && <div className="err" role="alert">{p.error}</div>}

@@ -234,12 +234,12 @@ describe("queries on the dashboard and in the settings", () => {
     let s = settings;
     const render = () => ReactDOM.render(<ExecQueries s={s} onChange={n => { s = n; render(); }} />, hostEl);
     act(() => { render(); });
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "Add example queries")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add example queries")!); });
     expect(s.executive.queries.map(q => q.name)).toEqual(["At risk", "Late", "Teams highly utilized", "People over capacity"]);
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a query")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a query")!); });
     expect(s.executive.queries).toHaveLength(5);
     const card = () => hostEl.querySelectorAll(".card")[4] as HTMLElement;
-    act(() => { Simulate.click(Array.from(card().querySelectorAll("button")).find(b => b.textContent === "+ Add a condition")!); });
+    act(() => { Simulate.click(Array.from(card().querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a condition")!); });
     const sel = (label: string) => card().querySelector(`select[aria-label="${label}"]`) as HTMLSelectElement;
     act(() => { sel("Field").value = "status"; Simulate.change(sel("Field")); });
     expect(s.executive.queries[4].conditions[0]).toMatchObject({ field: "status", op: "=" });
@@ -300,7 +300,7 @@ describe("calculated fields in the editor and on the dashboard", () => {
     let s = settings;
     const render = () => ReactDOM.render(<ExecQueries s={s} onChange={n => { s = n; render(); }} />, hostEl);
     act(() => { render(); });
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a calculated field")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a calculated field")!); });
     const ta = () => hostEl.querySelector('textarea[aria-label="Formula"]') as HTMLTextAreaElement;
     act(() => { ta().value = "[Nope] * 2"; Simulate.change(ta()); });
     expect(hostEl.textContent).toContain("[Nope] is not a field it can use");
@@ -310,7 +310,7 @@ describe("calculated fields in the editor and on the dashboard", () => {
     expect(s.executive.formulas[0].formula).toBe("[Progress]");
     act(() => { ta().value = "[Progress] / 2"; Simulate.change(ta()); });
     expect(hostEl.textContent).toContain("Formula is valid"); void ins;
-    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent === "+ Add a query")!); });
+    act(() => { Simulate.click(Array.from(hostEl.querySelectorAll("button")).find(b => b.textContent!.trim() === "Add a query")!); });
     const add = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement;
     act(() => { add.value = "title"; Simulate.change(add); });
     act(() => { const a2 = hostEl.querySelector('select[aria-label="Add a column"]') as HTMLSelectElement; a2.value = "calc:" + s.executive.formulas[0].id; Simulate.change(a2); });

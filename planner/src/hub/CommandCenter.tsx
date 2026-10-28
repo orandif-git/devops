@@ -13,6 +13,7 @@ import { buildPlan, GROUP_LABEL, nodeTotals, parents, PlanNode } from "../core/p
 import { TimelineTab } from "./TimelineTab";
 import { GanttTab } from "./GanttTab";
 import { ViewsMenu } from "./ViewsMenu";
+import { IconClose, IconCollapseAll, IconDownload, IconExitFullScreen, IconExpandAll, IconFilter, IconFullScreen, IconRefresh } from "./icons";
 import { fmtMonth } from "../core/dates";
 import { decodeView, newViewId, normalizeView, ViewDoc, ViewState } from "../core/views";
 import { loadViews, saveViews } from "../data/viewStore";
@@ -99,7 +100,7 @@ export function CommandCenter(p: {
 
   if (!L) return (
     <div>
-      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Loading…" : "Load the planner"}</button>
+      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the planner"}</button>
         {p.progress && <span className="muted">{p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
@@ -163,12 +164,12 @@ export function CommandCenter(p: {
         {view === "heat" && <>
           <label className="pill"><span className="k">Group by</span><select aria-label="Group by" value={group} onChange={e => { setGroup(e.target.value as PlanGroup); setToggled(new Set()); }}>{(Object.keys(GROUP_LABEL) as PlanGroup[]).map(g => <option key={g} value={g}>{GROUP_LABEL[g]}</option>)}</select></label>
           <div className="seg" role="group" aria-label="Units">{(Object.keys(UNIT_LABEL) as Units[]).map(u => <button key={u} aria-pressed={units === u} className={units === u ? "on" : ""} onClick={() => setUnits(u)}>{UNIT_LABEL[u]}</button>)}</div>
-          <button className="pill icon" title="Expand all" aria-label="Expand all" onClick={expandAll}>⊞</button><button className="pill icon" title="Collapse all" aria-label="Collapse all" onClick={collapseAll}>⊟</button></>}
+          <button className="pill icon" title="Expand all" aria-label="Expand all" onClick={expandAll}><IconExpandAll /></button><button className="pill icon" title="Collapse all" aria-label="Collapse all" onClick={collapseAll}><IconCollapseAll /></button></>}
         <span className="grow" />
         {viewsMenu}
-        {p.onFull && view !== "time" && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? "🗗" : "⛶"}</button>}
-        <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics read · refreshed ${new Date(L.at).toLocaleTimeString()} · ${(L.load.ms / 1000).toFixed(1)} s`}>{p.busy ? "…" : "⟳"}</button>
-        <button className="pill icon" disabled={!people.length} onClick={exportCsv} aria-label="Export CSV" title="Export CSV">⭳</button>
+        {p.onFull && view !== "time" && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
+        <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics read · refreshed ${new Date(L.at).toLocaleTimeString()} · ${(L.load.ms / 1000).toFixed(1)} s`}>{p.busy ? "…" : <IconRefresh />}</button>
+        <button className="pill icon" disabled={!people.length} onClick={exportCsv} aria-label="Export CSV" title="Export CSV"><IconDownload /></button>
       </div>
       <div className="cc-bar cc-filters">
         <label className="pill"><span className="k">Period</span><select value={p.period.kind} onChange={e => p.onPeriod({ ...p.period, kind: e.target.value as Period["kind"] })}>
@@ -181,14 +182,14 @@ export function CommandCenter(p: {
         <label className="pill search"><span className="k">⌕</span>{view === "gantt"
           ? <input type="search" aria-label="Find an Epic" placeholder="Find an Epic (id or keyword)…" value={epicSearch} onChange={e => setEpicSearch(e.target.value)} />
           : <input type="search" aria-label="Find a person" placeholder="Find a person…" value={f.search} onChange={e => set({ search: e.target.value })} />}</label>
-        <span className="cc-anchor"><button className="pill" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}>⚙ Filters{extraCount ? ` (${extraCount})` : ""}</button>
+        <span className="cc-anchor"><button className="pill" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}><IconFilter /> Filters{extraCount ? ` (${extraCount})` : ""}</button>
           {drawer && <div className="cc-drawer" role="dialog" aria-label="More filters">
             <h4>{p.settings.workItemType} state</h4><div className="g">{states.map(s => <label key={s}><input type="checkbox" checked={f.states.includes(s)} onChange={e => set({ states: e.target.checked ? [...f.states, s] : f.states.filter(x => x !== s) })} />{s}</label>)}</div>
             {p.settings.extraFilterFields.map(k => <React.Fragment key={k}><h4>{k.split(".").pop()}</h4><div className="g">{extraValues(k).map(v => { const cur = f.extra[k] ?? []; return <label key={v}><input type="checkbox" checked={cur.includes(v)} onChange={e => set({ extra: { ...f.extra, [k]: e.target.checked ? [...cur, v] : cur.filter(x => x !== v) } })} />{v || "(empty)"}</label>; })}</div></React.Fragment>)}
             <h4>People</h4><div className="g"><label><input type="checkbox" checked={f.showIdle} onChange={e => set({ showIdle: e.target.checked })} />Show people without hours</label></div>
           </div>}</span>
       </div>
-      {chips.length > 0 && <div className="cc-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={clearAll}>Clear all</button>}</div>}
+      {chips.length > 0 && <div className="cc-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}><IconClose size={12} /></button></span>)}{chips.length > 1 && <button className="lk" onClick={clearAll}>Clear all</button>}</div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {L.stats.unscheduled + L.stats.errored > 0 && <div className="muted" style={{ marginBottom: 6 }}>{L.stats.unscheduled} row(s) have no monthly hours and {L.stats.errored} have a scheduling error, so they are not counted (see Diagnostics).</div>}
 
@@ -213,7 +214,7 @@ export function CommandCenter(p: {
           const c = cellOf(selected, sel.month, th); const list = [...(selected.epics[sel.month] ?? [])].sort((a, b) => b.hours - a.hours);
           const ratios = p.months.map(m => cellOf(selected, m, th)); const mx = Math.max(1.2, ...ratios.map(x => (x.ratio !== null && isFinite(x.ratio) ? x.ratio : 0)));
           return <div className="card panel cc-panel" role="complementary" aria-label={`Details for ${shortName(selected.name)}`}>
-            <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}>×</button>
+            <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}><IconClose /></button>
             <h3 style={{ margin: 0 }}>{shortName(selected.name)}</h3><div className="muted">{selected.team} · {fmtMonth(p.settings, sel.month)}</div>
             <div className="big">{c.band !== "none" && <Sw b={c.band as Exclude<Band, "none">} />}{pctOf(c.ratio)}<span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{c.hours} of {c.available ?? "?"} h{c.band !== "none" ? " · " + RAG[c.band as Exclude<Band, "none">].label : ""}</span></div>
             <div className="cc-trend" aria-label="Utilization by month">{ratios.map((x, i) => { const m = p.months[i]; const r = x.ratio !== null && isFinite(x.ratio) ? x.ratio : (x.hours > 0 ? mx : 0);

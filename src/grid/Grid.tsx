@@ -1,5 +1,6 @@
 import { formatDateText } from "../core/dateFormat";
 import * as React from "react";
+import { IconCollapseAll, IconDown, IconDownload, IconExpandAll, IconPlus, IconSheet, IconTrash, IconUp, IconUpload } from "../shared/icons";
 import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, validateRows } from "../core/gridModel";
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
@@ -198,7 +199,7 @@ export function Grid(p: GridProps) {
       {p.title && <h3 className="gtitle">{p.title}</h3>}
       {!lockedRows && (
         <div className="toolbar">
-          <button className="btn primary" onClick={addRow}>+ Add row</button>
+          <button className="btn primary" onClick={addRow}><IconPlus /> Add row</button>
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           {pt && pt.presets.length > 0 && (
             <select value={presetPick} title="Add ready-made rows to this grid" onChange={e => {
@@ -218,12 +219,12 @@ export function Grid(p: GridProps) {
           {pt?.canSave && <button className="btn" onClick={() => { setSaving(s => !s); setPresetPick(""); }} title="Keep the rows of this grid as a preset others can load">Save as preset…</button>}
           <span className="spacer" />
           {cfg.allowImport && <>
-            <button className="btn" onClick={() => fileRef.current?.click()}>Import</button>
+            <button className="btn" onClick={() => fileRef.current?.click()}><IconUpload /> Import</button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) p.onImport(f); e.target.value = ""; }} />
           </>}
-          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}>⊞</button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}>⊟</button></>}
-          <button className="btn" onClick={() => p.onExport("csv")}>CSV</button>
-          <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
+          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}><IconExpandAll /></button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}><IconCollapseAll /></button></>}
+          <button className="btn" onClick={() => p.onExport("csv")}><IconDownload /> CSV</button>
+          <button className="btn" onClick={() => p.onExport("xlsx")}><IconSheet /> Excel</button>
           {childOn && <button className="btn" disabled={p.busyChildren || !pendingChildren} onClick={p.onCreateAllChildren}>
             Create {cfg.child!.workItemType}s ({pendingChildren})</button>}
         </div>
@@ -250,9 +251,9 @@ export function Grid(p: GridProps) {
         <div className="toolbar">
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
           <span className="spacer" />
-          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}>⊞</button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}>⊟</button></>}
-          <button className="btn" onClick={() => p.onExport("csv")}>CSV</button>
-          <button className="btn" onClick={() => p.onExport("xlsx")}>Excel</button>
+          {p.details && <><button className="btn icon" title="Expand all" aria-label="Expand all" onClick={() => setOpenRows(new Set(rows.filter(r => p.details!.lines(r).length > 0).map(r => r._id)))}><IconExpandAll /></button><button className="btn icon" title="Collapse all" aria-label="Collapse all" onClick={() => setOpenRows(new Set())}><IconCollapseAll /></button></>}
+          <button className="btn" onClick={() => p.onExport("csv")}><IconDownload /> CSV</button>
+          <button className="btn" onClick={() => p.onExport("xlsx")}><IconSheet /> Excel</button>
         </div>
       )}
       <div className="scroll">
@@ -285,14 +286,14 @@ export function Grid(p: GridProps) {
                       {stateOf(r, rv) !== "rejected" && <button className="btn" title="Reject this row (type the reason in the comment column first, if you like)" onClick={() => doDecide([r._id], "rejected")}>Reject</button>}
                     </>}
                     {!lockedRows && !rowLocked(r) && !sort && !filter && <>
-                      <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}>↑</button>
-                      <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}>↓</button>
+                      <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}><IconUp /></button>
+                      <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}><IconDown /></button>
                     </>}
                     {!lockedRows && !rowLocked(r) && <button className="btn icon" title="Duplicate row" aria-label="Duplicate row" onClick={() => dup(r._id)}><DuplicateIcon /></button>}
                     {childOn && (r._childId
                       ? <span className="badge" title="Child work item">#{r._childId}</span>
                       : !lockedRows && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
-                    {!lockedRows && !rowLocked(r) && <button className="btn icon danger" title="Delete row" aria-label="Delete row" onClick={() => delRow(r._id)}>✕</button>}
+                    {!lockedRows && !rowLocked(r) && <button className="btn icon danger" title="Delete row" aria-label="Delete row" onClick={() => delRow(r._id)}><IconTrash /></button>}
                   </td>
                 )}
               </tr>

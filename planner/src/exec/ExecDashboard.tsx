@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconClose, IconOpen, IconRefresh, IconSearch } from "../../../src/shared/icons";
 import { answer, findQuery, interpret, matchesDims } from "../core/ask";
 import { describeResult, formatCell, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
 import { ExecQuery } from "../core/types";
@@ -82,7 +83,7 @@ export function ExecDashboard(p: {
 
   if (!L) return (
     <div>
-      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Loading…" : "Load the dashboard"}</button>
+      <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the dashboard"}</button>
         {p.progress && <span className="muted">{p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</span>}</div>
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
@@ -102,20 +103,20 @@ export function ExecDashboard(p: {
       <form className="ex-ask" role="search" onSubmit={e => { e.preventDefault(); ask(text); }}>
         <div style={{ display: "flex", gap: 8 }}>
           <input aria-label="Ask the dashboard" placeholder={`Ask the dashboard, e.g. “${queryChips[0]?.name ?? suggestions[1] ?? "What is late?"}”`} value={text} onChange={e => setText(e.target.value)} autoComplete="off" />
-          <button className="btn primary" type="submit">Ask</button>
+          <button className="btn primary" type="submit"><IconSearch /> Ask</button>
           {p.toolbar}
         </div>
         <div className="ex-sugg"><span className="muted">{queryChips.length ? "Questions" : "Try"}</span>{queryChips.map(q => <button type="button" key={q.id} className="chip" title={q.conditions.map((c, i) => `${i ? c.join.toUpperCase() + " " : ""}${c.field} ${OP_LABEL[c.op]} ${c.value}`).join(" ")} onClick={() => { setText(q.name); runNamed(q); }}>{q.name}</button>)}{suggestions.map(s => <button type="button" key={s} className="chip" onClick={() => { setText(s); ask(s); }}>{s}</button>)}</div>
         {said && <div className="ex-answer" role="status" aria-live="polite"><div className="muted">You asked: “{said.q}”</div>{said.a}</div>}
       </form>
-      {chips.length > 0 && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}<button className="lk" onClick={() => { setF(none()); setSaid(undefined); setRun(undefined); }}>Clear all</button></div>}
+      {chips.length > 0 && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="cchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}><IconClose size={12} /></button></span>)}<button className="lk" onClick={() => { setF(none()); setSaid(undefined); setRun(undefined); }}>Clear all</button></div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive > 0 && `${built.noGoLive} Epic(s) have no go-live date. `}{built.noProgress > 0 && `${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only. `}{built.ignored > 0 && `${built.ignored} left out by state.`}</div>}
 
       {run && (() => {
         const rowsSorted = sort ? run.rows.slice().sort((a, b) => { const x1 = a.values[sort.key], y1 = b.values[sort.key]; if (x1 === y1) return 0; if (x1 === undefined) return 1; if (y1 === undefined) return -1;   /* blanks stay last in both directions */ const d = typeof x1 === "number" && typeof y1 === "number" ? x1 - y1 : String(x1).localeCompare(String(y1)); return sort.desc ? -d : d; }) : run.rows;
         return <div className="card ex-result" role="region" aria-label={run.query.name}>
-          <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.rows.length} {run.query.show === "epics" ? "Epics" : run.query.show} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}>Close</button></h3>
+          <h3 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>{run.query.name} <span className="muted">· {run.rows.length} {run.query.show === "epics" ? "Epics" : run.query.show} · {run.month}</span></span><button className="btn" onClick={() => setRun(undefined)}><IconClose /> Close</button></h3>
           {!run.rows.length ? <div className="muted">Nothing matches.</div> : <div className="ex-scroll" style={{ maxHeight: 360 }}><table><thead><tr>{run.shown.map(c => <th key={c.key} aria-sort={sort?.key === c.key ? (sort.desc ? "descending" : "ascending") : undefined}><button className="lk" style={{ border: 0, background: "none", font: "inherit", fontWeight: 600, color: "inherit", cursor: "pointer", padding: 0 }} onClick={() => setSort(sort?.key === c.key ? { key: c.key, desc: !sort.desc } : { key: c.key, desc: c.type === "number" })}>{c.label}{sort?.key === c.key ? (sort.desc ? " ↓" : " ↑") : ""}</button></th>)}</tr></thead>
             <tbody>{rowsSorted.map(r => <tr key={r.key}>{run.shown.map(c => <td key={c.key}>{formatCell(c, r.values[c.key])}</td>)}</tr>)}</tbody></table></div>}
         </div>;
@@ -157,7 +158,7 @@ export function ExecDashboard(p: {
               {sorted.length > limit && <div style={{ padding: 10 }}><button className="btn" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, sorted.length - limit)} more ({sorted.length - limit} not shown)</button></div>}</div>)}
         </div>
         {chosen && <div className="card ex-panel" role="complementary" aria-label={`Details for ${chosen.epic.title}`}>
-          <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}>×</button>
+          <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}><IconClose /></button>
           <h3 style={{ margin: 0 }}>{chosen.epic.title}</h3><div className="muted">Epic {chosen.epic.id} · {chosen.epic.state}</div>
           <div style={{ margin: "8px 0" }}><span className="ex-pill"><Sw s={chosen.status} />{STATUS_NAME[chosen.status]}</span></div>
           <dl>
@@ -169,7 +170,7 @@ export function ExecDashboard(p: {
           </dl>
           <b>Why this status</b><ul>{chosen.reasons.map((s, i) => <li key={i}>{s}</li>)}</ul>
           {chosen.over.length > 0 && <div className="muted">Over capacity: {chosen.over.join(", ")}</div>}
-          <p><button className="btn" onClick={() => setDialog(chosen.epic.id)}>Open the Epic details</button></p>
+          <p><button className="btn" onClick={() => setDialog(chosen.epic.id)}><IconOpen /> Open the Epic details</button></p>
         </div>}
       </div>
       <div className="ex-legend"><span><Sw s="green" />On track</span><span><Sw s="amber" />Needs attention</span><span><Sw s="red" />At risk</span><span><Sw s="unknown" />Not assessed</span><span><Sw s="idle" />Not started</span><span><Sw s="done" />Done</span><span className="muted">Bar = progress · black tick = share of time used</span></div>

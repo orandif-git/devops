@@ -132,3 +132,5 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .views .vrow input { flex: 1; } .views .btn.icon.on { color: #c19c00; }
 /* full screen of the plan: compact, no page header */
 .cc-full .cc-scroll { max-height: calc(100vh - 260px); }
+.cc-bar .pill svg, .cc-bar .btn svg, .views .btn svg { flex: none; } .cc-bar .pill { gap: 6px; } .views .btn.icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; }
+.views button.btn { display: inline-flex; align-items: center; gap: 6px; }

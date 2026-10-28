@@ -100,11 +100,11 @@ describe("Import button", () => {
   const render = (c: GridConfig) => {
     const host = document.createElement("div");
     act(() => { ReactDOM.render(<Grid cfg={c} rows={[]} readOnly={false} projectId="p" busyChildren={false} status="" onChange={() => undefined} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />, host); });
-    return Array.from(host.querySelectorAll("button")).map(b => b.textContent);
+    return Array.from(host.querySelectorAll("button")).map(b => b.textContent!.trim());
   };
   it("is hidden by default (export stays) and shown only when the grid allows it", () => {
     expect(render(cfg)).not.toContain("Import");
-    expect(render(cfg)).toEqual(expect.arrayContaining(["CSV", "Excel", "+ Add row"]));
+    expect(render(cfg)).toEqual(expect.arrayContaining(["CSV", "Excel", "Add row"]));
     expect(render({ ...cfg, allowImport: true })).toContain("Import");
   });
 });

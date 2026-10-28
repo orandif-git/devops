@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconRefresh } from "../../../src/shared/icons";
 import { validateExec } from "../core/settings";
 import { PlannerSettings } from "../core/types";
 import { LoadProgress } from "../data/epics";
@@ -39,7 +40,7 @@ export function ExecPage(p: {
         : <ExecDashboard project={p.project} settings={p.settings} loaded={L} busy={p.busy} progress={p.progress} error={p.error} onReload={p.onReload}
             toolbar={<>
               <select aria-label="Epics from" value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select>
-              <button className="btn" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Refreshing…" : "⟳ Refresh"}</button></>} />}
+              <button className="btn" disabled={p.busy} onClick={() => p.onReload(false)}>{p.busy ? "Refreshing…" : <><IconRefresh /> Refresh</>}</button></>} />}
     </div>
   );
 }

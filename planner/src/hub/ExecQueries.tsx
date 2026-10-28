@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconClose, IconDown, IconLeft, IconPlus, IconTrash, IconUp } from "./icons";
 import { checkFormula, extractRefs } from "../../../src/core/expr";
 import { builtinFields, catalog, defaultColumns, FieldDef, OP_LABEL, OPS_BY_TYPE, SHOW_LABEL } from "../core/execQuery";
 import { ExecFormula, ExecQuery, PlannerSettings, QueryCondition, QueryShow } from "../core/types";
@@ -30,8 +31,8 @@ function ColumnPicker(p: { q: ExecQuery; fields: FieldDef[]; onChange(c: string[
       <div className="help">Columns shown in the result{q.columns.length ? "" : q.show === "epics" ? " (none chosen: an Epics query only filters the list)" : " (none chosen: the standard columns)"}:</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
         {q.columns.map((k, i) => <span key={k} className="chip on">{label(k)}
-          <button className="btn icon" aria-label={`Move ${label(k)} left`} disabled={i === 0} onClick={() => { const a = [...q.columns]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; p.onChange(a); }}>←</button>
-          <button className="btn icon" aria-label={`Remove column ${label(k)}`} onClick={() => p.onChange(q.columns.filter(x => x !== k))}>×</button></span>)}
+          <button className="btn icon" aria-label={`Move ${label(k)} left`} disabled={i === 0} onClick={() => { const a = [...q.columns]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; p.onChange(a); }}><IconLeft /></button>
+          <button className="btn icon" aria-label={`Remove column ${label(k)}`} onClick={() => p.onChange(q.columns.filter(x => x !== k))}><IconClose size={12} /></button></span>)}
         <select aria-label="Add a column" value="" onChange={e => { if (e.target.value) p.onChange([...q.columns, e.target.value]); }} style={{ width: 190 }}>
           <option value="">+ Add a column…</option>
           {groups.map(g => <optgroup key={g} label={g}>{fields.filter(f => f.group === g && !q.columns.includes(f.key)).map(f => <option key={f.key} value={f.key}>{f.label}</option>)}</optgroup>)}
@@ -56,7 +57,7 @@ function FormulaCard(p: { f: ExecFormula; index: number; s: PlannerSettings; onC
         <label className="field" style={{ width: 130 }}><span>For</span><select value={f.show} onChange={e => set({ show: e.target.value as QueryShow })}>{(Object.keys(SHOW_LABEL) as QueryShow[]).map(k => <option key={k} value={k}>{SHOW_LABEL[k]}</option>)}</select></label>
         <label className="field" style={{ width: 120 }}><span>Format</span><select value={f.format} onChange={e => set({ format: e.target.value as ExecFormula["format"] })}><option value="number">Number</option><option value="percent">Percent</option><option value="text">Text</option></select></label>
         {f.format !== "text" && <label className="field" style={{ width: 90 }}><span>Decimals</span><input type="number" min={0} max={6} value={f.decimals} onChange={e => set({ decimals: Math.max(0, Math.min(6, Math.floor(Number(e.target.value)) || 0)) })} /></label>}
-        <span style={{ flex: 1 }} /><button className="btn danger" onClick={p.onRemove}>Delete</button>
+        <span style={{ flex: 1 }} /><button className="btn danger" onClick={p.onRemove}><IconTrash /> Delete</button>
       </div>
       <label className="field"><span>Formula</span><textarea aria-label="Formula" rows={2} value={f.formula} placeholder="[Booked hours] / [Available hours] * 100" onChange={e => set({ formula: e.target.value })} style={{ fontFamily: "monospace" }} /></label>
       <div className="row" style={{ alignItems: "center" }}>
@@ -97,8 +98,8 @@ function QueryCard(p: { q: ExecQuery; s: PlannerSettings; onChange(q: ExecQuery)
           <select value={fixedMonth ? "fixed" : q.month} onChange={e => set({ month: e.target.value === "fixed" ? new Date().toISOString().slice(0, 7) : e.target.value })}><option value="current">Current month</option><option value="next">Next month</option><option value="fixed">A fixed month…</option></select></label>
         {fixedMonth && <label className="field" style={{ width: 130 }}><span>Month</span><input type="month" value={q.month} onChange={e => /^\d{4}-\d{2}$/.test(e.target.value) && set({ month: e.target.value })} /></label>}
         <span style={{ flex: 1 }} />
-        <button className="btn icon" aria-label="Move up" disabled={p.first} onClick={() => p.onMove(-1)}>↑</button><button className="btn icon" aria-label="Move down" disabled={p.last} onClick={() => p.onMove(1)}>↓</button>
-        <button className="btn danger" onClick={p.onRemove}>Delete</button>
+        <button className="btn icon" aria-label="Move up" disabled={p.first} onClick={() => p.onMove(-1)}><IconUp /></button><button className="btn icon" aria-label="Move down" disabled={p.last} onClick={() => p.onMove(1)}><IconDown /></button>
+        <button className="btn danger" onClick={p.onRemove}><IconTrash /> Delete</button>
       </div>
       {q.conditions.map((c, i) => {
         const f = fields.find(x => x.key === c.field);
@@ -112,11 +113,11 @@ function QueryCard(p: { q: ExecQuery; s: PlannerSettings; onChange(q: ExecQuery)
             </select>
             <select aria-label="Operator" value={c.op} style={{ width: 120 }} onChange={e => setCond(i, { ...c, op: e.target.value as QueryCondition["op"] })}>{OPS_BY_TYPE[f?.type ?? "text"].map(o => <option key={o} value={o}>{OP_LABEL[o]}</option>)}</select>
             <ValueInput f={f} c={c} onChange={v => setCond(i, { ...c, value: v })} />
-            <button className="btn icon" aria-label="Remove row" onClick={() => set({ conditions: q.conditions.filter((_, j) => j !== i) })}>×</button>
+            <button className="btn icon" aria-label="Remove row" onClick={() => set({ conditions: q.conditions.filter((_, j) => j !== i) })}><IconClose size={12} /></button>
           </div>);
       })}
       {!q.conditions.length && <div className="help">No conditions: every {SHOW_LABEL[q.show].toLowerCase()} row is returned.</div>}
-      <button className="btn" onClick={() => set({ conditions: [...q.conditions, blankCond(fields)] })}>+ Add a condition</button>
+      <button className="btn" onClick={() => set({ conditions: [...q.conditions, blankCond(fields)] })}><IconPlus /> Add a condition</button>
       <ColumnPicker q={q} fields={fields} onChange={columns => set({ columns })} />
     </div>
   );
@@ -135,16 +136,16 @@ export function ExecQueries(p: { s: PlannerSettings; onChange(s: PlannerSettings
       <div className="help">A value worked out for each Epic, person or team with a formula, using the same formula language as Grid &amp; Rules (<code>+ - * / %</code>, comparisons, <code>IF ROUND MIN MAX ABS AND OR CONCAT</code>). Write fields in brackets, like <code>[Free hours] / [People]</code>; a date field counts as a day number, so <code>[Go-live date] - Today</code> is days to go-live. A missing input or a division by zero leaves the value blank. Calculated fields appear in the field list of queries and can be shown as columns.</div>
       {fs.map((f, i) => <FormulaCard key={f.id} f={f} index={i} s={p.s} onChange={n => setF(fs.map((x, j) => (j === i ? n : x)))} onRemove={() => setF(fs.filter((_, j) => j !== i))} />)}
       <div className="row">
-        <button className="btn" onClick={() => setF([...fs, { id: id(), name: "", show: "epics", formula: "", format: "number", decimals: 1 }])}>+ Add a calculated field</button>
-        {!fs.length && <button className="btn" onClick={() => setF(exampleFormulas())}>Add example calculated fields</button>}
+        <button className="btn" onClick={() => setF([...fs, { id: id(), name: "", show: "epics", formula: "", format: "number", decimals: 1 }])}><IconPlus /> Add a calculated field</button>
+        {!fs.length && <button className="btn" onClick={() => setF(exampleFormulas())}><IconPlus /> Add example calculated fields</button>}
       </div>
 
       <h3>Questions (queries)</h3>
       <div className="help">Build a query like in Azure DevOps: field, operator, value, joined with And / Or (And binds tighter than Or). Give it a name and it appears as a chip under the Ask box; clicking it, or typing its name, runs it. A query can return <b>Epics</b>, <b>people</b> or <b>teams</b>. People and teams are read for a month from the planner's grids and team capacity, for example <i>Utilization &gt;= 85</i>. Dates accept YYYY-MM-DD, today, today-30, today+7.</div>
       {qs.map((q, i) => <QueryCard key={q.id} q={q} s={p.s} first={i === 0} last={i === qs.length - 1} onChange={n => setQ(qs.map((x, j) => (j === i ? n : x)))} onRemove={() => setQ(qs.filter((_, j) => j !== i))} onMove={d => move(i, d)} />)}
       <div className="row">
-        <button className="btn" onClick={() => setQ([...qs, { id: id(), name: "", show: "epics", month: "current", columns: [], conditions: [] }])}>+ Add a query</button>
-        {!qs.length && <button className="btn" onClick={() => setQ(exampleQueries())}>Add example queries</button>}
+        <button className="btn" onClick={() => setQ([...qs, { id: id(), name: "", show: "epics", month: "current", columns: [], conditions: [] }])}><IconPlus /> Add a query</button>
+        {!qs.length && <button className="btn" onClick={() => setQ(exampleQueries())}><IconPlus /> Add example queries</button>}
       </div>
     </div>
   );

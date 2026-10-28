@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconRefresh } from "./icons";
 import { aggregate, bandOf, utilization } from "../core/aggregate";
 import { monthsOfPeriod } from "../core/period";
 import { PlannerSettings } from "../core/types";
@@ -29,8 +30,8 @@ export function DataTab(p: {
       {!p.valid && <div className="err" role="alert">Complete the settings first (Settings tab): the planner needs at least one grid and its columns.</div>}
       <div className="toolbar">
         <label>Epics from <select value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s of the project</option>{p.queries.map(q => <option key={q.id} value={q.id}>Saved query: {q.path}</option>)}</select></label>
-        <button className="btn primary" disabled={p.busy || !p.valid} onClick={() => p.onReload(false)}>{p.busy ? "Loading…" : "Load"}</button>
-        <button className="btn" disabled={p.busy || !p.valid} title="Ignore the local copy and read everything again" onClick={() => p.onReload(true)}>Reload everything</button>
+        <button className="btn primary" disabled={p.busy || !p.valid} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load"}</button>
+        <button className="btn" disabled={p.busy || !p.valid} title="Ignore the local copy and read everything again" onClick={() => p.onReload(true)}><IconRefresh /> Reload everything</button>
         {prog && <span className="muted">{prog.phase === "query" ? "Finding the Epics…" : prog.phase === "check" ? `Checking for changes (${prog.done}/${prog.total})` : `Reading Epics (${prog.done}/${prog.total} batches)`}</span>}
       </div>
       {p.error && <div className="err" role="alert">{p.error}</div>}

@@ -1,4 +1,5 @@
 import * as React from "react";
+import { IconClose, IconOpen } from "./icons";
 import { fmtDate } from "../core/dates";
 import { PlannerSettings } from "../core/types";
 import { shortName } from "../core/model";
@@ -31,9 +32,9 @@ export function EpicDialog(p: { settings?: PlannerSettings; epic: EpicRecord; pr
           ))}</tbody></table>
         )}
         <div className="toolbar" style={{ marginTop: 12 }}>
-          <button className="btn primary" onClick={() => void openWorkItem(p.project, epic.id)}>Open the Epic form</button>
+          <button className="btn primary" onClick={() => void openWorkItem(p.project, epic.id)}><IconOpen /> Open the Epic form</button>
           <button className="btn" onClick={() => void openWorkItem(p.project, epic.id, true)}>Open in a new tab</button>
-          <button className="btn" onClick={p.onClose}>Close</button>
+          <button className="btn" onClick={p.onClose}><IconClose /> Close</button>
         </div>
         <div className="muted" style={{ fontSize: 12 }}>Nothing is edited from the planner.</div>
       </div>
