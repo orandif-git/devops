@@ -1,4 +1,5 @@
 import * as React from "react";
+import { fmtDate } from "../core/dates";
 import { buildPeople, cellOf, epicsInView, Filters, groupByTeam, NO_TEAM, PersonRow, shortName } from "../core/model";
 import { layoutTasks, windowOf } from "../core/timeline";
 import { PlannerSettings, Task } from "../core/types";
@@ -56,16 +57,16 @@ export function TimelineTab(p: { project: { id: string; name: string }; settings
                 <div className="tl-lane" style={{ backgroundSize: `calc(100% / ${mm}) 100%` }}>
                   {r.placed.map((x, i) => { const [bg, fg] = shade(x.task.allocation); const e = epicById.get(x.task.epicId);
                     return <div key={i} className={"gb pt" + (x.task.estimated ? " est" : "")} tabIndex={0} role="button" style={{ left: x.left + "%", width: x.width + "%", top: PAD + x.lane * LANE, background: bg, color: fg }}
-                      aria-label={`${shortName(r.p.name)}, Epic ${x.task.epicId}, ${x.task.start} to ${x.task.end}`}
+                      aria-label={`${shortName(r.p.name)}, Epic ${x.task.epicId}, ${fmtDate(p.settings, x.task.start)} to ${fmtDate(p.settings, x.task.end)}`}
                       onClick={() => setDialog(x.task.epicId)} onKeyDown={ev => { if (ev.key === "Enter") setDialog(x.task.epicId); }}
-                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${x.task.epicId} · ${e?.title ?? ""}`, lines: [shortName(r.p.name), `${x.task.start} → ${x.task.end}`, [x.task.label, x.task.allocation !== undefined ? `${x.task.allocation}% allocation` : "", x.task.effort !== undefined ? `${x.task.effort} h` : ""].filter(Boolean).join(" · ")].filter(Boolean) })}
+                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${x.task.epicId} · ${e?.title ?? ""}`, lines: [shortName(r.p.name), `${fmtDate(p.settings, x.task.start)} → ${fmtDate(p.settings, x.task.end)}`, [x.task.label, x.task.allocation !== undefined ? `${x.task.allocation}% allocation` : "", x.task.effort !== undefined ? `${x.task.effort} h` : ""].filter(Boolean).join(" · ")].filter(Boolean) })}
                       onPointerLeave={() => setTip(undefined)}>{x.task.epicId}{x.task.allocation !== undefined ? ` · ${x.task.allocation}%` : ""}</div>; })}
                 </div>
               </div>)} />
         </div>)}
       <div className="muted" style={{ marginTop: 6 }}>{rows.filter(r => r.kind === "person").length} people shown{rows.some(r => r.kind === "group" && r.team === NO_TEAM) ? " (some without team capacity)" : ""}.</div>
       {tip && <div className="tip" style={{ left: Math.min(tip.x + 14, window.innerWidth - 280), top: tip.y + 14 }}><b>{tip.title}</b>{tip.lines.map((l, i) => <div key={i} className="muted">{l}</div>)}</div>}
-      {dialog !== undefined && epicById.get(dialog) && <EpicDialog epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
+      {dialog !== undefined && epicById.get(dialog) && <EpicDialog settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

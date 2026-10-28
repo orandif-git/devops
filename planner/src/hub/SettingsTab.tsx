@@ -1,5 +1,6 @@
 import * as React from "react";
 import { TILES } from "../core/epicStats";
+import { DATE_CHOICES, MONTH_CHOICES } from "../core/dates";
 import { isCategoryType } from "../core/fieldTypes";
 import { listTeams, TeamRef } from "../../../src/shared/capacityStore";
 import { autoMap, Slot } from "../core/detect";
@@ -162,6 +163,10 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
             <input type="number" value={s.thresholds[k]} onChange={e => set({ thresholds: { ...s.thresholds, [k]: Number(e.target.value) } })} /></label>))}
         <label className="field" style={{ width: 180 }}><span>Colours</span>
           <select value={s.colourMode} onChange={e => set({ colourMode: e.target.value as "rag" | "shades" })}><option value="rag">Traffic light</option><option value="shades">Shades</option></select></label>
+        <label className="field" style={{ width: 170 }}><span>Date format</span>
+          <select value={s.dateFormat} onChange={e => set({ dateFormat: e.target.value })}><option value="">Standard (YYYY-MM-DD)</option>{DATE_CHOICES.filter(f => f !== "YYYY-MM-DD").map(f => <option key={f} value={f}>{f}</option>)}</select></label>
+        <label className="field" style={{ width: 170 }}><span>Month format</span>
+          <select value={s.monthFormat} onChange={e => set({ monthFormat: e.target.value })}><option value="">Standard (YYYY-MM)</option>{MONTH_CHOICES.filter(f => f !== "YYYY-MM").map(f => <option key={f} value={f}>{f}</option>)}</select></label>
         <label className="field" style={{ width: 200 }}><span>Planner opens in</span>
           <select value={s.plan.view} onChange={e => set({ plan: { ...s.plan, view: e.target.value as PlannerSettings["plan"]["view"] } })}><option value="heat">Heatmap</option><option value="time">Timeline</option><option value="gantt">Epic Gantt</option></select></label>
         <label className="field" style={{ width: 220 }}><span>Group the plan by</span>

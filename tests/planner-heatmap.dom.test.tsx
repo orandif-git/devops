@@ -148,6 +148,11 @@ describe("Epic Gantt statistics, key filter and search", () => {
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={withStatus} months={year} filters={noFilters()} group="f:Custom.Status" onGroup={() => undefined} />, h2); });
     expect(h2.querySelector(".tl-grp")!.textContent).toContain("Team A");
   });
+  it("shows the dates of the bars in the administrator's date format", () => {
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, dateFormat: "DD/MM/YYYY" }} loaded={data} months={year} filters={noFilters()} />, h); });
+    expect(Array.from(h.querySelectorAll(".tl-lane .gb")).some(b => /\d\d\/\d\d\/2026/.test(b.getAttribute("aria-label") ?? ""))).toBe(true);
+  });
   it("finds Epics by keyword (id, title or state)", () => {
     const h = mount2(); const q = h.querySelector("input") as HTMLInputElement; if (!q) throw new Error(h.innerHTML.slice(0, 300));
     const type = (v: string) => act(() => { Simulate.change(q, { target: { value: v } } as never); });

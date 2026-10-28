@@ -1,11 +1,13 @@
 import * as React from "react";
+import { fmtDate } from "../core/dates";
+import { PlannerSettings } from "../core/types";
 import { shortName } from "../core/model";
 import { Booking, EpicRecord } from "../core/types";
 import { openWorkItem } from "../data/open";
 import { loadRelated, Related } from "../data/related";
 
 /** An Epic on top of the page: who works on it, its dates, and its parent, children and related items (read when the dialog opens). */
-export function EpicDialog(p: { epic: EpicRecord; project: string; bookings: Booking[]; months: string[]; onClose(): void }) {
+export function EpicDialog(p: { settings?: PlannerSettings; epic: EpicRecord; project: string; bookings: Booking[]; months: string[]; onClose(): void }) {
   const [related, setRelated] = React.useState<Related[] | string>();
   const { epic } = p;
   React.useEffect(() => { let live = true; loadRelated(epic.id).then(r => live && setRelated(r)).catch(e => live && setRelated("Could not read the related work items: " + (e as Error).message)); return () => { live = false; }; }, [epic.id]);
@@ -19,7 +21,7 @@ export function EpicDialog(p: { epic: EpicRecord; project: string; bookings: Boo
     <div className="modal-back" role="presentation" onClick={e => { if (e.target === e.currentTarget) p.onClose(); }}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="epic-title">
         <h3 id="epic-title">{epic.id} · {epic.title}</h3>
-        <div className="muted">{epic.state} · {epic.areaPath}{epic.start || epic.target ? ` · ${epic.start ?? "?"} → ${epic.target ?? "?"}` : ""}</div>
+        <div className="muted">{epic.state} · {epic.areaPath}{epic.start || epic.target ? ` · ${fmtDate(p.settings, epic.start) || "?"} → ${fmtDate(p.settings, epic.target) || "?"}` : ""}</div>
         <h4>People and hours in the period</h4>
         {people.length ? <table className="mini"><tbody>{people.slice(0, 12).map(x => <tr key={x.name}><td>{shortName(x.name)}</td><td>{x.hours} h</td></tr>)}</tbody></table> : <div className="muted">No hours in this period.</div>}
         <h4>Related work items</h4>

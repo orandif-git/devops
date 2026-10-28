@@ -2,6 +2,7 @@ import * as React from "react";
 import { answer, findQuery, interpret, matchesDims } from "../core/ask";
 import { describeResult, formatCell, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
 import { ExecQuery } from "../core/types";
+import { fmtDate } from "../core/dates";
 import { buildExec, dayText, dimFields, dimLabel, ExecEpic, ExecStatus, likely, NO_VALUE, STATUS_NAME, STATUS_ORDER } from "../core/executive";
 import { monthsOfPeriod } from "../core/period";
 import { PlannerSettings } from "../core/types";
@@ -23,6 +24,7 @@ export function ExecDashboard(p: {
   toolbar?: React.ReactNode;
 }) {
   const L = p.loaded, x = p.settings.executive;
+  const day = (t: number) => (p.settings.dateFormat ? fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) : dayText(t));      // the standard look until the administrator chooses a format
   const [f, setF] = React.useState<Filters>(none());
   const [group, setGroup] = React.useState(dimFields(p.settings)[0]);
   const [sel, setSel] = React.useState<number>();
@@ -150,7 +152,7 @@ export function ExecDashboard(p: {
                   <td><b>{r.epic.title}</b><div className="muted">{r.epic.id}</div></td>
                   {fields.map(k => <td key={k}>{r.dims[k]}</td>)}
                   <td>{r.pct === undefined || r.status === "idle" ? <span className="muted">–</span> : <div className="ex-prog" role="img" aria-label={`${r.pct}% done${r.elapsed !== undefined ? `, ${Math.round(r.elapsed * 100)}% of the time used` : ""}`}><i className={r.status} style={{ width: r.pct + "%" }} />{r.elapsed !== undefined && <u style={{ left: Math.min(100, r.elapsed * 100) + "%" }} />}</div>}</td>
-                  <td>{r.goLive !== undefined ? dayText(r.goLive) : "–"}</td><td>{r.forecast !== undefined && r.status !== "done" ? dayText(r.forecast) : "–"}</td>
+                  <td>{r.goLive !== undefined ? day(r.goLive) : "–"}</td><td>{r.forecast !== undefined && r.status !== "done" ? day(r.forecast) : "–"}</td>
                   <td className="ex-conf">{r.conf === null ? "–" : r.conf + "%"}</td><td className="ex-reason">{r.reasons[0] ?? ""}</td></tr>))}</tbody></table>
               {sorted.length > limit && <div style={{ padding: 10 }}><button className="btn" onClick={() => setLimit(limit + PAGE)}>Show {Math.min(PAGE, sorted.length - limit)} more ({sorted.length - limit} not shown)</button></div>}</div>)}
         </div>
@@ -160,8 +162,8 @@ export function ExecDashboard(p: {
           <div style={{ margin: "8px 0" }}><span className="ex-pill"><Sw s={chosen.status} />{STATUS_NAME[chosen.status]}</span></div>
           <dl>
             {fields.map(k => <React.Fragment key={k}><dt>{dimLabel(k)}</dt><dd>{chosen.dims[k]}</dd></React.Fragment>)}
-            <dt>Start</dt><dd>{chosen.start !== undefined ? dayText(chosen.start) : "–"}</dd><dt>Go-live</dt><dd>{chosen.goLive !== undefined ? dayText(chosen.goLive) : "–"}</dd>
-            <dt>Forecast</dt><dd>{chosen.forecast !== undefined && chosen.status !== "done" ? dayText(chosen.forecast) + (chosen.slip > 0 ? ` (${chosen.slip} days late)` : "") : "–"}</dd>
+            <dt>Start</dt><dd>{chosen.start !== undefined ? day(chosen.start) : "–"}</dd><dt>Go-live</dt><dd>{chosen.goLive !== undefined ? day(chosen.goLive) : "–"}</dd>
+            <dt>Forecast</dt><dd>{chosen.forecast !== undefined && chosen.status !== "done" ? day(chosen.forecast) + (chosen.slip > 0 ? ` (${chosen.slip} days late)` : "") : "–"}</dd>
             <dt>Progress</dt><dd>{chosen.pct !== undefined ? `${chosen.pct}%${chosen.elapsed !== undefined ? ` (time used ${Math.round(Math.min(chosen.elapsed, 1.5) * 100)}%)` : ""}` : "no value"}{chosen.pctFrom && <div className="muted">from {chosen.pctFrom}</div>}</dd>
             <dt>Confidence</dt><dd>{chosen.conf === null ? "–" : chosen.conf + "% of delivering by go-live"}</dd>
           </dl>

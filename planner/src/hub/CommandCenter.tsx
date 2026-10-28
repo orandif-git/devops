@@ -13,6 +13,7 @@ import { buildPlan, GROUP_LABEL, nodeTotals, parents, PlanNode } from "../core/p
 import { TimelineTab } from "./TimelineTab";
 import { GanttTab } from "./GanttTab";
 import { ViewsMenu } from "./ViewsMenu";
+import { fmtMonth } from "../core/dates";
 import { decodeView, newViewId, normalizeView, ViewDoc, ViewState } from "../core/views";
 import { loadViews, saveViews } from "../data/viewStore";
 import { buildLink } from "../data/share";
@@ -125,11 +126,11 @@ export function CommandCenter(p: {
     const pp = n.person!, c = cellOf(pp, m, th), v = paint(p.settings.colourMode, c), dim = hl !== null && c.band !== hl;
     const pick = () => { setSel({ person: pp.key, month: m }); setFocus(m); };
     return <div key={m} className={"cell" + (sel?.person === pp.key && sel.month === m ? " sel" : "")} tabIndex={v.label ? 0 : -1} role={v.label ? "button" : undefined}
-      aria-label={v.label ? `${shortName(pp.name)}, ${m}: ${c.hours} of ${c.available ?? "?"} hours, ${v.label}` : undefined}
+      aria-label={v.label ? `${shortName(pp.name)}, ${fmtMonth(p.settings, m)}: ${c.hours} of ${c.available ?? "?"} hours, ${v.label}` : undefined}
       style={{ background: v.background, color: v.color, opacity: dim ? .18 : 1 }}
       onClick={v.label ? pick : undefined} onKeyDown={e => { if (v.label && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); pick(); } }}
       onPointerEnter={() => setHov(m)} onPointerLeave={() => { setHov(undefined); setTip(undefined); }}
-      onPointerMove={v.label ? e => setTip({ x: e.clientX, y: e.clientY, title: `${pctOf(c.ratio)} · ${shortName(pp.name)}`, lines: [`${c.hours} h booked of ${c.available ?? "?"} h available`, `${pp.team} · ${m}`, v.label] }) : undefined}>{cellText(units, c.hours, c.available)}{v.text && <i>{v.text}</i>}</div>;
+      onPointerMove={v.label ? e => setTip({ x: e.clientX, y: e.clientY, title: `${pctOf(c.ratio)} · ${shortName(pp.name)}`, lines: [`${c.hours} h booked of ${c.available ?? "?"} h available`, `${pp.team} · ${fmtMonth(p.settings, m)}`, v.label] }) : undefined}>{cellText(units, c.hours, c.available)}{v.text && <i>{v.text}</i>}</div>;
   };
   const renderNode = (n: PlanNode): React.ReactNode => {
     const open = n.children.length > 0 && isOpen(n), tot = nodeTotals(n), shade = n.level === 0 && n.kind !== "person" ? " grp" : n.kind === "team" ? " sub" : "";
@@ -173,8 +174,8 @@ export function CommandCenter(p: {
         <label className="pill"><span className="k">Period</span><select value={p.period.kind} onChange={e => p.onPeriod({ ...p.period, kind: e.target.value as Period["kind"] })}>
           <option value="year">This calendar year</option><option value="quarter">This quarter</option><option value="last12">Last 12 months</option><option value="next12">Next 12 months</option><option value="custom">Custom…</option></select></label>
         {p.period.kind === "custom" && <label className="pill"><span className="k">From–to</span>
-          <input aria-label="From month" value={p.period.from ?? ""} placeholder="YYYY-MM" style={{ width: 62 }} onChange={e => p.onPeriod({ ...p.period, from: e.target.value })} />–
-          <input aria-label="To month" value={p.period.to ?? ""} placeholder="YYYY-MM" style={{ width: 62 }} onChange={e => p.onPeriod({ ...p.period, to: e.target.value })} /></label>}
+          <input type="month" aria-label="From month" value={p.period.from ?? ""} placeholder="YYYY-MM" style={{ width: 130 }} onChange={e => p.onPeriod({ ...p.period, from: e.target.value })} />–
+          <input type="month" aria-label="To month" value={p.period.to ?? ""} placeholder="YYYY-MM" style={{ width: 130 }} onChange={e => p.onPeriod({ ...p.period, to: e.target.value })} /></label>}
         <label className="pill"><span className="k">Team</span><select value={f.team} onChange={e => set({ team: e.target.value })}><option value="">All teams</option>{teams.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
         <label className="pill"><span className="k">Epics</span><select value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>
         <label className="pill search"><span className="k">⌕</span>{view === "gantt"
@@ -213,7 +214,7 @@ export function CommandCenter(p: {
           const ratios = p.months.map(m => cellOf(selected, m, th)); const mx = Math.max(1.2, ...ratios.map(x => (x.ratio !== null && isFinite(x.ratio) ? x.ratio : 0)));
           return <div className="card panel cc-panel" role="complementary" aria-label={`Details for ${shortName(selected.name)}`}>
             <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}>×</button>
-            <h3 style={{ margin: 0 }}>{shortName(selected.name)}</h3><div className="muted">{selected.team} · {sel.month}</div>
+            <h3 style={{ margin: 0 }}>{shortName(selected.name)}</h3><div className="muted">{selected.team} · {fmtMonth(p.settings, sel.month)}</div>
             <div className="big">{c.band !== "none" && <Sw b={c.band as Exclude<Band, "none">} />}{pctOf(c.ratio)}<span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{c.hours} of {c.available ?? "?"} h{c.band !== "none" ? " · " + RAG[c.band as Exclude<Band, "none">].label : ""}</span></div>
             <div className="cc-trend" aria-label="Utilization by month">{ratios.map((x, i) => { const m = p.months[i]; const r = x.ratio !== null && isFinite(x.ratio) ? x.ratio : (x.hours > 0 ? mx : 0);
               return <i key={m} className={m === sel.month ? "cur" : ""} title={`${monthLabel(m)} ${pctOf(x.ratio)}`} onClick={() => { setSel({ person: selected.key, month: m }); setFocus(m); }} style={{ height: Math.max(2, Math.min(1, r / mx) * 100) + "%", background: x.band === "none" ? "var(--line)" : RAG[x.band as Exclude<Band, "none">].color }} />; })}</div>
@@ -224,7 +225,7 @@ export function CommandCenter(p: {
         })()}
       </div>
       {tip && <div className="tip" style={{ left: Math.min(tip.x + 14, window.innerWidth - 280), top: tip.y + 14 }}><b>{tip.title}</b>{tip.lines.map((l, i) => <div key={i} className="muted">{l}</div>)}</div>}
-      {dialog !== undefined && epicById.get(dialog) && <EpicDialog epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
+      {dialog !== undefined && epicById.get(dialog) && <EpicDialog settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

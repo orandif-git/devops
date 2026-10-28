@@ -5,6 +5,7 @@ import { barOf, buildGantt, Category, GanttRow, GroupBy, windowOf } from "../cor
 import { epicTiles, passes, TILES } from "../core/epicStats";
 import { progressOf } from "../core/progress";
 import { dimLabel } from "../core/executive";
+import { fmtDate } from "../core/dates";
 import { PlannerSettings } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { downloadFile } from "../../../src/shared/ado";
@@ -96,17 +97,17 @@ export function GanttTab(p: {
                 <div className="tl-row">
                   <div className="tl-name"><a href="#" className="lk" title={g.epic.title} onClick={e => { e.preventDefault(); setDialog(g.epic.id); }}>{g.epic.id} · {g.epic.title}</a><small>{g.epic.state} · {g.people} people · {g.hours} h</small></div>
                   <div className="tl-lane" style={{ backgroundSize: `calc(100% / ${mm}) 100%` }}>
-                    <div className={"gb" + (g.derived ? " est" : "")} tabIndex={0} role="button" aria-label={`Epic ${g.epic.id}, ${g.start} to ${g.end}`} style={{ left: b.left + "%", width: b.width + "%", top: 7, background: g.late ? LATE : BAR_BG(g.category), borderRadius: `${b.clippedStart ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedStart ? 0 : 4}px` }}
+                    <div className={"gb" + (g.derived ? " est" : "")} tabIndex={0} role="button" aria-label={`Epic ${g.epic.id}, ${fmtDate(p.settings, g.start)} to ${fmtDate(p.settings, g.end)}`} style={{ left: b.left + "%", width: b.width + "%", top: 7, background: g.late ? LATE : BAR_BG(g.category), borderRadius: `${b.clippedStart ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedEnd ? 0 : 4}px ${b.clippedStart ? 0 : 4}px` }}
                       onClick={() => setDialog(g.epic.id)} onKeyDown={ev => { if (ev.key === "Enter") setDialog(g.epic.id); }}
-                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${g.epic.id} · ${g.epic.title}`, lines: [`${g.epic.state} · ${g.epic.areaPath}`, `${g.start} → ${g.end}${g.derived ? " (from the hours)" : ""}`, `${g.people} people · ${g.hours} h in the period`, g.late ? "Late: target date has passed" : "", label ? `${labelField.split(".").pop()}: ${label}` : ""].filter(Boolean) })}
-                      onPointerLeave={() => setTip(undefined)}>{b.width > 9 ? <span>{`${g.start.slice(5)} → ${g.end.slice(5)}`}</span> : null}{label && inside && <span className="gbl">{label}</span>}</div>
+                      onPointerMove={ev => setTip({ x: ev.clientX, y: ev.clientY, title: `${g.epic.id} · ${g.epic.title}`, lines: [`${g.epic.state} · ${g.epic.areaPath}`, `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}${g.derived ? " (from the hours)" : ""}`, `${g.people} people · ${g.hours} h in the period`, g.late ? "Late: target date has passed" : "", label ? `${labelField.split(".").pop()}: ${label}` : ""].filter(Boolean) })}
+                      onPointerLeave={() => setTip(undefined)}>{b.width > (p.settings.dateFormat ? 16 : 9) ? <span>{p.settings.dateFormat ? `${fmtDate(p.settings, g.start)} → ${fmtDate(p.settings, g.end)}` : `${g.start.slice(5)} → ${g.end.slice(5)}`}</span> : null}{label && inside && <span className="gbl">{label}</span>}</div>
                     {label && !inside && <span className="gl" style={{ left: `calc(${b.left + b.width}% + 6px)` }}>{label}</span>}
                   </div>
                 </div>);
             })()} />
         </div>)}
       {tip && <div className="tip" style={{ left: Math.min(tip.x + 14, window.innerWidth - 280), top: tip.y + 14 }}><b>{tip.title}</b>{tip.lines.map((l, i) => <div key={i} className="muted">{l}</div>)}</div>}
-      {dialog !== undefined && epicById.get(dialog) && <EpicDialog epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
+      {dialog !== undefined && epicById.get(dialog) && <EpicDialog settings={p.settings} epic={epicById.get(dialog)!} project={p.project.name} bookings={L.bookings} months={p.months} onClose={() => setDialog(undefined)} />}
     </div>
   );
 }

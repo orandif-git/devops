@@ -32,6 +32,9 @@ export interface PlannerSettings {
   ganttLabelField: string;
   /** Epic fields offered in the Epic Gantt "Group by" list (e.g. Delivery Status, Business Unit) */
   ganttGroupFields: string[];
+  /** how dates and months are shown ("" = standard: YYYY-MM-DD and YYYY-MM); stored values never change */
+  dateFormat: string;
+  monthFormat: string;
   sources: GridSource[];
   /** when a scheduled row has no stored monthly hours, spread its effort over the weekdays between start and end (flagged as estimated) */
   estimateUnscheduled: boolean;
@@ -124,7 +127,7 @@ export const defaultExec = (): ExecSettings => ({
 });
 
 export const defaultSettings = (): PlannerSettings => ({
-  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], sources: [], estimateUnscheduled: true, capacityTeams: [],
+  version: 1, workItemType: "Epic", epicStartField: "", epicTargetField: "", ganttLabelField: "", ganttGroupFields: [], dateFormat: "", monthFormat: "", sources: [], estimateUnscheduled: true, capacityTeams: [],
   period: { kind: "year" }, thresholds: { spare: 50, healthy: 85, full: 100 }, colourMode: "rag", plan: { groupBy: "team", units: "h", view: "heat", rows: "collapsed", ganttTiles: ["epics", "progress", "ok", "late", "due30", "hold"] }, accessTeams: [], extraFilterFields: [], executive: defaultExec(),
 });
 

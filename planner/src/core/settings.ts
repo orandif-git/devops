@@ -1,3 +1,4 @@
+import { isDateFormat } from "../../../src/core/dateFormat";
 import { cleanTiles } from "./epicStats";
 import { validateQueries } from "./execQuery";
 import { defaultExec, defaultSettings, ExecFormula, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
@@ -65,7 +66,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
   });
   return {
     version: 1,
-    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField), ganttGroupFields: list(r.ganttGroupFields),
+    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField), ganttGroupFields: list(r.ganttGroupFields), dateFormat: isDateFormat(str(r.dateFormat)) ? str(r.dateFormat) : "", monthFormat: isDateFormat(str(r.monthFormat)) ? str(r.monthFormat) : "",
     sources, estimateUnscheduled: r.estimateUnscheduled === undefined ? d.estimateUnscheduled : !!r.estimateUnscheduled,
     capacityTeams: teams(r.capacityTeams),
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },
