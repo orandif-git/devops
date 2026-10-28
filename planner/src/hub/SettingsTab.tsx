@@ -38,6 +38,7 @@ export function FieldPick(p: { label: string; value: string; fields: FieldInfo[]
           {options.map(f => <option key={f.referenceName} value={f.referenceName}>{f.name} · {f.referenceName}</option>)}
         </select>
       ) : <input value={p.value} placeholder={p.placeholder} onChange={e => p.onChange(e.target.value.trim())} />}
+      {known && <input className="refname" aria-label={p.label + " (type the reference name)"} defaultValue="" key={p.value} placeholder={"or type the reference name, e.g. " + (p.placeholder ?? "Custom.Field")} onBlur={e => { const v = e.target.value.trim(); if (v && v.toLowerCase() !== p.value.toLowerCase()) p.onChange(v); e.target.value = ""; }} onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />}
       {missing && <span className="err">Not a field of this work item type.</span>}
     </label>
   );

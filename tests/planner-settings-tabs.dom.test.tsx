@@ -27,3 +27,15 @@ describe("Settings sub menu", () => {
     expect(tab("Executive Dashboard").getAttribute("aria-selected")).toBe("true");
   });
 });
+
+import { FieldPick } from "../planner/src/hub/SettingsTab";
+describe("Field picker", () => {
+  it("lets you choose from the list or type a reference name", () => {
+    const got: string[] = [];
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<FieldPick label="RAG" value="" fields={[{ referenceName: "Custom.Other", name: "Other", type: "string" }]} accept={() => true} placeholder="Custom.RAGStatus" onChange={v => got.push(v)} />, h); });
+    const t = h.querySelector("input.refname") as HTMLInputElement; t.value = " Custom.RAGStatus ";
+    act(() => { Simulate.blur(t); });
+    expect(got).toEqual(["Custom.RAGStatus"]);
+  });
+});
