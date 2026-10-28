@@ -137,6 +137,10 @@ export interface ExecSettings {
   rules: ThresholdRule[];
   /** the status the Epic owner declares (a field such as Delivery Status or RAG); shown next to the computed status */
   declaredField: string;
+  /** where the status comes from: the data (dates and progress), the declared RAG field, or the RAG field with the data kept as a check */
+  statusSource: "data" | "rag" | "rag-check";
+  /** the values of the declared field that mean green, amber and red (empty = recognised by its words: green, on track, amber, yellow, red, at risk...) */
+  ragGreen: string[]; ragAmber: string[]; ragRed: string[];
   /** a number field that sizes the blocks of the portfolio map (empty = every Epic counts as 1) */
   sizeField: string;
   /** an Epic not updated for this many days needs attention (0 = off) */
@@ -157,7 +161,7 @@ export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
-  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], resources: false,
+  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], resources: false,
 });
 
 export const defaultSettings = (): PlannerSettings => ({

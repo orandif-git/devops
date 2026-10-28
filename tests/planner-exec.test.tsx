@@ -78,6 +78,20 @@ describe("executive status", () => {
     const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: ds, today: TODAY });
     expect(by(r, 1).compare).toBe("optimistic"); expect(by(r, 2).compare).toBe("same"); expect(by(r, 3).compare).toBeUndefined();
   });
+  it("takes the status from the declared field: RAG only, or RAG with the data as a check", () => {
+    const e2 = epics.map(e => (e.id === 1 ? { ...e, extra: { ...e.extra, "Custom.RAG": "Green" } } : e.id === 2 ? { ...e, extra: { ...e.extra, "Custom.RAG": "Delayed" } } : e.id === 8 ? { ...e, extra: { ...e.extra, "Custom.RAG": "Weird" } } : e));
+    const run = (o: object) => buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", ...o } }, today: TODAY });
+    const data = run({ statusSource: "data" }); expect(by(data, 1).status).toBe("red");
+    const chk = run({ statusSource: "rag-check" });
+    expect(by(chk, 1).status).toBe("green"); expect(by(chk, 1).dataStatus).toBe("red"); expect(by(chk, 1).compare).toBe("optimistic");
+    expect(by(chk, 1).reasons[0]).toContain("Declared by the owner: Green"); expect(by(chk, 1).reasons.join("|")).toContain("Data check:");
+    expect(by(chk, 2).status).toBe("red");                                                   // "Delayed" is recognised as red
+    expect(by(chk, 3).status).toBe(by(data, 3).status); expect(by(chk, 3).reasons[0]).toContain("comes from the data");   // no value: the data decides
+    const rag = run({ statusSource: "rag" });
+    expect(by(rag, 3).status).toBe("unknown"); expect(by(rag, 8).status).toBe("unknown"); expect(by(rag, 4).status).toBe("done"); expect(by(rag, 5).status).toBe("idle");
+    expect(by(rag, 1).reasons).toEqual(["Declared by the owner: Green"]);
+    const mapped = run({ statusSource: "rag", ragAmber: ["weird"] }); expect(by(mapped, 8).status).toBe("amber");   // your own words for the colours
+  });
   it("flags a stale Epic and a blocker field", () => {
     const e2 = epics.map(e => (e.id === 2 ? { ...e, changed: "2026-06-01T00:00:00Z", extra: { ...e.extra, "Custom.Blocked": "Yes" } } : e));
     const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, staleDays: 60, blockerField: "Custom.Blocked" } }, today: TODAY });

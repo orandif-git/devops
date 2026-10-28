@@ -36,6 +36,8 @@ export interface ExecEpic {
   /** the limits used for this Epic and where they came from ("the Epic's own field", a rule, or the global limits) */
   limits: Limits;
   /** the status the owner declares (when a field is chosen and has a value) and how it compares with the computed status */
+  /** the status the data alone gives (the status shown can be the declared one) and its reasons */
+  dataStatus: ExecStatus; dataReasons: string[];
   declared?: "green" | "amber" | "red"; declaredText?: string; compare?: "same" | "optimistic" | "cautious";
   /** the size of the Epic on the portfolio map (the size field, else 1) */
   size: number;
@@ -60,8 +62,9 @@ export function limitsFor(e: EpicRecord, x: ExecSettings): Limits {
 }
 const dimName = (f: string) => (f === "System.AreaPath" ? "Area" : (f.split(".").pop() ?? f).replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
 /** green / amber / red from the words people use in a status field */
-export function declaredOf(v: string): "green" | "amber" | "red" | undefined {
+export function declaredOf(v: string, x?: ExecSettings): "green" | "amber" | "red" | undefined {
   const t = v.trim().toLowerCase(); if (!t) return undefined;
+  if (x) { if (x.ragRed.some(o => same(o, t))) return "red"; if (x.ragAmber.some(o => same(o, t))) return "amber"; if (x.ragGreen.some(o => same(o, t))) return "green"; }
   if (/(^|\b)(red|at risk|off track|critical|late|delayed|blocked)(\b|$)/.test(t)) return "red";
   if (/(^|\b)(amber|yellow|orange|at-risk watch|watch|needs attention|caution|some risk)(\b|$)/.test(t)) return "amber";
   if (/(^|\b)(green|on track|on-track|healthy|good|ok|on schedule)(\b|$)/.test(t)) return "green";
@@ -95,9 +98,9 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const start = ts(e.start);
     const goLive = ts(x.goLiveField ? e.extra[x.goLiveField] : e.target);
     const pr = progressOf(e, x, p.gridDone[e.id], s.sources);
-    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: limitsFor(e, x), size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
+    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: limitsFor(e, x), dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
     const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
-    const dv = x.declaredField ? valueOf(e, x.declaredField) : ""; row.declaredText = dv || undefined; row.declared = declaredOf(dv);
+    const dv = x.declaredField ? valueOf(e, x.declaredField) : ""; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
     if (goLive === undefined) noGoLive++;
     if (pr === undefined) noProgress++;
@@ -129,7 +132,16 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     if (row.status === "green") reasons.push(pr ? `Progress ${pr.pct}% against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : "On track");
     rows.push(row);
   }
-  for (const r of rows) if (r.declared && (r.status === "green" || r.status === "amber" || r.status === "red")) { const d = RANK[r.declared] - RANK[r.status]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; }
+  const mode = x.declaredField ? x.statusSource : "data";
+  for (const r of rows) {
+    r.dataStatus = r.status; r.dataReasons = r.reasons;
+    const judged = r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red";
+    if (r.declared && judged) { const d = RANK[r.declared] - RANK[r.dataStatus as "green" | "amber" | "red"]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; }
+    if (mode === "data" || r.dataStatus === "done" || r.dataStatus === "idle") continue;
+    if (r.declared) { r.status = r.declared; r.reasons = [`Declared by the owner: ${r.declaredText}`, ...(mode === "rag-check" ? r.dataReasons.map(t => "Data check: " + t) : [])]; }
+    else if (mode === "rag") { r.status = "unknown"; r.reasons = [r.declaredText ? `The declared status “${r.declaredText}” is not recognised as green, amber or red` : "No declared status (RAG) on this Epic"]; }
+    else r.reasons = ["No declared status, so the status comes from the data", ...r.dataReasons];
+  }
   return { rows, ignored, noGoLive, noProgress };
 }
 
