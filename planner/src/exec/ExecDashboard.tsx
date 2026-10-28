@@ -1,4 +1,5 @@
 import * as React from "react";
+import "./exec.css";
 import { IconClose, IconOpen, IconRefresh, IconSearch } from "../../../src/shared/icons";
 import { answer, findQuery, interpret, matchesDims } from "../core/ask";
 import { describeResult, formatCell, OP_LABEL, QueryResult, runQuery } from "../core/execQuery";
