@@ -30,7 +30,7 @@ async function draw(kind: Kind, s: WidgetSettings) {
 
 /** Register the widget the dashboard asked for (one page per widget; the contribution id picks the registration). */
 export async function startWidget(kind: Kind) {
-  await SDK.init({ loaded: false, applyTheme: true });
+  await SDK.init({ loaded: false, applyTheme: false });
   const widget: IConfigurableWidget = {
     preload: () => WidgetStatusHelper.Success(),
     load: s => draw(kind, s),

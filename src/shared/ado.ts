@@ -8,7 +8,7 @@ import { withTimeout } from "./timeout";
 import { unrevive } from "./unrevive";
 
 export async function init(loadSucceeded = true): Promise<void> {
-  await SDK.init({ loaded: false, applyTheme: true });
+  await SDK.init({ loaded: false, applyTheme: false });
   await SDK.ready();
   if (loadSucceeded) await SDK.notifyLoadSucceeded();
 }

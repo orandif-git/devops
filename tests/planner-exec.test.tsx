@@ -146,6 +146,18 @@ describe("Executive dashboard page", () => {
     act(() => { Simulate.click(h.querySelector("tr.ex-row")!); });
     expect(h.querySelector(".hist")!.textContent).toContain("original date"); expect(h.querySelector(".hist")!.textContent).toContain("Bo");
   });
+  it("shows trends and the change since last week from the weekly snapshots, and the compact spacing", () => {
+    const week = (n: number) => new Date(Date.UTC(2026, 9, 26) - n * 7 * 864e5).toISOString().slice(0, 10);
+    const snaps = [2, 1, 0].map((n, k) => ({ week: week(n), at: week(n) + "T08:00:00Z", total: 8, progress: 50, late: 1, due30: 1, hold: 0, green: 1 + k, amber: 1, red: 3 - k, idle: 1, unknown: 0, done: 1 }));
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...(loaded as object), snapshots: snaps } as never} busy={false} error="" onReload={() => undefined} />, h); });
+    const card = Array.from(h.querySelectorAll(".ex-kpi")).find(b => b.textContent!.includes("At risk"))!;
+    expect(card.querySelector("svg polyline")).not.toBeNull(); expect(card.querySelector(".ex-delta.up")!.textContent).toContain("-1");        // fewer at risk is good news
+    expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("Portfolio health");
+    type(h, "basel"); expect(h.querySelector(".ex-kpi:not(.hero) svg polyline")).toBeNull();                                                 // narrowed: the whole-portfolio trend is hidden
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-bar .pill")).find(b => b.textContent!.includes("Comfortable"))!); });
+    expect(h.querySelector(".ex.dense")).not.toBeNull();
+  });
   it("saves a personal view, applies a saved filter from the settings and shows calculated fields as columns", async () => {
     const st = normalizeSettings({ ...settings, executive: { ...settings.executive, formulas: [{ id: "half", name: "Half progress", show: "epics", formula: "[Progress] / 2", format: "number", decimals: 0 }], queries: [{ id: "q1", name: "Regulatory only", show: "epics", month: "current", columns: [], conditions: [{ field: "Custom.Type", op: "=", value: "Regulatory", join: "and" }] }] } });
     const h = mount(st);

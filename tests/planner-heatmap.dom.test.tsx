@@ -101,7 +101,7 @@ describe("Epic Gantt tab", () => {
     expect(host.querySelector(".tl-grp")!.textContent).toContain("Team A");
     const bars = host.querySelectorAll(".tl-lane .gb");
     expect(bars).toHaveLength(2);
-    expect(host.textContent).toContain("1 · Credit score");
+    expect(host.textContent).toContain("Credit score"); expect(Array.from(host.querySelectorAll(".tl-name .idc")).map(x => x.textContent)).toContain("1");
     expect(bars[0].getAttribute("style")).toMatch(/rgb\(209, 52, 56\)|#d13438/);       // Migration ended in March and is still Active: red bar
     expect(bars[1].getAttribute("style")).not.toMatch(/rgb\(209, 52, 56\)|#d13438/);
     host.remove();
@@ -148,6 +148,16 @@ describe("Epic Gantt statistics, key filter and search", () => {
     const h2 = document.createElement("div"); document.body.appendChild(h2);
     act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={withStatus} months={year} filters={noFilters()} group="f:Custom.Status" onGroup={() => undefined} />, h2); });
     expect(h2.querySelector(".tl-grp")!.textContent).toContain("Team A");
+  });
+  it("offers the Months / Quarters zoom, the compact spacing and trends on the statistics", () => {
+    const week = (n: number) => new Date(Date.UTC(2026, 9, 26) - n * 7 * 864e5).toISOString().slice(0, 10);
+    const snaps = [1, 0].map((n, k) => ({ week: week(n), at: week(n) + "T08:00:00Z", total: 3 + k, progress: 50, late: 1, due30: 1, hold: 0, green: 1 + k, amber: 1, red: 1, idle: 0, unknown: 0, done: 0 }));
+    function Z() { const [z, setZ] = React.useState<"m" | "q">("m"), [d, setD] = React.useState<"comfortable" | "compact">("comfortable");
+      return <GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...data, snapshots: snaps } as unknown as Loaded} months={year} filters={noFilters()} tiles={["epics", "ok"]} zoom={z} onZoom={setZ} density={d} onDensity={setD} />; }
+    const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<Z />, h); });
+    expect(h.querySelector(".tl-mo.off")).toBeNull(); expect(h.querySelector(".gs-delta")!.textContent).toContain("+1");
+    click(Array.from(h.querySelectorAll(".ex-seg.two button")).find(b => b.textContent === "Quarters")!); expect(h.querySelector(".tl-mo.off")).not.toBeNull();
+    click(Array.from(h.querySelectorAll("button.pill")).find(b => b.textContent!.includes("Comfortable"))!); expect(h.querySelector(".gantt-wrap.dense")).not.toBeNull();
   });
   it("shows the dates of the bars in the administrator's date format", () => {
     const h = document.createElement("div"); document.body.appendChild(h);

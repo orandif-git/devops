@@ -31,3 +31,12 @@ export const IconUpload = ({ size }: P = {}) => base(<><path d="M8 10V2" /><path
 export const IconReport = ({ size }: P = {}) => base(<><path d="M3 13V8M7 13V3M11 13V6" /><path d="M2 13.5h12" /></>, size);
 export const IconMap = ({ size }: P = {}) => base(<><rect x="2" y="2.5" width="7" height="6" rx="1" /><rect x="10" y="2.5" width="4" height="6" rx="1" /><rect x="2" y="9.5" width="4" height="4" rx="1" /><rect x="7" y="9.5" width="7" height="4" rx="1" /></>, size);
 export const IconRoadmap = ({ size }: P = {}) => base(<><path d="M2 4h6M5 8h8M3 12h7" /></>, size);
+export const IconLayers = ({ size }: P = {}) => base(<><path d="M8 2l6 3-6 3-6-3z" /><path d="M2 8l6 3 6-3" /><path d="M2 11l6 3 6-3" /></>, size);
+export const IconGauge = ({ size }: P = {}) => base(<><path d="M2.5 11a5.5 5.5 0 1 1 11 0" /><path d="M8 11l2.5-3.5" /></>, size);
+export const IconCheck = ({ size }: P = {}) => base(<path d="M3 8.5l3.2 3L13 4.5" />, size);
+export const IconAlert = ({ size }: P = {}) => base(<><path d="M8 2.5v6" /><path d="M8 12v.5" /></>, size);
+export const IconClock = ({ size }: P = {}) => base(<><circle cx="8" cy="8" r="5.5" /><path d="M8 5v3.2l2 1.3" /></>, size);
+export const IconPause = ({ size }: P = {}) => base(<><path d="M5.5 3.5v9" /><path d="M10.5 3.5v9" /></>, size);
+export const IconDensity = ({ size }: P = {}) => base(<><path d="M2.5 4h11" /><path d="M2.5 8h11" /><path d="M2.5 12h11" /></>, size);
+export const IconFlag = ({ size }: P = {}) => base(<><path d="M4 14V2.5" /><path d="M4 3h7.5L10 6l1.5 3H4" /></>, size);
+export const IconCalendar = ({ size }: P = {}) => base(<><rect x="2.5" y="3.5" width="11" height="10" rx="1.5" /><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3" /></>, size);

@@ -35,7 +35,7 @@ function Form(p: { initial: WidgetConfig; teams: string[]; queries: SavedQuery[]
 }
 
 export async function startConfiguration() {
-  await SDK.init({ loaded: false, applyTheme: true });
+  await SDK.init({ loaded: false, applyTheme: false });
   let current = defaultWidgetConfig();
   const config: IWidgetConfiguration = {
     async load(s: WidgetSettings, ctx: IWidgetConfigurationContext) {

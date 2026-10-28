@@ -1,6 +1,7 @@
 import * as React from "react";
 import "./exec.css";
-import { IconExitFullScreen, IconFullScreen, IconMap, IconRefresh, IconReport, IconRoadmap, IconSearch } from "../../../src/shared/icons";
+import { IconDensity, IconExitFullScreen, IconFullScreen, IconMap, IconRefresh, IconReport, IconRoadmap, IconSearch } from "../../../src/shared/icons";
+import { ago } from "./ago";
 import { fmtDate } from "../core/dates";
 import { buildExec, dayText, dimFields } from "../core/executive";
 import { catalog, calcKey, formatCell, runQuery } from "../core/execQuery";
@@ -33,6 +34,8 @@ export function ExecDashboard(p: {
   const [layout, setLayout] = React.useState<ExecLayout>(x.layout);
   const [f, setF] = React.useState<XF>(emptyXF());
   const [savedId, setSavedId] = React.useState("");
+  const [density, setDensity] = React.useState<"comfortable" | "compact">("comfortable");
+  const searchRef = React.useRef<HTMLInputElement>(null);
   const [sel, setSel] = React.useState<number>();
   const [dialog, setDialog] = React.useState<number>();
   const fields = dimFields(p.settings);
@@ -61,11 +64,11 @@ export function ExecDashboard(p: {
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn };
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: L?.snapshots };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setDensity(v.density); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -76,8 +79,9 @@ export function ExecDashboard(p: {
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
   const keep = (next: ExecViewDoc) => { const prev = doc; setDoc(next); setViewErr(""); saveExecViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
   const sub = (v: ExecView) => LAYOUTS.find(l => l.id === v.state.layout)?.label;
-  React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape" && !sel && p.full) p.onFull?.(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [sel, p.full]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement?.tagName ?? ""))) { e.preventDefault(); searchRef.current?.focus(); } if (e.key === "Escape" && !sel && p.full) p.onFull?.(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [sel, p.full]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (!L && p.busy) return <div className="ex ex-loading" aria-busy="true"><div className="ex-kpis">{Array.from({ length: 6 }, (_, k) => <div key={k} className="ex-sk" style={{ height: 110 }} />)}</div><div className="ex-sk" style={{ height: 300, marginTop: 14 }} />{p.progress && <div className="muted" style={{ marginTop: 8 }}>{p.progress.phase === "history" ? "Reading the go-live history…" : p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</div>}</div>;
   if (!L) return (
     <div>
       <div className="toolbar"><button className="btn primary" disabled={p.busy} onClick={() => p.onReload(false)}><IconRefresh /> {p.busy ? "Loading…" : "Load the dashboard"}</button>
@@ -87,10 +91,11 @@ export function ExecDashboard(p: {
   );
   const chips = chipsOf(fx, change);
   return (
-    <div className={"ex" + (p.full ? " ex-full" : "")}>
+    <div className={"ex" + (p.full ? " ex-full" : "") + (density === "compact" ? " dense" : "")}>
       <div className="ex-bar">
-        <div className="ex-seg" role="tablist" aria-label="Layout">{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>
-        <label className="ex-search"><IconSearch /><input type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /></label>
+        <div className="ex-brand"><div className="logo" aria-hidden="true">E</div><div><b>Executive Dashboard</b><span className="live"><i className="pulse" />{p.busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(L.at))} · {L.epics.length} Epics</span></div></div>
+        <div className="ex-seg" role="tablist" aria-label="Layout" style={{ ["--i" as string]: LAYOUTS.findIndex(l => l.id === layout) }}>{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>
+        <label className="ex-search"><IconSearch /><input ref={searchRef} type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /><span className="kbd" aria-hidden="true">/</span></label>
         {saved.length > 0 && <label className="ex-chip sel"><span className="k">Saved filter</span><select aria-label="Saved filter" value={savedId} onChange={e => setSavedId(e.target.value)}><option value="">None</option>{saved.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}</select></label>}
         {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
         <span className="grow" />
@@ -98,7 +103,8 @@ export function ExecDashboard(p: {
           onApply={id => { const v = doc.views.find(y => y.id === id); if (v) apply(v.state); }} onSave={name => keep({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
           onUpdate={id => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })} onRename={(id, name) => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
           onDelete={id => keep({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })} onDefault={id => keep({ ...doc, defaultId: id })}
-          onReset={() => { setF(emptyXF()); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+          onReset={() => { setF(emptyXF()); setSavedId(""); setLayout(x.layout); setDensity("comfortable"); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+        <button className="pill" aria-pressed={density === "compact"} title="Row and card spacing" onClick={() => setDensity(density === "compact" ? "comfortable" : "compact")}><IconDensity /> {density === "compact" ? "Compact" : "Comfortable"}</button>
         {p.onFull && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
         <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics`}>{p.busy ? "…" : <IconRefresh />}</button>
       </div>

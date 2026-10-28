@@ -45,6 +45,8 @@ export function CommandCenter(p: {
   const [group, setGroup] = React.useState<PlanGroup>(p.settings.plan.groupBy);
   const [rowsMode, setRowsMode] = React.useState<PlanRows>(p.settings.plan.rows);                    // how much of the plan starts open
   const [epicSearch, setEpicSearch] = React.useState("");                                          // Epic keyword search (Gantt)
+  const [zoom, setZoom] = React.useState<"m" | "q">("m");                                      // Epic Gantt header
+  const [density, setDensity] = React.useState<"comfortable" | "compact">("comfortable");
   const [ganttGroup, setGanttGroup] = React.useState("area");                                    // Epic Gantt grouping
   const [legend, setLegend] = React.useState<string[]>([]);                                       // Gantt key / statistic filters
   const [tiles, setTiles] = React.useState<string[]>(p.settings.plan.ganttTiles);
@@ -61,11 +63,11 @@ export function CommandCenter(p: {
 
   /** the standard view: what the settings say */
   const standard = (): ViewState => ({ view: p.settings.plan.view, group: p.settings.plan.groupBy, units: p.settings.plan.units, rows: p.settings.plan.rows, period: p.settings.period, team: "", query: "", people: "", epics: "",
-    states: [], extra: {}, showIdle: true, ganttGroup: "area", legend: [], tiles: p.settings.plan.ganttTiles });
-  const snapshot = (): ViewState => ({ view, group, units, rows: rowsMode, period: p.period, team: f.team, query: p.queryId, people: f.search, epics: epicSearch, states: f.states, extra: f.extra, showIdle: f.showIdle, ganttGroup, legend, tiles });
+    states: [], extra: {}, showIdle: true, ganttGroup: "area", legend: [], tiles: p.settings.plan.ganttTiles, zoom: "m", density: "comfortable" });
+  const snapshot = (): ViewState => ({ view, group, units, rows: rowsMode, period: p.period, team: f.team, query: p.queryId, people: f.search, epics: epicSearch, states: f.states, extra: f.extra, showIdle: f.showIdle, ganttGroup, legend, tiles, zoom, density });
   const applyView = (raw: ViewState) => {
     const v = normalizeView(raw, standard());
-    setView(v.view); setGroup(v.group); setUnits(v.units); setRowsMode(v.rows); setToggled(new Set()); setEpicSearch(v.epics); setGanttGroup(v.ganttGroup); setLegend(v.legend); setTiles(v.tiles); setHl(null); setSel(undefined);
+    setView(v.view); setGroup(v.group); setUnits(v.units); setRowsMode(v.rows); setToggled(new Set()); setEpicSearch(v.epics); setGanttGroup(v.ganttGroup); setLegend(v.legend); setTiles(v.tiles); setZoom(v.zoom); setDensity(v.density); setHl(null); setSel(undefined);
     if (v.period) p.onPeriod(v.period);
     p.onFilters({ ...noFilters(), team: v.team, states: v.states, extra: v.extra, search: v.people, showIdle: v.showIdle });
     if (v.query !== p.queryId) p.onQuery(v.query);
@@ -158,7 +160,7 @@ export function CommandCenter(p: {
   );
 
   return (
-    <div className={"cc" + (p.full ? " cc-full" : "")}>
+    <div className={"cc" + (p.full ? " cc-full" : "") + (density === "compact" ? " dense" : "")}>
       <div className="cc-bar">
         <div className="seg" role="tablist" aria-label="View">{([["heat", "Heatmap"], ["time", "Timeline"], ["gantt", "Epic Gantt"]] as const).map(([k, l]) => <button key={k} role="tab" aria-selected={view === k} className={view === k ? "on" : ""} onClick={() => setView(k)}>{l}</button>)}</div>
         {view === "heat" && <>
@@ -209,7 +211,7 @@ export function CommandCenter(p: {
             <div className="legend">{BANDS.map(b => <span key={b} className="lg"><Sw b={b} />{RAG[b].label} ({{ spare: `under ${th.spare}%`, healthy: `${th.spare}–${th.healthy}%`, full: `${th.healthy}–${th.full}%`, over: `above ${th.full}%` }[b]})</span>)}
               <span className="lg"><span className="sw" style={{ background: "repeating-linear-gradient(45deg, var(--line) 0 4px, transparent 4px 8px)", color: "var(--fg2)" }}>?</span>Hours but no capacity entered</span></div></>)
             : view === "time" ? <TimelineTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} onPerson={key => setSel({ person: key, month: focus })} />
-            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} search={epicSearch} legend={legend} onLegend={setLegend} tiles={tiles} onTiles={setTiles} group={ganttGroup} onGroup={setGanttGroup} />}
+            : <GanttTab project={p.project} settings={p.settings} loaded={L} months={p.months} filters={f} search={epicSearch} legend={legend} onLegend={setLegend} tiles={tiles} onTiles={setTiles} group={ganttGroup} onGroup={setGanttGroup} zoom={zoom} onZoom={setZoom} density={density} onDensity={setDensity} />}
         </div>
         {selected && sel && (() => {
           const c = cellOf(selected, sel.month, th); const list = [...(selected.epics[sel.month] ?? [])].sort((a, b) => b.hours - a.hours);

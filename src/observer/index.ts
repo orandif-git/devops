@@ -144,7 +144,7 @@ async function run(isLoad: boolean) {
 
 async function main() {
   // Register for form events FIRST, so the "work item loaded" event is never missed while we look things up.
-  await SDK.init({ loaded: false, applyTheme: true });
+  await SDK.init({ loaded: false, applyTheme: false });
   await SDK.ready();
   SDK.register(SDK.getContributionId(), () => ({
     onLoaded: () => { config = undefined; formFields = undefined; snapshot = undefined; guardP = undefined; guardP = prepareGuard(); run(true); },

@@ -1,17 +1,18 @@
 :root {
-  --bg: var(--background-color, #fff);
-  --fg: var(--text-primary-color, rgba(0,0,0,.9));
-  --fg2: var(--text-secondary-color, rgba(0,0,0,.6));
-  --accent: var(--communication-background, #0078d4);
+  /* one light look everywhere, whatever theme Azure DevOps is using */
+  color-scheme: light;
+  --bg: #ffffff;
+  --fg: #1b2333;
+  --fg2: #5b6578;
+  --accent: #0078d4;
   --accent-fg: #fff;
-  /* derived from the text colour: always valid in every theme (Azure DevOps palette variables are bare RGB triplets, not colours) */
-  --line: color-mix(in srgb, var(--fg) 20%, transparent);
-  --hover: color-mix(in srgb, var(--fg) 8%, transparent);
+  --line: color-mix(in srgb, var(--fg) 16%, transparent);
+  --hover: color-mix(in srgb, var(--fg) 7%, transparent);
   --err: #d13438;
   --ok: #107c10;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: transparent; color: var(--fg); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
+html, body { margin: 0; padding: 0; background: var(--page, var(--bg)); color: var(--fg); font: 13px/1.4 "Segoe UI", system-ui, sans-serif; }
 button, input, select, textarea { font: inherit; color: inherit; }
 input, select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 2px; padding: 3px 6px; min-width: 0; }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }

@@ -1,4 +1,4 @@
-/* Executive Dashboard: three layouts (report, portfolio map, roadmap) in the host's light or dark theme */
+/* Executive Dashboard: three layouts (report, portfolio map, roadmap), always in the light look */
 .ex { --card: var(--bg); --soft: color-mix(in srgb, var(--fg) 4%, var(--bg)); --st-green: #1a9d57; --st-amber: #f2a900; --st-red: #d13438; }
 .ex-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 0 10px; } .ex-bar .grow { flex: 1 1 0; }
 .ex-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 18px; padding: 2px; background: var(--bg); }
@@ -59,3 +59,44 @@ span.ex-bar { display: inline-block; vertical-align: middle; width: 110px; heigh
 .ex-road .mvline { position: absolute; top: 16px; height: 3px; border-radius: 2px; z-index: 0; } .ex-road .mvline.later { background: var(--st-red); } .ex-road .mvline.earlier { background: var(--st-green); }
 .ex-hist h4 { margin: 14px 0 6px; } .ex-hist ol { margin: 0; padding-left: 0; list-style: none; border-left: 2px solid var(--line); margin-left: 6px; } .ex-hist li { padding: 3px 0 3px 12px; position: relative; } .ex-hist li::before { content: ""; position: absolute; left: -6px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: #7a5af8; } .ex-hist li.later::before { background: var(--st-red); } .ex-hist li.earlier::before { background: var(--st-green); }
 .ex-road .mvline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); z-index: 1; } .tl-lane .gline { box-shadow: 0 0 0 1px rgba(255,255,255,.75); }
+
+/* ===== polish: calmer colours, softer depth, rounded shapes, a sliding layout switch, trends ===== */
+.ex { --card: #fff; --soft: #f8fafc; --st-green: #16a34a; --st-amber: #d97706; --st-red: #dc2626; --ring: 0 1px 2px rgba(15,23,42,.05), 0 8px 24px rgba(15,23,42,.06); font-variant-numeric: tabular-nums; }
+.ex-bar { padding: 4px 0 14px; gap: 10px; }
+div.ex-bar { display: flex; flex-wrap: wrap; align-items: center; }
+.ex-brand { display: flex; align-items: center; gap: 10px; margin-right: 6px; } .ex-brand b { display: block; font-size: 16px; letter-spacing: -.01em; }
+.logo { width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(135deg, #6366f1, #22d3ee); display: grid; place-items: center; color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(99,102,241,.35); }
+.live { display: flex; align-items: center; gap: 6px; color: var(--fg2); font-size: 12px; } .pulse { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: exp 2s infinite; } @keyframes exp { 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+.ex-seg { position: relative; display: inline-grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 13px; background: #fff; border: 1px solid var(--line); box-shadow: var(--ring); }
+.ex-seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 10px; background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 10px rgba(79,70,229,.35); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .25s cubic-bezier(.4,0,.2,1); }
+.ex-seg button { position: relative; z-index: 1; height: 30px; padding: 0 16px; background: none !important; justify-content: center; white-space: nowrap; font-weight: 500; transition: color .2s; } .ex-seg button.on { color: #fff; }
+.ex-search { height: 38px; border-radius: 13px; box-shadow: var(--ring); border-color: var(--line); } .ex-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); outline: 0; }
+.kbd { border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-size: 11px; background: var(--soft); color: var(--fg2); }
+.ex-bar .pill, .ex-bar .ex-chip { height: 36px; border-radius: 12px; box-shadow: var(--ring); background: #fff; } .ex-bar .pill.icon { width: 36px; }
+.ex-chip { box-shadow: var(--ring); background: #fff; } .ex-chip.on { background: #eef2ff; border-color: #6366f1; color: #4338ca; }
+.ex-slicers .ex-chip { height: 32px; border-radius: 999px; }
+.ex-pop { border-radius: 14px; box-shadow: 0 18px 50px rgba(15,23,42,.22); }
+.ex-fchip { background: #eef2ff; color: #4338ca; font-weight: 500; }
+.ex-card, .ex-kpi, .ex-sc, .ex-rail { border-radius: 14px; border-color: var(--line); box-shadow: var(--ring); } .ex-card h4 { font-weight: 600; }
+.ex-kpis { grid-template-columns: 1.3fr repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.ex-kpi { position: relative; overflow: hidden; padding: 14px 16px; border-left-width: 1px; transition: transform .15s, box-shadow .15s; } .ex-kpi:hover { transform: translateY(-2px); background: #fff; }
+.ex-kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--c, transparent); }
+.ex-kpi .row { display: flex; justify-content: space-between; align-items: flex-end; gap: 6px; } .ex-kpi .v { font-size: 30px; font-weight: 650; letter-spacing: -.02em; margin-top: 2px; }
+.ex-kpi .d { display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.ex-kpi.hero { background: linear-gradient(135deg, #4f46e5, #7c3aed 55%, #0ea5e9); color: #fff; border: 0; } .ex-kpi.hero::before { display: none; } .ex-kpi.hero .l, .ex-kpi.hero .d { color: rgba(255,255,255,.85); } .ex-kpi.hero .v { font-size: 38px; } .ex-kpi.hero:hover { background: linear-gradient(135deg, #4f46e5, #7c3aed 55%, #0ea5e9); }
+.ex-delta { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; white-space: nowrap; background: #f1f5f9; color: var(--fg2); } .ex-delta .vs { font-weight: 400; opacity: .8; } .ex-delta.up { background: #dcfce7; color: #15803d; } .ex-delta.down { background: #fee2e2; color: #b91c1c; } .ex-kpi.hero .ex-delta { background: rgba(255,255,255,.2); color: #fff; }
+.ex-pill { border: 0; padding: 2px 11px 2px 4px; background: color-mix(in srgb, var(--pc, #64748b) 14%, transparent); color: var(--pc, inherit); }
+.ex-table th { background: #fff; font-size: 12px; } .ex-table td { padding: 10px; } .ex-table tr.ex-row:hover td { background: #f8fafc; } .ex-tablewrap { border-radius: 10px; }
+span.ex-bar { height: 7px; border-radius: 99px; background: #e8ecf4; } span.ex-bar i { border-radius: 99px; }
+.ex-blk { border-radius: 8px; box-shadow: inset 0 -20px 30px rgba(0,0,0,.08); } .ex-map { background: #f1f5f9; }
+.ex-road { border-radius: 14px; box-shadow: var(--ring); } .ex-road .gb { border-radius: 8px; box-shadow: 0 2px 6px rgba(15,23,42,.18); } .ex-road .today span { top: 6px; left: -18px; background: var(--st-red); color: #fff; padding: 1px 7px; border-radius: 99px; font-size: 10px; }
+.ex-head .hlb { border-radius: 8px; } .ex-rag { gap: 3px; height: 30px; } .ex-rag button { border-radius: 8px; }
+.ex-tab.on { border-bottom-color: #4f46e5; }
+.ex-drawer { border-radius: 18px 0 0 18px; box-shadow: -20px 0 50px rgba(15,23,42,.22); padding: 24px; width: 420px; } .ex-drawer h3 { font-size: 18px; letter-spacing: -.01em; }
+.ex-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; } .ex-tiles div { background: #f8fafc; border-radius: 12px; padding: 9px 11px; color: var(--fg2); font-size: 12px; } .ex-tiles b { display: block; color: var(--fg); font-size: 14px; }
+.ex-sk { border-radius: 14px; border: 1px solid var(--line); background: linear-gradient(90deg, #fff 25%, #f1f5f9 37%, #fff 63%); background-size: 400% 100%; animation: exsh 1.2s infinite; } @keyframes exsh { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+.ex-loading .ex-kpis { grid-template-columns: repeat(6, 1fr); }
+/* compact spacing */
+.ex.dense .ex-kpi { padding: 9px 12px; } .ex.dense .ex-kpi .v { font-size: 24px; } .ex.dense .ex-card { padding: 9px 11px; } .ex.dense .ex-table td { padding: 5px 8px; } .ex.dense .ex-kpis, .ex.dense .ex-charts { gap: 9px; } .ex.dense .ex-road .lane .nm { padding-top: 3px; padding-bottom: 3px; }
+
+.ex-search { flex: 1 1 200px; min-width: 200px; max-width: 380px; } .ex-chip.sel select { max-width: 130px; } .ex-brand { margin-right: 0; }

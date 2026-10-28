@@ -1,5 +1,8 @@
 import { loadStateGroups } from "./stateGroups";
 import { HistoryMap, loadHistory } from "./history";
+import { buildExec } from "../core/executive";
+import { metricsOf, Snapshot } from "../core/snapshots";
+import { recordSnapshot } from "./snapshots";
 import { StateGroups } from "../core/timeline";
 import { aggregate } from "../core/aggregate";
 import { parseSource, sumStats } from "../core/parseGrid";
@@ -25,6 +28,8 @@ export interface Loaded {
   history?: HistoryMap;
   /** why the history could not be read */
   historyError?: string;
+  /** the weekly snapshots of the portfolio (this week last), for the trends and the change since last week */
+  snapshots?: Snapshot[];
   ms: number;
   at: string;
 }
@@ -49,7 +54,9 @@ export async function loadAll(project: { id: string; name: string }, s: PlannerS
   let history: HistoryMap | undefined, historyError: string | undefined;
   const hf = Array.from(new Set([s.epicTargetField, s.executive.goLiveField].filter(Boolean)));
   if (s.history.enabled && hf.length) { try { history = await loadHistory(project, s.workItemType, hf, { force: opts.force, progress: opts.progress }); } catch (e) { historyError = (e as Error).message; } }
-  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, history, historyError, ms: Date.now() - t0, at: new Date().toISOString() };
+  const exec = buildExec({ epics: load.epics, gridDone, bookings, avail, settings: s, history: history?.[s.executive.goLiveField || s.epicTargetField] });
+  const snapshots = opts.queryId ? undefined : await recordSnapshot(project.id, metricsOf(exec.rows, new Date()));       // only the whole portfolio is a fair comparison
+  return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, history, historyError, snapshots, ms: Date.now() - t0, at: new Date().toISOString() };
 }
 
 export const monthsFor = (s: PlannerSettings) => monthsOfPeriod(s.period);

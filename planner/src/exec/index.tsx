@@ -50,7 +50,7 @@ function App(p: { projectId: string; projectName: string }) {
   if (!valid) return box(<div className="err">Complete the Resource Planner settings first (Boards › Resource Planner › Settings).</div>);
   if (!link) return box(<div className="muted">Loading…</div>);
   return box(<ExecPage project={{ id: p.projectId, name: p.projectName }} settings={settings} loaded={loaded} busy={busy} progress={progress} error={error} queries={queries}
-    queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} full={full} onFull={goFull} link={link} />, full);
+    queryId={queryId} onQuery={q => { setQueryId(q); void reload(false, q); }} onReload={f => void reload(f)} full={full} onFull={goFull} link={link} />, true);
 }
 
 async function main() {

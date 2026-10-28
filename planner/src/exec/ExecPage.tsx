@@ -4,7 +4,6 @@ import { PlannerSettings } from "../core/types";
 import { LoadProgress } from "../data/epics";
 import { Loaded } from "../data/loadAll";
 import { SavedQuery } from "../data/queries";
-import { ago } from "./ago";
 import { ExecDashboard } from "./ExecDashboard";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
@@ -29,12 +28,7 @@ export function ExecPage(p: {
   const L = p.loaded;
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
-        <h3 style={{ margin: 0 }}>Executive Dashboard</h3>
-        {L ? <span className="muted" title={`Read from Azure DevOps at ${new Date(L.at).toLocaleString()} · ${L.epics.length} Epics in ${(L.load.ms / 1000).toFixed(1)} s. Refreshes by itself every 10 minutes.`}>
-          <span style={{ color: p.busy ? "#fab219" : "#0ca30c" }} aria-hidden="true">●</span> {p.busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(L.at))}</span>
-          : <span className="muted">Epics, status and go-live risk at a glance. Read-only.</span>}
-      </div>
+      {!L && <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap", marginBottom: 8 }}><h3 style={{ margin: 0 }}>Executive Dashboard</h3><span className="muted">Epics, status and go-live risk at a glance. Read-only.</span></div>}
       {problems.length ? <div className="card" style={{ marginTop: 12 }}><b>The Executive Dashboard is not set up yet.</b><ul className="err">{problems.map(e => <li key={e}>{e}</li>)}</ul>
         <div className="muted">A project administrator sets this up under Settings › Executive dashboard.</div></div>
         : <ExecDashboard {...p} />}

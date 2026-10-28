@@ -2,8 +2,9 @@ import * as React from "react";
 import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
 import { MOVED, signed } from "../core/history";
-import { byStatus, countBy, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
-import { COLOR, Columns, Donut, ProgressBar, Slicer, StackedBars, StatusPill, Sw, pct } from "./parts";
+import { deltaOf, health, series, Snapshot } from "../core/snapshots";
+import { byStatus, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
+import { COLOR, Columns, Delta, Donut, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
 export interface LP {
@@ -11,6 +12,8 @@ export interface LP {
   open(i: Item): void; day(t?: number): string; extra: ExtraCol[]; today: number;
   /** the history of the go-live date was read: show moves, marks and the slicer */
   historyOn: boolean;
+  /** the weekly snapshots (this week last): trends and the change since last week, shown while no filter is applied */
+  snaps?: Snapshot[];
 }
 const DAY = 86400000;
 
@@ -42,17 +45,22 @@ export function Slicers(lp: LP) {
   );
 }
 
-const Kpi = (p: { label: React.ReactNode; value: number | string; detail: string; on?: boolean; dim?: boolean; onClick(): void; c?: string }) =>
-  <button type="button" className={"ex-kpi" + (p.on ? " on" : p.dim ? " dim" : "")} aria-pressed={p.on} onClick={p.onClick} style={p.c ? { borderLeftColor: p.c } : undefined}><div className="l">{p.label}</div><div className="v">{p.value}</div><div className="d">{p.detail}</div></button>;
+const Kpi = (p: { label: React.ReactNode; value: number | string; detail: React.ReactNode; on?: boolean; dim?: boolean; onClick(): void; c?: string; spark?: React.ReactNode; delta?: React.ReactNode; hero?: React.ReactNode }) =>
+  <button type="button" className={"ex-kpi" + (p.hero ? " hero" : "") + (p.on ? " on" : p.dim ? " dim" : "")} aria-pressed={p.on} onClick={p.onClick} style={p.c ? { ["--c" as string]: p.c } : undefined}>
+    <div className="l">{p.label}</div><div className="row"><div className="v">{p.value}</div>{p.spark ?? p.hero}</div><div className="d"><span>{p.detail}</span>{p.delta}</div></button>;
 
-/** Status cards: one per status, and the whole portfolio. */
+/** Portfolio health, then one card per status; the trend and the change since last week come from the weekly snapshots. */
 function KpiRow({ lp }: { lp: LP }) {
-  const base = lp.all.filter(i => pass(i, lp.f, "status")), c = byStatus(base);
+  const base = lp.all.filter(i => pass(i, lp.f, "status")), c = byStatus(base), snaps = lp.snaps ?? [];
+  const trend = snaps.length > 0 && lp.all.length > 0 && isEmpty({ ...lp.f, status: [] }), score = health(c), act = base.length - c.idle;
+  const R = 44, C = Math.PI * R, prevScore = snaps.length > 1 ? health(snaps[snaps.length - 2]) : undefined;
   return (
     <div className="ex-kpis">
-      <Kpi label="Portfolio" value={base.length} detail={`${c.idle} not started · ${c.unknown} not assessed`} onClick={() => lp.setF({ ...lp.f, status: [] })} />
-      {lp.historyOn && <Kpi c="#7a5af8" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
-      {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })} />)}
+      <Kpi hero label="Portfolio health" value={score + "%"} detail={`${base.length} Epics · ${act} in delivery`} delta={trend && prevScore !== undefined ? <Delta d={score - prevScore} good /> : undefined} onClick={() => lp.setF({ ...lp.f, status: [] })}
+        spark={<svg width="110" height="64" viewBox="0 0 110 64" aria-hidden="true"><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="9" strokeLinecap="round" /><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${C * score / 100} ${C}`} /></svg>} />
+      {lp.historyOn && <Kpi c="#7c3aed" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
+      {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })}
+        spark={trend ? <Spark values={series(snaps, s)} color={COLOR[s]} /> : undefined} delta={trend ? <Delta d={deltaOf(snaps, s)} good={s === "green" || s === "done" ? true : s === "amber" || s === "red" ? false : undefined} /> : undefined} />)}
     </div>
   );
 }

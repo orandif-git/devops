@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decodeView, encodeView, normalizeDoc, normalizeView, ViewState } from "../planner/src/core/views";
 
-const std: ViewState = { view: "heat", group: "team", units: "h", rows: "collapsed", period: { kind: "year" }, team: "", query: "", people: "", epics: "", states: [], extra: {}, showIdle: true, ganttGroup: "area", legend: [], tiles: ["epics", "late"] };
+const std: ViewState = { view: "heat", group: "team", units: "h", rows: "collapsed", period: { kind: "year" }, team: "", query: "", people: "", epics: "", states: [], extra: {}, showIdle: true, ganttGroup: "area", legend: [], tiles: ["epics", "late"], zoom: "m", density: "comfortable" };
 
 describe("views", () => {
   it("fills in anything missing or invalid with the standard view", () => {
