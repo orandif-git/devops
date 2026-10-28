@@ -192,3 +192,4 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .set-sec > h4 { margin: 0 0 2px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
 .set-sec .num { width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: linear-gradient(135deg, #a8325c, #7a1a3c); }
 .set-sec > .why { color: var(--fg2); margin: 0 0 10px 30px; }
+.set-sec details.adv { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 8px; } .set-sec details.adv > summary { cursor: pointer; color: var(--fg2); font-weight: 600; }

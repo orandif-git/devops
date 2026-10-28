@@ -21,7 +21,7 @@ const TODAY = new Date("2026-10-14T00:00:00Z");
 const settings = normalizeSettings({
   epicStartField: "Custom.Start", epicTargetField: "Custom.GoLive",
   sources: [{ id: "g", name: "Tasks", dataField: "Custom.G", columns: { resource: "r", effort: "h", done: "d" } }],
-  executive: { categoryFields: ["Custom.Type"], progress: [{ id: "a", kind: "percentField", field: "Custom.Pct" }, { id: "b", kind: "gridDone", sourceId: "g" }] },
+  executive: { advanced: true, categoryFields: ["Custom.Type"], progress: [{ id: "a", kind: "percentField", field: "Custom.Pct" }, { id: "b", kind: "gridDone", sourceId: "g" }] },
 });
 const epic = (id: number, title: string, state: string, type: string, start: string, goLive: string, pct?: string): EpicRecord =>
   ({ id, title, state, type: "Epic", areaPath: "P\\Team", iterationPath: "P", changed: "", start, target: goLive, grids: {}, extra: { "Custom.Type": type, ...(pct !== undefined ? { "Custom.Pct": pct } : {}) } });
@@ -84,13 +84,28 @@ describe("executive status", () => {
     const data = run({ statusSource: "data" }); expect(by(data, 1).status).toBe("red");
     const chk = run({ statusSource: "rag-check" });
     expect(by(chk, 1).status).toBe("green"); expect(by(chk, 1).dataStatus).toBe("red"); expect(by(chk, 1).compare).toBe("optimistic");
-    expect(by(chk, 1).reasons[0]).toContain("Declared by the owner: Green"); expect(by(chk, 1).reasons.join("|")).toContain("Data check:");
+    expect(by(chk, 1).reasons[0]).toContain("RAG is Green, but"); expect(by(chk, 1).reasons[1]).toContain("Declared by the owner: Green"); expect(by(chk, 1).reasons.join("|")).toContain("Data check:");
     expect(by(chk, 2).status).toBe("red");                                                   // "Delayed" is recognised as red
     expect(by(chk, 3).status).toBe(by(data, 3).status); expect(by(chk, 3).reasons[0]).toContain("comes from the data");   // no value: the data decides
     const rag = run({ statusSource: "rag" });
     expect(by(rag, 3).status).toBe("unknown"); expect(by(rag, 8).status).toBe("unknown"); expect(by(rag, 4).status).toBe("done"); expect(by(rag, 5).status).toBe("idle");
     expect(by(rag, 1).reasons).toEqual(["Declared by the owner: Green"]);
     const mapped = run({ statusSource: "rag", ragAmber: ["weird"] }); expect(by(mapped, 8).status).toBe("amber");   // your own words for the colours
+  });
+  it("simple rules: at risk only when past go-live; needs attention when progress is behind the time used", () => {
+    const simple = { ...settings, executive: { ...settings.executive, advanced: false, gapAmberPts: 15 } };
+    const r = buildExec({ epics, gridDone: {}, bookings: [], avail: none, settings: simple, today: TODAY });
+    expect(by(r, 3).status).toBe("red");                                                     // past go-live, not done
+    expect(by(r, 1).status).toBe("amber");                                                   // 62% done against 80% of the time: 18 points behind, no forecast rule
+    expect(by(r, 2).status).toBe("green");
+    expect(by(r, 1).limits.from).toEqual([]);
+  });
+  it("tells the owner what to check when the RAG looks better than the data", () => {
+    const e2 = epics.map(e => (e.id === 3 ? { ...e, extra: { ...e.extra, "Custom.RAG": "Green" } } : e));
+    const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag-check" } }, today: TODAY });
+    expect(by(r, 3).status).toBe("green"); expect(by(r, 3).check).toMatch(/^RAG is Green, but past its go-live date/);
+    const only = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag" } }, today: TODAY });
+    expect(by(only, 3).check).toBeUndefined();
   });
   it("flags a stale Epic and a blocker field", () => {
     const e2 = epics.map(e => (e.id === 2 ? { ...e, changed: "2026-06-01T00:00:00Z", extra: { ...e.extra, "Custom.Blocked": "Yes" } } : e));
@@ -128,7 +143,7 @@ describe("progress sources", () => {
   it("is validated: needs a go-live date and complete sources", () => {
     expect(validateExec(defaultSettings())).toEqual(["Choose the go-live date field (or set the Epic target-date field)."]);
     expect(validateExec(settings)).toEqual([]);
-    const bad = normalizeSettings({ epicTargetField: "A.B", executive: { progress: [{ kind: "gridDone" }, { kind: "ratioFields", doneField: "A.B" }], slipAmberDays: 40, slipRedDays: 30 } });
+    const bad = normalizeSettings({ epicTargetField: "A.B", executive: { advanced: true, progress: [{ kind: "gridDone" }, { kind: "ratioFields", doneField: "A.B" }], slipAmberDays: 40, slipRedDays: 30 } });
     expect(validateExec(bad).length).toBe(3);
   });
 });
@@ -138,10 +153,10 @@ describe("Executive dashboard page", () => {
   const mount = (st = settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
   const rows = (h: HTMLElement) => h.querySelectorAll("tr.ex-row").length;
   const type = (h: HTMLElement, v: string) => { const i = h.querySelector('input[aria-label="Search the Epics"]') as HTMLInputElement; act(() => { Simulate.change(i, { target: { value: v } } as never); }); };
-  it("is a portfolio view by default (no team slicer) and offers Declared vs data when a declared field is set", () => {
-    const h = mount(); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("Team"); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("Declared vs data");
+  it("is a portfolio view by default (no team slicer) and offers RAG check when a declared field is set", () => {
+    const h = mount(); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("Team"); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("RAG check");
     const h2 = mount({ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", resources: true } });
-    expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Declared vs data"); expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Team");
+    expect(h2.querySelector(".ex-slicers")!.textContent).toContain("RAG check"); expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Team");
   });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });

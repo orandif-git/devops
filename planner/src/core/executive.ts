@@ -38,6 +38,8 @@ export interface ExecEpic {
   /** the status the owner declares (when a field is chosen and has a value) and how it compares with the computed status */
   /** the status the data alone gives (the status shown can be the declared one) and its reasons */
   dataStatus: ExecStatus; dataReasons: string[];
+  /** set when the owner's RAG looks better than the data: what to ask the owner about */
+  check?: string;
   declared?: "green" | "amber" | "red"; declaredText?: string; compare?: "same" | "optimistic" | "cautious";
   /** the size of the Epic on the portfolio map (the size field, else 1) */
   size: number;
@@ -98,7 +100,7 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const start = ts(e.start);
     const goLive = ts(x.goLiveField ? e.extra[x.goLiveField] : e.target);
     const pr = progressOf(e, x, p.gridDone[e.id], s.sources);
-    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: limitsFor(e, x), dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
+    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
     const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
     const dv = x.declaredField ? valueOf(e, x.declaredField) : ""; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
@@ -117,9 +119,9 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     let score = 0;
     if (row.late) { score = 2; reasons.push(`Past its go-live date by ${Math.round((today - goLive) / DAY)} days and not done`); }
     if (row.hold) { score = Math.max(score, 1); reasons.push("On hold"); }
-    if (!row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
-    else if (!row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
-    if (!row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    if (x.advanced && !row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
+    else if (x.advanced && !row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
+    if (x.advanced && !row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     else if (!row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed.slice(0, 10)); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
     if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimName(x.blockerField)} = ${bv}`); } }
@@ -136,9 +138,9 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
   for (const r of rows) {
     r.dataStatus = r.status; r.dataReasons = r.reasons;
     const judged = r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red";
-    if (r.declared && judged) { const d = RANK[r.declared] - RANK[r.dataStatus as "green" | "amber" | "red"]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; }
+    if (r.declared && judged) { const d = RANK[r.declared] - RANK[r.dataStatus as "green" | "amber" | "red"]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; if (d < 0 && x.statusSource !== "rag") { const why = (r.dataReasons[0] ?? "").replace(/^./, c => c.toLowerCase()); r.check = `RAG is ${r.declaredText}, but ${why || "the data says " + STATUS_NAME[r.dataStatus].toLowerCase()}`; } }
     if (mode === "data" || r.dataStatus === "done" || r.dataStatus === "idle") continue;
-    if (r.declared) { r.status = r.declared; r.reasons = [`Declared by the owner: ${r.declaredText}`, ...(mode === "rag-check" ? r.dataReasons.map(t => "Data check: " + t) : [])]; }
+    if (r.declared) { r.status = r.declared; r.reasons = [...(r.check ? [r.check] : []), `Declared by the owner: ${r.declaredText}`, ...(mode === "rag-check" ? r.dataReasons.map(t => "Data check: " + t) : [])]; }
     else if (mode === "rag") { r.status = "unknown"; r.reasons = [r.declaredText ? `The declared status “${r.declaredText}” is not recognised as green, amber or red` : "No declared status (RAG) on this Epic"]; }
     else r.reasons = ["No declared status, so the status comes from the data", ...r.dataReasons];
   }

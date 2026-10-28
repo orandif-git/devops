@@ -56,7 +56,8 @@ export function Drawer(p: { item?: Item; onClose(): void; onDetails(id: number):
         <button className="modal-x" aria-label="Close details" title="Close (Esc)" onClick={p.onClose}><IconClose /></button>
         <h3>{i.title}</h3><div className="muted">{i.id} · {i.state}</div>
         <p><StatusPill s={i.status} /></p>
-        <ul className="ex-why">{r.reasons.map(x => <li key={x}>{x}</li>)}</ul>
+        {r.check && <div className="ex-check" role="note">⚠ {r.check}</div>}
+        <ul className="ex-why">{r.reasons.filter(x => x !== r.check).map(x => <li key={x}>{x}</li>)}</ul>
         <div className="ex-tiles"><div>Progress<b>{r.pct === undefined ? "–" : r.pct + "%"}</b></div><div>Forecast<b>{r.forecast !== undefined && i.status !== "done" ? p.day(r.forecast) : "–"}{r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{r.slip}d</span>}</b></div>{p.res && <div>Hours booked<b>{i.hours.toLocaleString()} h</b></div>}</div>
         <dl className="ex-kv">
           {p.dims.map(d => <React.Fragment key={d}><dt>{dimLabel(d)}</dt><dd>{r.dims[d]}</dd></React.Fragment>)}

@@ -16,9 +16,9 @@ export interface Item {
   text: string;
 }
 
-export const DECL_NONE = "Not declared";
-export const DECL_ORDER = ["Owner more optimistic", "Owner more cautious", "Matches", DECL_NONE];
-const DECL: Record<string, string> = { optimistic: "Owner more optimistic", cautious: "Owner more cautious", same: "Matches" };
+export const DECL_NONE = "No RAG";
+export const DECL_ORDER = ["Check this", "Looks fine", DECL_NONE];
+const DECL: Record<string, string> = { optimistic: "Check this", cautious: "Looks fine", same: "Looks fine" };
 const r1 = (n: number) => Math.round(n * 10) / 10;
 export const NO_DATE = "No go-live date";
 export const quarterOf = (t?: number) => (t === undefined ? NO_DATE : `Q${Math.floor(new Date(t).getUTCMonth() / 3) + 1} ${String(new Date(t).getUTCFullYear()).slice(2)}`);
@@ -77,7 +77,7 @@ export function chipsOf(f: XF, change: (n: XF) => void): { label: string; clear(
   f.team.forEach(s => out.push({ label: "Team: " + s, clear: () => change({ ...f, team: f.team.filter(x => x !== s) }) }));
   f.quarter.forEach(s => out.push({ label: "Go-live: " + s, clear: () => change({ ...f, quarter: f.quarter.filter(x => x !== s) }) }));
   f.moved.forEach(s => out.push({ label: "Go-live: " + s.toLowerCase(), clear: () => change({ ...f, moved: f.moved.filter(x => x !== s) }) }));
-  f.decl.forEach(s => out.push({ label: "Declared: " + s.toLowerCase(), clear: () => change({ ...f, decl: f.decl.filter(x => x !== s) }) }));
+  f.decl.forEach(s => out.push({ label: "RAG: " + s.toLowerCase(), clear: () => change({ ...f, decl: f.decl.filter(x => x !== s) }) }));
   if (f.saved) out.push({ label: "Saved filter: " + (f.savedName ?? ""), clear: () => change({ ...f, saved: undefined, savedName: undefined }) });
   if (f.text) out.push({ label: `Search: “${f.text}”`, clear: () => change({ ...f, text: "" }) });
   return out;

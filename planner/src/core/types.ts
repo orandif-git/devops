@@ -121,6 +121,8 @@ export interface ExecSettings {
   notStartedStates: string[];
   /** Epics in these states are left out (for example Removed) */
   ignoreStates: string[];
+  /** use the advanced status rules (forecast days late, limits per Epic field and per category); off = simple: at risk when past go-live and not done, needs attention when progress is behind the time used by more than gapAmberPts */
+  advanced: boolean;
   /** forecast later than go-live by more than this many days = needs attention / at risk */
   slipAmberDays: number;
   slipRedDays: number;
@@ -160,7 +162,7 @@ export interface ExecSettings {
 export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
-  slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
+  advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
   tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], resources: false,
 });
 

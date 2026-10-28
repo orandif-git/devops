@@ -42,7 +42,7 @@ export function Slicers(lp: LP) {
       {lp.settings.executive.resources && <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />}
       <Slicer label="Go-live" options={optionsOf(lp, "quarter", i => i.quarter, sortQuarters)} selected={f.quarter} onChange={v => setF({ ...f, quarter: v })} />
       {lp.historyOn && <Slicer label="Go-live changes" options={movedOptions(lp)} selected={f.moved} onChange={v => setF({ ...f, moved: v })} />}
-      {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Slicer label="Declared vs data" options={declOptions(lp)} selected={f.decl} onChange={v => setF({ ...f, decl: v })} />}
+      {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Slicer label="RAG check" options={declOptions(lp)} selected={f.decl} onChange={v => setF({ ...f, decl: v })} />}
     </div>
   );
 }
@@ -61,7 +61,7 @@ function KpiRow({ lp }: { lp: LP }) {
       <Kpi hero label="Portfolio health" value={score + "%"} detail={`${base.length} Epics · ${act} in delivery`} delta={trend && prevScore !== undefined ? <Delta d={score - prevScore} good /> : undefined} onClick={() => lp.setF({ ...lp.f, status: [] })}
         spark={<svg width="110" height="64" viewBox="0 0 110 64" aria-hidden="true"><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="9" strokeLinecap="round" /><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${C * score / 100} ${C}`} /></svg>} />
       {lp.historyOn && <Kpi c="#8a1f45" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
-      {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Kpi c="#b45309" label={<>⚖ Owner more optimistic</>} value={lp.all.filter(i => pass(i, lp.f, "decl") && pass(i, lp.f, "status") && i.decl === DECL_ORDER[0]).length} detail="declared better than the data says" on={lp.f.decl.includes(DECL_ORDER[0])} dim={lp.f.decl.length > 0 && !lp.f.decl.includes(DECL_ORDER[0])} onClick={() => lp.setF({ ...lp.f, decl: toggle(lp.f.decl, DECL_ORDER[0]) })} />}
+      {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Kpi c="#b45309" label={<>⚠ Check this</>} value={lp.all.filter(i => pass(i, lp.f, "decl") && pass(i, lp.f, "status") && i.decl === DECL_ORDER[0]).length} detail="RAG looks better than the data" on={lp.f.decl.includes(DECL_ORDER[0])} dim={lp.f.decl.length > 0 && !lp.f.decl.includes(DECL_ORDER[0])} onClick={() => lp.setF({ ...lp.f, decl: toggle(lp.f.decl, DECL_ORDER[0]) })} />}
       {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })}
         spark={trend ? <Spark values={series(snaps, s)} color={COLOR[s]} /> : undefined} delta={trend ? <Delta d={deltaOf(snaps, s)} good={s === "green" || s === "done" ? true : s === "amber" || s === "red" ? false : undefined} /> : undefined} />)}
     </div>
@@ -138,7 +138,7 @@ export function MapLayout({ lp }: { lp: LP }) {
         {lp.settings.executive.resources && rail("Team", optionsOf(lp, "team", i => i.team), f.team, v => setF({ ...f, team: v }))}
         {rail("Go-live", optionsOf(lp, "quarter", i => i.quarter, sortQuarters), f.quarter, v => setF({ ...f, quarter: v }))}
         {lp.historyOn && rail("Go-live changes", movedOptions(lp), f.moved, v => setF({ ...f, moved: v }))}
-        {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && rail("Declared vs data", declOptions(lp), f.decl, v => setF({ ...f, decl: v }))}
+        {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && rail("RAG check", declOptions(lp), f.decl, v => setF({ ...f, decl: v }))}
       </aside>
       <div className="ex-mapmain"><KpiRow lp={lp} />
         <div className="ex-mapcols">

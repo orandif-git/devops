@@ -98,8 +98,42 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
       <button className="btn" onClick={() => setX({ progress: [...x.progress, { id: "pg" + Date.now().toString(36), kind: "percentField" }] })}><IconPlus /> Add a progress source</button>
       </section>
       <section className="set-sec">
-        <h4><span className="num">4</span> Status from the data (On track · Needs attention · At risk)</h4>
-        <div className="why">Worked out from dates and progress (when a declared status is the status shown, this is the data check). Set the limits here, override them per Epic field or per category, and add optional signals.</div>
+        <h4><span className="num">4</span> Declared status (owner’s RAG)</h4>
+        <div className="why">The status the Epic owner enters in a custom field (RAG, Delivery Status). Recommended: it is the status shown, and the data in the next section only checks it.</div>
+      <div className="row">
+        <FieldPick label="Declared status field (for example Delivery Status or RAG)" value={x.declaredField} fields={p.fields} accept={f => isCategoryType(f.type)} placeholder="Custom.DeliveryStatus" onChange={v => setX({ declaredField: v })} />
+      </div>
+      {x.declaredField && <>
+        <div className="row">
+          <label className="field" style={{ width: 340 }}><span>Where the status shown comes from</span>
+            <select value={x.statusSource} onChange={e => setX({ statusSource: e.target.value as Exec["statusSource"] })}>
+              <option value="data">From the data (dates and progress); the declared status is only shown</option>
+              <option value="rag">From the declared status (RAG) only</option>
+              <option value="rag-check">From the declared status, with the data as a check</option></select></label>
+        </div>
+        <div className="help">{x.statusSource === "rag" ? "The declared status is the status. Epics without a recognised value show as Not assessed. Done and Not started Epics keep their own state." : x.statusSource === "rag-check" ? "The declared status is the status; the data status stays in the Epic panel and Epics where the owner is more optimistic than the data are flagged (filter and card). Epics without a value use the data status." : "The status is worked out from the data (section 4). The declared status is shown next to it, with a Declared vs data filter."}</div>
+        <div className="help"><b>Which values mean what</b> (comma separated; leave empty to recognise words such as green, on track, amber, yellow, red, at risk, delayed)</div>
+        <div className="row">
+          {([["ragGreen", "Green values"], ["ragAmber", "Amber values"], ["ragRed", "Red values"]] as const).map(([k, l]) => <label className="field" key={k} style={{ flex: 1, minWidth: 200 }}><span>{l}</span><input defaultValue={x[k].join(", ")} key={x[k].join("|")} onBlur={e => setX({ [k]: csv(e.target.value) } as Partial<Exec>)} /></label>)}
+        </div></>}
+      </section>
+      <section className="set-sec">
+        <h4><span className="num">5</span> Status from the data (On track · Needs attention · At risk)</h4>
+        <div className="why">Used when an Epic has no RAG, and as the check on the RAG. At risk = the go-live date has passed and the Epic is not done. Needs attention = progress is behind the time used.</div>
+      <div className="row">
+        {num("gapAmberPts", "Needs attention when progress is behind the time used by more than (points)", 380)}
+      </div>
+      <div className="help">Example: 60% of the time has passed and 40% is done = 20 points behind.</div>
+      <div className="help" style={{ marginTop: 10 }}><b>More signals</b> (optional): an Epic not updated for a while, or flagged as blocked, needs attention.</div>
+      <div className="row">
+        {num("staleDays", "Not updated for days = attention (0 = off)", 240)}
+      </div>
+      <div className="row">
+        <FieldPick label="Blocker or risk flag field" value={x.blockerField} fields={p.fields} accept={f => isCategoryType(f.type) || f.type === "boolean"} placeholder="Custom.Blocked" onChange={v => setX({ blockerField: v })} />
+        <label className="field" style={{ flex: 1, minWidth: 240 }}><span>Counts as flagged (comma separated; empty = any value except empty, No, False, None, 0)</span><input defaultValue={x.blockerValues.join(", ")} key={x.blockerValues.join("|")} onBlur={e => setX({ blockerValues: csv(e.target.value) })} /></label>
+      </div>
+      <details className="adv" open={x.advanced}><summary>Advanced rules: forecast days late, limits per Epic field or per category</summary>
+        <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={x.advanced} onChange={e => setX({ advanced: e.target.checked })} /> <b>Use the advanced rules</b> (off = only the simple rules above)</label>
       <div className="help"><b>When is an Epic at risk?</b> Needs attention = above the first limit; at risk = above the second.</div>
       <div className="row">
         {num("slipAmberDays", "Forecast days late: attention")}{num("slipRedDays", "Forecast days late: at risk")}{num("gapAmberPts", "Progress behind time (points): attention", 200)}{num("gapRedPts", "Progress behind time (points): at risk", 200)}
@@ -128,34 +162,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
           </div><div className="help">Leave a limit empty to keep the global one (shown in grey). The first matching rule that sets a limit is used.</div></div>);
       })}
       <button className="btn" onClick={() => setX({ rules: [...x.rules, { id: "r" + Date.now().toString(36), field: "", value: "" }] })}><IconPlus /> Add a rule</button>
-      <div className="help" style={{ marginTop: 10 }}><b>More signals</b> (optional): an Epic not updated for a while, or flagged as blocked, needs attention.</div>
-      <div className="row">
-        {num("staleDays", "Not updated for days = attention (0 = off)", 240)}
-      </div>
-      <div className="row">
-        <FieldPick label="Blocker or risk flag field" value={x.blockerField} fields={p.fields} accept={f => isCategoryType(f.type) || f.type === "boolean"} placeholder="Custom.Blocked" onChange={v => setX({ blockerField: v })} />
-        <label className="field" style={{ flex: 1, minWidth: 240 }}><span>Counts as flagged (comma separated; empty = any value except empty, No, False, None, 0)</span><input defaultValue={x.blockerValues.join(", ")} key={x.blockerValues.join("|")} onBlur={e => setX({ blockerValues: csv(e.target.value) })} /></label>
-      </div>
-      </section>
-      <section className="set-sec">
-        <h4><span className="num">5</span> Declared status (owner’s RAG)</h4>
-        <div className="why">The status the Epic owner enters in a custom field (RAG, Delivery Status). It is shown next to the status from the data, with a “Declared vs data” filter.</div>
-      <div className="row">
-        <FieldPick label="Declared status field (for example Delivery Status or RAG)" value={x.declaredField} fields={p.fields} accept={f => isCategoryType(f.type)} placeholder="Custom.DeliveryStatus" onChange={v => setX({ declaredField: v })} />
-      </div>
-      {x.declaredField && <>
-        <div className="row">
-          <label className="field" style={{ width: 340 }}><span>Where the status shown comes from</span>
-            <select value={x.statusSource} onChange={e => setX({ statusSource: e.target.value as Exec["statusSource"] })}>
-              <option value="data">From the data (dates and progress); the declared status is only shown</option>
-              <option value="rag">From the declared status (RAG) only</option>
-              <option value="rag-check">From the declared status, with the data as a check</option></select></label>
-        </div>
-        <div className="help">{x.statusSource === "rag" ? "The declared status is the status. Epics without a recognised value show as Not assessed. Done and Not started Epics keep their own state." : x.statusSource === "rag-check" ? "The declared status is the status; the data status stays in the Epic panel and Epics where the owner is more optimistic than the data are flagged (filter and card). Epics without a value use the data status." : "The status is worked out from the data (section 4). The declared status is shown next to it, with a Declared vs data filter."}</div>
-        <div className="help"><b>Which values mean what</b> (comma separated; leave empty to recognise words such as green, on track, amber, yellow, red, at risk, delayed)</div>
-        <div className="row">
-          {([["ragGreen", "Green values"], ["ragAmber", "Amber values"], ["ragRed", "Red values"]] as const).map(([k, l]) => <label className="field" key={k} style={{ flex: 1, minWidth: 200 }}><span>{l}</span><input defaultValue={x[k].join(", ")} key={x[k].join("|")} onBlur={e => setX({ [k]: csv(e.target.value) } as Partial<Exec>)} /></label>)}
-        </div></>}
+      </details>
       </section>
       <section className="set-sec">
         <h4><span className="num">6</span> Portfolio map and resources</h4>

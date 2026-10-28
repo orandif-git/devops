@@ -105,3 +105,5 @@ span.ex-bar { height: 7px; border-radius: 99px; background: #e8ecf4; } span.ex-b
 .ex-cat .cl { font-size: 12px; font-weight: 700; right: 4px; overflow: hidden; text-overflow: ellipsis; color: var(--fg); top: 2px; left: 8px; }
 .ex-blk { font-size: 12px; } .ex-blk b { display: block; font-size: 12px; line-height: 1.25; } .ex-blk span { font-size: 11px; opacity: .92; }
 .ex-road .gb { cursor: pointer; } .ex-road .gb:hover { filter: brightness(1.08); }
+
+.ex-check { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-weight: 500; }
