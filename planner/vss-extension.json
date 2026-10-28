@@ -69,6 +69,19 @@
       }
     },
     {
+      "id": "executive-hub",
+      "type": "ms.vss-web.hub",
+      "description": "Executive Dashboard: every Epic with its status, reasons and forecast.",
+      "targets": [
+        "ms.vss-work-web.work-hub-group"
+      ],
+      "properties": {
+        "name": "Executive Dashboard",
+        "order": 61,
+        "uri": "dist/exec/index.html"
+      }
+    },
+    {
       "id": "widget-tile",
       "type": "ms.vss-dashboards-web.widget",
       "description": "Share of available hours that is booked this month, with the number of people in each colour band.",

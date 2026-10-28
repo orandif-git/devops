@@ -47,7 +47,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
   return (
     <div>
       <h3>Executive dashboard</h3>
-      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={x.enabled} onChange={e => setX({ enabled: e.target.checked })} /> <b>Enable the Executive Dashboard</b> (adds an “Executive” tab to the Resource Planner)</label>
+      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={x.enabled} onChange={e => setX({ enabled: e.target.checked })} /> <b>Enable the Executive Dashboard</b> (the “Executive Dashboard” board under Boards shows it; until this is ticked it only shows a “not enabled” message)</label>
       <div className="help">Off by default. When it is off the tab does not appear and the settings below are hidden.</div>
       {!x.enabled ? null : <>
       {problems.length > 0 && <ul className="err" style={{ margin: "4px 0 8px 18px" }}>{problems.map(e => <li key={e}>{e}</li>)}</ul>}

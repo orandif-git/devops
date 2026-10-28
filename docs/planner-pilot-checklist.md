@@ -23,7 +23,7 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 ## 2c. Executive Dashboard
 - [ ] Settings › Executive dashboard: the box **Enable the Executive Dashboard** is off by default; with it off there is no “Executive” tab. Tick it, Save: the tab appears (there is no separate Boards menu item) and the settings below the box become visible.
 - [ ] Settings › Executive dashboard: choose category fields, the go-live date field, one or more progress sources (percent field, completed ÷ total, or ticked rows of a grid with its done column), states and limits. No red "to fix" lines remain.
-- [ ] The **Executive** tab opens and lists every Epic (Epics in the left-out states are not shown). Tiles add up to the portfolio count.
+- [ ] Boards › **Executive Dashboard** (its own board; with the box unticked it shows "not enabled") opens and lists every Epic (Epics in the left-out states are not shown). Tiles add up to the portfolio count.
 - [ ] Three Epics hand-checked: status, forecast finish, go-live date and progress match the Epic's fields (and the ticked rows of its grid when that source is used).
 - [ ] Ask: “How many <category value> projects are at risk?”, “<value> RAG”, “What is late?” update the chips, tiles and list; every number matches the list.
 - [ ] Clicking an Epic opens the detail panel with the reasons; “Open the Epic details” opens the Epic dialog.
@@ -65,5 +65,5 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Group by Epic › Team › Person lists all Epics first (closed); opening an Epic shows its teams, then the people and their hours on that Epic.
 - [ ] Settings › Planner opens in / Group the plan by / Show figures as change what the Planner starts with.
 - [ ] Epic Gantt: an Epic in a state grouped under In Progress (e.g. Delivery Committed) is blue, Completed is green, Cancelled grey, and one past its target date (not completed) is red. The Gantt field set in Settings shows at the end of each bar.
-- [ ] A non-administrator sees only Planner (and Executive when enabled); Settings and Data & diagnostics are hidden.
+- [ ] A non-administrator sees only the Planner tab; Settings and Data & diagnostics are hidden.
 - [ ] The Filters button opens its drawer fully, also at the right edge of the page.

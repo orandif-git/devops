@@ -9,7 +9,7 @@ import { ExecDashboard } from "./ExecDashboard";
 
 const AUTO_REFRESH_MS = 10 * 60 * 1000;
 
-/** The Executive Dashboard tab: a live header, the set-up check, the saved-query picker, a refresh that also runs by itself, and the dashboard. */
+/** The Executive Dashboard page: a live header, the set-up check, the saved-query picker, a refresh that also runs by itself, and the dashboard. */
 export function ExecPage(p: {
   project: { id: string; name: string }; settings: PlannerSettings; loaded?: Loaded; busy: boolean; progress?: LoadProgress; error: string;
   queries: SavedQuery[]; queryId: string; onQuery(id: string): void; onReload(force: boolean): void;
