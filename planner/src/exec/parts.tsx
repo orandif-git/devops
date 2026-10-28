@@ -40,7 +40,7 @@ export function Drawer(p: { item?: Item; onClose(): void; onDetails(id: number):
   return (
     <aside className={"ex-drawer" + (i ? " open" : "")} role="complementary" aria-label="Epic details" aria-hidden={!i}>
       {i && r && <>
-        <button className="btn ex-x" aria-label="Close details" onClick={p.onClose}><IconClose /></button>
+        <button className="modal-x" aria-label="Close details" title="Close (Esc)" onClick={p.onClose}><IconClose /></button>
         <h3>{i.title}</h3><div className="muted">{i.id} · {i.state}</div>
         <p><StatusPill s={i.status} /></p>
         <ul className="ex-why">{r.reasons.map(x => <li key={x}>{x}</li>)}</ul>

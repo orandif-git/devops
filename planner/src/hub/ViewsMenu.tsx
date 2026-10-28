@@ -23,6 +23,7 @@ export function ViewsMenu(p: {
     <span className="cc-anchor">
       <button className="pill" aria-expanded={open} onClick={() => setOpen(!open)}><IconStar filled /> Views{p.views.length ? ` (${p.views.length})` : ""}</button>
       {open && <div className="cc-drawer views" role="dialog" aria-label="My views" style={{ width: 340 }}>
+        <button className="modal-x" aria-label="Close views" title="Close" onClick={() => setOpen(false)}><IconClose /></button>
         <h4>My views <span className="muted" style={{ fontWeight: 400 }}>· private to you</span></h4>
         {!p.views.length && <div className="muted" style={{ marginBottom: 8 }}>No saved views yet. Set up the Planner the way you like it and save it below.</div>}
         {p.views.map(v => <div key={v.id} className="vrow">

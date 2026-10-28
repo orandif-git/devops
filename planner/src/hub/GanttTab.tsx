@@ -7,7 +7,7 @@ import { progressOf } from "../core/progress";
 import { dimLabel } from "../core/executive";
 import { daysBetween, signed } from "../core/history";
 import { fmtDate } from "../core/dates";
-import { IconDownload, IconStats } from "./icons";
+import { IconClose, IconDownload, IconStats } from "./icons";
 import { PlannerSettings } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { downloadFile } from "../../../src/shared/ado";
@@ -80,7 +80,7 @@ export function GanttTab(p: {
         <button className="btn" onClick={exportCsv} disabled={!total}><IconDownload /> Export CSV</button>
         <span className="muted">{total} Epics shown</span>
         {p.onTiles && <span className="cc-anchor"><button className="pill" aria-expanded={menu} onClick={() => setMenu(!menu)}><IconStats /> Statistics</button>
-          {menu && <div className="cc-drawer" role="dialog" aria-label="Choose the statistics" style={{ width: 280 }}><h4>Statistics shown above the chart</h4>
+          {menu && <div className="cc-drawer" role="dialog" aria-label="Choose the statistics" style={{ width: 280 }}><button className="modal-x" aria-label="Close statistics" title="Close" onClick={() => setMenu(false)}><IconClose /></button><h4>Statistics shown above the chart</h4>
             {TILES.map(t => <label key={t.id} title={t.hint} style={{ display: "flex", gap: 6, padding: "2px 0" }}><input type="checkbox" checked={tileIds.includes(t.id)} onChange={e => p.onTiles!(e.target.checked ? TILES.map(x => x.id).filter(id => id === t.id || tileIds.includes(id)) : tileIds.filter(x => x !== t.id))} />{t.label}</label>)}</div>}</span>}
       </div>
       <div className="keyrow" role="group" aria-label="Filter the Epics by state">{key.cats.flatMap(k => k.states.map(s => <button key={k.c + s} type="button" className={"kbtn" + (legend.includes("s:" + s) ? " on" : legend.length ? " dim" : "")} aria-pressed={legend.includes("s:" + s)} title={`Show only ${s} Epics (${LABEL[k.c]})`} onClick={() => toggleKey("s:" + s)}><i style={{ background: BAR_BG(k.c) }} />{s}</button>))}

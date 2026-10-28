@@ -148,3 +148,4 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .modal { position: relative; } .modal h3 { margin-right: 36px; }
 .modal-x { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 6px; background: none; color: var(--fg2); cursor: pointer; padding: 0; } .modal-x:hover, .modal-x:focus-visible { background: var(--hover); color: var(--fg); }
 .modal .btn, .ex-drawer .btn, .cc .btn, .toolbar .btn { display: inline-flex; align-items: center; gap: 6px; }
+.cc-drawer, .cc-panel { position: relative; } .cc-drawer { position: absolute; } .cc-panel { position: sticky; } .cc-drawer h4:first-of-type, .cc-panel h3:first-of-type { margin-right: 30px; } .ex-drawer .modal-x { top: 12px; right: 12px; }

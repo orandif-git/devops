@@ -184,6 +184,7 @@ export function CommandCenter(p: {
           : <input type="search" aria-label="Find a person" placeholder="Find a person…" value={f.search} onChange={e => set({ search: e.target.value })} />}</label>
         <span className="cc-anchor"><button className="pill" aria-expanded={drawer} onClick={() => setDrawer(!drawer)}><IconFilter /> Filters{extraCount ? ` (${extraCount})` : ""}</button>
           {drawer && <div className="cc-drawer" role="dialog" aria-label="More filters">
+            <button className="modal-x" aria-label="Close filters" title="Close (Esc)" onClick={() => setDrawer(false)}><IconClose /></button>
             <h4>{p.settings.workItemType} state</h4><div className="g">{states.map(s => <label key={s}><input type="checkbox" checked={f.states.includes(s)} onChange={e => set({ states: e.target.checked ? [...f.states, s] : f.states.filter(x => x !== s) })} />{s}</label>)}</div>
             {p.settings.extraFilterFields.map(k => <React.Fragment key={k}><h4>{k.split(".").pop()}</h4><div className="g">{extraValues(k).map(v => { const cur = f.extra[k] ?? []; return <label key={v}><input type="checkbox" checked={cur.includes(v)} onChange={e => set({ extra: { ...f.extra, [k]: e.target.checked ? [...cur, v] : cur.filter(x => x !== v) } })} />{v || "(empty)"}</label>; })}</div></React.Fragment>)}
             <h4>People</h4><div className="g"><label><input type="checkbox" checked={f.showIdle} onChange={e => set({ showIdle: e.target.checked })} />Show people without hours</label></div>
@@ -214,7 +215,7 @@ export function CommandCenter(p: {
           const c = cellOf(selected, sel.month, th); const list = [...(selected.epics[sel.month] ?? [])].sort((a, b) => b.hours - a.hours);
           const ratios = p.months.map(m => cellOf(selected, m, th)); const mx = Math.max(1.2, ...ratios.map(x => (x.ratio !== null && isFinite(x.ratio) ? x.ratio : 0)));
           return <div className="card panel cc-panel" role="complementary" aria-label={`Details for ${shortName(selected.name)}`}>
-            <button className="x" aria-label="Close details" onClick={() => setSel(undefined)}><IconClose /></button>
+            <button className="modal-x" aria-label="Close details" title="Close (Esc)" onClick={() => setSel(undefined)}><IconClose /></button>
             <h3 style={{ margin: 0 }}>{shortName(selected.name)}</h3><div className="muted">{selected.team} · {fmtMonth(p.settings, sel.month)}</div>
             <div className="big">{c.band !== "none" && <Sw b={c.band as Exclude<Band, "none">} />}{pctOf(c.ratio)}<span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>{c.hours} of {c.available ?? "?"} h{c.band !== "none" ? " · " + RAG[c.band as Exclude<Band, "none">].label : ""}</span></div>
             <div className="cc-trend" aria-label="Utilization by month">{ratios.map((x, i) => { const m = p.months[i]; const r = x.ratio !== null && isFinite(x.ratio) ? x.ratio : (x.hours > 0 ? mx : 0);
