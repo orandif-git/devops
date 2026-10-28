@@ -103,6 +103,11 @@ export interface HistorySettings {
   affectStatus: boolean;
 }
 export type ExecLayout = "report" | "map" | "roadmap";
+/** A limit set for the Epics whose field has a value (for example Type = Regulatory); the first matching rule wins, an Epic's own field wins over it. */
+export interface ThresholdRule {
+  id: string; field: string; value: string;
+  slipAmberDays?: number; slipRedDays?: number; gapAmberPts?: number; gapRedPts?: number;
+}
 export interface ExecSettings {
   /** show the Executive Dashboard tab in the Resource Planner (off by default) */
   enabled: boolean;
@@ -126,6 +131,20 @@ export interface ExecSettings {
   minElapsedPct: number;
   /** an Epic counts as likely to deliver at this confidence (%) or more */
   likelyPct: number;
+  /** Epic number fields holding the Epic's own limits (empty = not used); an Epic with a value uses it */
+  tolSlipAmberField: string; tolSlipRedField: string; tolGapAmberField: string; tolGapRedField: string;
+  /** limits for Epics by a field value; the first matching rule wins, then the global limits above */
+  rules: ThresholdRule[];
+  /** the status the Epic owner declares (a field such as Delivery Status or RAG); shown next to the computed status */
+  declaredField: string;
+  /** a number field that sizes the blocks of the portfolio map (empty = every Epic counts as 1) */
+  sizeField: string;
+  /** an Epic not updated for this many days needs attention (0 = off) */
+  staleDays: number;
+  /** a field that flags a blocker or open risk (any value except empty, No, False, None or 0, or only the values listed) */
+  blockerField: string; blockerValues: string[];
+  /** show team, hours booked and the over-capacity check (resource information; off = a pure portfolio view) */
+  resources: boolean;
   /** the layout the dashboard opens in (each person's last choice is remembered for them) */
   layout: ExecLayout;
   /** named filters (conditions on Epics) offered next to the slicers as "Saved filters" */
@@ -138,6 +157,7 @@ export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 10, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
+  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], resources: false,
 });
 
 export const defaultSettings = (): PlannerSettings => ({

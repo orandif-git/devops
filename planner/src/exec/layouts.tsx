@@ -3,7 +3,7 @@ import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
 import { MOVED, signed } from "../core/history";
 import { deltaOf, health, series, Snapshot } from "../core/snapshots";
-import { byStatus, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
+import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Delta, Donut, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
@@ -27,6 +27,7 @@ export function optionsOf(lp: LP, skip: Skip, key: (i: Item) => string, order?: 
 
 const MOVED_ORDER = [MOVED.recent, MOVED.later, MOVED.earlier, MOVED.often, MOVED.same, MOVED.none] as string[];
 /** The "go-live changes" words with the count each would give; an Epic can carry several. */
+export function declOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "decl")); return DECL_ORDER.map(value => ({ value, count: base.filter(i => i.decl === value).length })); }
 export function movedOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "moved")); return MOVED_ORDER.map(value => ({ value, count: base.filter(i => i.moved.includes(value)).length })).filter(o => o.count > 0 || lp.f.moved.includes(o.value)); }
 
 /** All the slicers as pop-up lists (Report and Roadmap layouts). */
@@ -38,9 +39,10 @@ export function Slicers(lp: LP) {
         onChange={v => setF({ ...f, status: SHOWN.filter(s => v.includes(STATUS_NAME[s])) })} />
       <Slicer label="State" options={optionsOf(lp, "state", i => i.state)} selected={f.state} onChange={v => setF({ ...f, state: v })} />
       {lp.fields.map(d => <Slicer key={d} label={dimLabel(d)} options={optionsOf(lp, { dim: d }, i => i.r.dims[d])} selected={f.dims[d] ?? []} onChange={v => setF({ ...f, dims: { ...f.dims, [d]: v } })} />)}
-      <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />
+      {lp.settings.executive.resources && <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />}
       <Slicer label="Go-live" options={optionsOf(lp, "quarter", i => i.quarter, sortQuarters)} selected={f.quarter} onChange={v => setF({ ...f, quarter: v })} />
       {lp.historyOn && <Slicer label="Go-live changes" options={movedOptions(lp)} selected={f.moved} onChange={v => setF({ ...f, moved: v })} />}
+      {lp.settings.executive.declaredField && <Slicer label="Declared vs data" options={declOptions(lp)} selected={f.decl} onChange={v => setF({ ...f, decl: v })} />}
     </div>
   );
 }
@@ -59,6 +61,7 @@ function KpiRow({ lp }: { lp: LP }) {
       <Kpi hero label="Portfolio health" value={score + "%"} detail={`${base.length} Epics · ${act} in delivery`} delta={trend && prevScore !== undefined ? <Delta d={score - prevScore} good /> : undefined} onClick={() => lp.setF({ ...lp.f, status: [] })}
         spark={<svg width="110" height="64" viewBox="0 0 110 64" aria-hidden="true"><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="9" strokeLinecap="round" /><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${C * score / 100} ${C}`} /></svg>} />
       {lp.historyOn && <Kpi c="#8a1f45" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
+      {lp.settings.executive.declaredField && <Kpi c="#b45309" label={<>⚖ Owner more optimistic</>} value={lp.all.filter(i => pass(i, lp.f, "decl") && pass(i, lp.f, "status") && i.decl === DECL_ORDER[0]).length} detail="declared better than the data says" on={lp.f.decl.includes(DECL_ORDER[0])} dim={lp.f.decl.length > 0 && !lp.f.decl.includes(DECL_ORDER[0])} onClick={() => lp.setF({ ...lp.f, decl: toggle(lp.f.decl, DECL_ORDER[0]) })} />}
       {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })}
         spark={trend ? <Spark values={series(snaps, s)} color={COLOR[s]} /> : undefined} delta={trend ? <Delta d={deltaOf(snaps, s)} good={s === "green" || s === "done" ? true : s === "amber" || s === "red" ? false : undefined} /> : undefined} />)}
     </div>
@@ -109,12 +112,13 @@ export function ReportLayout({ lp }: { lp: LP }) {
 
 /** Layout 2: a rail of slicers with counts, a map of the portfolio (block size = hours booked, colour = status) and the Epics that need attention. */
 export function MapLayout({ lp }: { lp: LP }) {
+  RES = lp.settings.executive.resources;
   const { f, setF, items } = lp, ref = React.useRef<HTMLDivElement>(null), [w, setW] = React.useState(700);
   React.useEffect(() => { const el = ref.current; if (!el) return; const size = () => setW(el.clientWidth || 700); size(); if (typeof ResizeObserver === "undefined") { window.addEventListener("resize", size); return () => window.removeEventListener("resize", size); } const ro = new ResizeObserver(size); ro.observe(el); return () => ro.disconnect(); }, []);
   const rail = (title: string, opts: { value: string; count: number; color?: string }[], sel: string[], on: (v: string[]) => void) => <div key={title} className="ex-railgrp"><h5>{title}{sel.length > 0 && <button className="lk" onClick={() => on([])}>clear</button>}</h5>
     {opts.map(o => <label key={o.value}><input type="checkbox" checked={sel.includes(o.value)} onChange={() => on(toggle(sel, o.value))} />{o.color && <i className="dot" style={{ background: o.color }} />}<span className="t">{o.value}</span><span className="n">{o.count}</span></label>)}</div>;
   const d0 = lp.fields[0], H = 440;
-  const groups = Array.from(new Set(items.map(i => i.r.dims[d0]))).map(g => ({ g, list: items.filter(i => i.r.dims[d0] === g).sort((a, b) => b.hours - a.hours) })).sort((a, b) => b.list.reduce((s, i) => s + wt(i), 0) - a.list.reduce((s, i) => s + wt(i), 0));
+  const groups = Array.from(new Set(items.map(i => i.r.dims[d0]))).map(g => ({ g, list: items.filter(i => i.r.dims[d0] === g).sort((a, b) => wt(b) - wt(a)) })).sort((a, b) => b.list.reduce((s, i) => s + wt(i), 0) - a.list.reduce((s, i) => s + wt(i), 0));
   const half = Math.ceil(groups.length / 2), rows = [groups.slice(0, half), groups.slice(half)].filter(r => r.length);
   const rowT = rows.map(r => r.reduce((s, g) => s + g.list.reduce((a, i) => a + wt(i), 0), 0)), allT = rowT.reduce((a, b) => a + b, 0) || 1;
   const blocks: React.ReactNode[] = []; let y = 0;
@@ -131,13 +135,14 @@ export function MapLayout({ lp }: { lp: LP }) {
         {rail("Status", SHOWN.map(s => ({ value: STATUS_NAME[s], count: lp.all.filter(i => pass(i, f, "status") && i.status === s).length, color: COLOR[s] })), f.status.map(s => STATUS_NAME[s]), v => setF({ ...f, status: SHOWN.filter(s => v.includes(STATUS_NAME[s])) }))}
         {rail("State", optionsOf(lp, "state", i => i.state), f.state, v => setF({ ...f, state: v }))}
         {lp.fields.map(d => rail(dimLabel(d), optionsOf(lp, { dim: d }, i => i.r.dims[d]), f.dims[d] ?? [], v => setF({ ...f, dims: { ...f.dims, [d]: v } })))}
-        {rail("Team", optionsOf(lp, "team", i => i.team), f.team, v => setF({ ...f, team: v }))}
+        {lp.settings.executive.resources && rail("Team", optionsOf(lp, "team", i => i.team), f.team, v => setF({ ...f, team: v }))}
         {rail("Go-live", optionsOf(lp, "quarter", i => i.quarter, sortQuarters), f.quarter, v => setF({ ...f, quarter: v }))}
         {lp.historyOn && rail("Go-live changes", movedOptions(lp), f.moved, v => setF({ ...f, moved: v }))}
+        {lp.settings.executive.declaredField && rail("Declared vs data", declOptions(lp), f.decl, v => setF({ ...f, decl: v }))}
       </aside>
       <div className="ex-mapmain"><KpiRow lp={lp} />
         <div className="ex-mapcols">
-          <section className="ex-card"><h4>Where is the portfolio at risk? <span>block size = hours booked · colour = status · {items.length} Epics</span></h4>
+          <section className="ex-card"><h4>Where is the portfolio at risk? <span>block size = {lp.settings.executive.resources ? "hours booked" : lp.settings.executive.sizeField ? sizeName(lp.settings.executive.sizeField) : "one per Epic"} · colour = status · {items.length} Epics</span></h4>
             <div className="ex-map" ref={ref} style={{ height: H }}>{blocks}{!items.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div></section>
           <section className="ex-card"><h4>Needs your attention <span>worst first</span></h4>
             <div className="ex-att">{attention.map(i => <button key={i.id} type="button" className="it" onClick={() => lp.open(i)}><Sw s={i.status} /><div><b>{i.title}</b><div className="muted">{i.r.dims[d0]} · {i.r.reasons[0]}</div><ProgressBar i={i} /></div><span className="ex-slip">{i.r.slip > 0 ? `+${i.r.slip}d` : ""}</span></button>)}
@@ -146,7 +151,9 @@ export function MapLayout({ lp }: { lp: LP }) {
     </div>
   );
 }
-const wt = (i: Item) => Math.max(40, i.hours);       // an Epic without hours still gets a block
+let RES = false;
+const sizeName = (f: string) => dimLabel(f).toLowerCase();
+const wt = (i: Item) => (RES ? Math.max(40, i.hours) : Math.max(0.01, i.r.size));       // hours when resources are shown, else the size field (or 1)
 
 /** Layout 3: a headline in words, the status bar, and a roadmap, scorecards or table. */
 export function RoadmapLayout({ lp }: { lp: LP }) {

@@ -1,6 +1,6 @@
 import { AvailabilityLike, buildPeople, cellOf, noFilters } from "./model";
 import { GridDone, progressOf } from "./progress";
-import { Booking, EpicRecord, PlannerSettings } from "./types";
+import { Booking, EpicRecord, ExecSettings, PlannerSettings } from "./types";
 import { Hist, signed, summarize } from "./history";
 
 export type ExecStatus = "green" | "amber" | "red" | "idle" | "unknown" | "done";
@@ -33,7 +33,42 @@ export interface ExecEpic {
   reasons: string[];
   /** 0–100, null when not assessed */
   conf: number | null;
+  /** the limits used for this Epic and where they came from ("the Epic's own field", a rule, or the global limits) */
+  limits: Limits;
+  /** the status the owner declares (when a field is chosen and has a value) and how it compares with the computed status */
+  declared?: "green" | "amber" | "red"; declaredText?: string; compare?: "same" | "optimistic" | "cautious";
+  /** the size of the Epic on the portfolio map (the size field, else 1) */
+  size: number;
 }
+export interface Limits { slipAmber: number; slipRed: number; gapAmber: number; gapRed: number; from: string[] }
+
+const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+const valueOf = (e: EpicRecord, f: string) => (f === "System.AreaPath" ? e.areaPath : f === "System.State" ? e.state : (e.extra[f] ?? "")).trim();
+const numOf = (v: string) => { const m = /-?\d+([.,]\d+)?/.exec(v); return m ? Number(m[0].replace(",", ".")) : undefined; };
+/** The limits of one Epic: its own field, else the first matching rule, else the global limit (decided for each of the four limits). */
+export function limitsFor(e: EpicRecord, x: ExecSettings): Limits {
+  const rule = (k: "slipAmberDays" | "slipRedDays" | "gapAmberPts" | "gapRedPts") => x.rules.find(q => q[k] !== undefined && q.value !== "" && same(valueOf(e, q.field), q.value) || (q[k] !== undefined && q.value === "" && valueOf(e, q.field) === ""));
+  const from: string[] = [];
+  const pick = (own: string, k: "slipAmberDays" | "slipRedDays" | "gapAmberPts" | "gapRedPts", name: string) => {
+    const o = own ? numOf(valueOf(e, own)) : undefined; if (o !== undefined) { from.push(`${name}: this Epic's own limit`); return o; }
+    const r = rule(k); if (r) { from.push(`${name}: rule ${dimName(r.field)} = ${r.value || "(empty)"}`); return r[k]!; }
+    return x[k];
+  };
+  const l = { slipAmber: pick(x.tolSlipAmberField, "slipAmberDays", "attention days"), slipRed: pick(x.tolSlipRedField, "slipRedDays", "at-risk days"), gapAmber: pick(x.tolGapAmberField, "gapAmberPts", "attention points"), gapRed: pick(x.tolGapRedField, "gapRedPts", "at-risk points") };
+  if (l.slipAmber > l.slipRed) l.slipAmber = l.slipRed; if (l.gapAmber > l.gapRed) l.gapAmber = l.gapRed;
+  return { ...l, from };
+}
+const dimName = (f: string) => (f === "System.AreaPath" ? "Area" : (f.split(".").pop() ?? f).replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
+/** green / amber / red from the words people use in a status field */
+export function declaredOf(v: string): "green" | "amber" | "red" | undefined {
+  const t = v.trim().toLowerCase(); if (!t) return undefined;
+  if (/(^|\b)(red|at risk|off track|critical|late|delayed|blocked)(\b|$)/.test(t)) return "red";
+  if (/(^|\b)(amber|yellow|orange|at-risk watch|watch|needs attention|caution|some risk)(\b|$)/.test(t)) return "amber";
+  if (/(^|\b)(green|on track|on-track|healthy|good|ok|on schedule)(\b|$)/.test(t)) return "green";
+  return undefined;
+}
+const RANK = { green: 0, amber: 1, red: 2 } as const;
+const flagged = (v: string, only: string[]) => (only.length ? only.some(o => same(o, v)) : !!v && !/^(no|false|none|n\/a|0)$/i.test(v));
 
 const DAY = 86400000;
 const ts = (v?: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v ?? ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : undefined; };
@@ -50,7 +85,7 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
   // who is over capacity this month, and on which Epics they have hours
   const overBy = new Map<number, string[]>();
   const people = buildPeople(p.bookings, p.epics, p.avail, [month], noFilters());
-  for (const pp of people) if (cellOf(pp, month, s.thresholds).band === "over") for (const e of pp.epics[month] ?? []) overBy.set(e.epicId, [...(overBy.get(e.epicId) ?? []), pp.name]);
+  if (x.resources) for (const pp of people) if (cellOf(pp, month, s.thresholds).band === "over") for (const e of pp.epics[month] ?? []) overBy.set(e.epicId, [...(overBy.get(e.epicId) ?? []), pp.name]);
   let ignored = 0, noGoLive = 0, noProgress = 0;
   const rows: ExecEpic[] = [];
   for (const e of p.epics) {
@@ -60,7 +95,9 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const start = ts(e.start);
     const goLive = ts(x.goLiveField ? e.extra[x.goLiveField] : e.target);
     const pr = progressOf(e, x, p.gridDone[e.id], s.sources);
-    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null };
+    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: limitsFor(e, x), size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
+    const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
+    const dv = x.declaredField ? valueOf(e, x.declaredField) : ""; row.declaredText = dv || undefined; row.declared = declaredOf(dv);
     const reasons = row.reasons;
     if (goLive === undefined) noGoLive++;
     if (pr === undefined) noProgress++;
@@ -77,19 +114,22 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     let score = 0;
     if (row.late) { score = 2; reasons.push(`Past its go-live date by ${Math.round((today - goLive) / DAY)} days and not done`); }
     if (row.hold) { score = Math.max(score, 1); reasons.push("On hold"); }
-    if (!row.late && row.slip > x.slipRedDays) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live`); }
-    else if (!row.late && row.slip > x.slipAmberDays) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live`); }
-    if (!row.late && gap > x.gapRedPts) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used`); }
-    else if (!row.late && gap > x.gapAmberPts) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used`); }
+    if (!row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
+    else if (!row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
+    if (!row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    else if (!row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed.slice(0, 10)); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
+    if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimName(x.blockerField)} = ${bv}`); } }
     const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
     if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }
-    if (row.over.length) { score = Math.max(score, 1); reasons.push(`${row.over.length} ${row.over.length > 1 ? "people are" : "person is"} booked over capacity on this Epic this month`); }
-    if (prog === undefined && !row.late && !row.hold) { row.status = "unknown"; reasons.unshift("No progress value, so only the dates can be checked"); if (!row.over.length) { rows.push(row); continue; } }
+    if (x.resources && row.over.length) { score = Math.max(score, 1); reasons.push(`${row.over.length} ${row.over.length > 1 ? "people are" : "person is"} booked over capacity on this Epic this month`); }
+    if (prog === undefined && !row.late && !row.hold) { row.status = "unknown"; reasons.unshift("No progress value, so only the dates can be checked"); if (!(x.resources && row.over.length)) { rows.push(row); continue; } }
     row.status = score === 2 ? "red" : score === 1 ? "amber" : prog === undefined ? "unknown" : "green";
     row.conf = row.late ? 4 : Math.max(5, Math.min(99, Math.round(97 - Math.max(0, row.slip) * .45 - Math.max(0, gap) * .4 - row.over.length * 6 - (row.hold ? 20 : 0))));
     if (row.status === "green") reasons.push(pr ? `Progress ${pr.pct}% against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : "On track");
     rows.push(row);
   }
+  for (const r of rows) if (r.declared && (r.status === "green" || r.status === "amber" || r.status === "red")) { const d = RANK[r.declared] - RANK[r.status]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; }
   return { rows, ignored, noGoLive, noProgress };
 }
 

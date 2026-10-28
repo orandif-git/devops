@@ -67,8 +67,8 @@ export function ExecDashboard(p: {
   const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: L?.snapshots };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setDensity(v.density); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setDensity(v.density); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -114,7 +114,7 @@ export function ExecDashboard(p: {
       {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {built && (built.noGoLive > 0 || built.noProgress > 0) && <div className="muted" style={{ marginBottom: 6 }}>{built.noGoLive} Epic(s) have no go-live date{built.noProgress ? `; ${built.noProgress} have no progress value${x.progress.length ? "" : " (no progress source is set up yet)"}; they are assessed on dates only` : ""}.</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
-      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} hist={eh.hist} histState={eh.state} histError={eh.error} />
+      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} res={x.resources} hist={eh.hist} histState={eh.state} histError={eh.error} />
       {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog history={{ field: goLiveField, hist: all.find(i => i.id === dialog)?.hist, allRead: historyOn }} settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
     </div>
   );

@@ -2,7 +2,7 @@ import * as React from "react";
 import { IconClose, IconDown, IconPlus, IconSearch, IconTrash, IconUp } from "./icons";
 import { isCategoryType, isDateType, isNumberType } from "../core/fieldTypes";
 import { validateExec } from "../core/settings";
-import { ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource } from "../core/types";
+import { ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource, ThresholdRule } from "../core/types";
 import { FieldInfo } from "../data/fields";
 import { sampleGrid } from "../data/sample";
 import { ColumnGuess } from "../core/detect";
@@ -93,6 +93,42 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
         {num("slipAmberDays", "Forecast days late: attention")}{num("slipRedDays", "Forecast days late: at risk")}{num("gapAmberPts", "Progress behind time (points): attention", 200)}{num("gapRedPts", "Progress behind time (points): at risk", 200)}
         {num("minElapsedPct", "Forecast only after % of time used", 200)}{num("likelyPct", "Likely to deliver at confidence %", 200)}
       </div>
+      <div className="help" style={{ marginTop: 10 }}><b>Limits that follow the Epic</b>. For each Epic the most specific limit wins: the Epic's own field, then the first matching rule below, then the limits above. The Epic panel says which one was used.</div>
+      <div className="row">
+        <FieldPick label="Epic's own limit: attention days (number field)" value={x.tolSlipAmberField} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Custom.SlipTolerance" onChange={v => setX({ tolSlipAmberField: v })} />
+        <FieldPick label="at-risk days" value={x.tolSlipRedField} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Custom.SlipLimit" onChange={v => setX({ tolSlipRedField: v })} />
+        <FieldPick label="attention points" value={x.tolGapAmberField} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Custom.GapTolerance" onChange={v => setX({ tolGapAmberField: v })} />
+        <FieldPick label="at-risk points" value={x.tolGapRedField} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Custom.GapLimit" onChange={v => setX({ tolGapRedField: v })} />
+      </div>
+      {x.rules.map((q, i) => {
+        const setQ = (patch: Partial<ThresholdRule>) => setX({ rules: x.rules.map((y, j) => (j === i ? { ...y, ...patch } : y)) });
+        const nm = (k: "slipAmberDays" | "slipRedDays" | "gapAmberPts" | "gapRedPts", label: string) => <label className="field" style={{ width: 120 }}><span>{label}</span><input type="number" min={0} value={q[k] ?? ""} placeholder={String(x[k])} onChange={e => setQ({ [k]: e.target.value === "" ? undefined : Number(e.target.value) } as Partial<ThresholdRule>)} /></label>;
+        return (
+          <div className="card" key={q.id}><div className="row">
+            <span className="badge">{i + 1}</span>
+            <FieldPick label="When this field" value={q.field} fields={p.fields} accept={f => isCategoryType(f.type) || f.referenceName === "System.AreaPath"} placeholder="Custom.Type" onChange={v => setQ({ field: v })} />
+            <label className="field" style={{ width: 180 }}><span>equals</span><input defaultValue={q.value} key={q.id + q.value} placeholder="Regulatory" onBlur={e => setQ({ value: e.target.value.trim() })} /></label>
+            {nm("slipAmberDays", "Attention days")}{nm("slipRedDays", "At-risk days")}{nm("gapAmberPts", "Attention points")}{nm("gapRedPts", "At-risk points")}
+            <span style={{ flex: 1 }} />
+            <button className="btn icon" aria-label="Move up" disabled={i === 0} onClick={() => { const a = [...x.rules]; [a[i - 1], a[i]] = [a[i], a[i - 1]]; setX({ rules: a }); }}><IconUp /></button>
+            <button className="btn icon" aria-label="Move down" disabled={i === x.rules.length - 1} onClick={() => { const a = [...x.rules]; [a[i + 1], a[i]] = [a[i], a[i + 1]]; setX({ rules: a }); }}><IconDown /></button>
+            <button className="btn danger" onClick={() => setX({ rules: x.rules.filter((_, j) => j !== i) })}><IconTrash /> Remove</button>
+          </div><div className="help">Leave a limit empty to keep the global one (shown in grey). The first matching rule that sets a limit is used.</div></div>);
+      })}
+      <button className="btn" onClick={() => setX({ rules: [...x.rules, { id: "r" + Date.now().toString(36), field: "", value: "" }] })}><IconPlus /> Add a rule</button>
+
+      <div className="help" style={{ marginTop: 10 }}><b>More portfolio signals</b> (all optional)</div>
+      <div className="row">
+        <FieldPick label="Declared status field (for example Delivery Status or RAG)" value={x.declaredField} fields={p.fields} accept={f => isCategoryType(f.type)} placeholder="Custom.DeliveryStatus" onChange={v => setX({ declaredField: v })} />
+        <FieldPick label="Map block size (number field; empty = one per Epic)" value={x.sizeField} fields={p.fields} accept={f => isNumberType(f.type)} placeholder="Custom.Budget" onChange={v => setX({ sizeField: v })} />
+        {num("staleDays", "Not updated for days = attention (0 = off)", 240)}
+      </div>
+      <div className="row">
+        <FieldPick label="Blocker or risk flag field" value={x.blockerField} fields={p.fields} accept={f => isCategoryType(f.type) || f.type === "boolean"} placeholder="Custom.Blocked" onChange={v => setX({ blockerField: v })} />
+        <label className="field" style={{ flex: 1, minWidth: 240 }}><span>Counts as flagged (comma separated; empty = any value except empty, No, False, None, 0)</span><input defaultValue={x.blockerValues.join(", ")} key={x.blockerValues.join("|")} onBlur={e => setX({ blockerValues: csv(e.target.value) })} /></label>
+      </div>
+      <div className="help">The declared status is read by its words (green, on track, amber, yellow, red, at risk and similar). The dashboard shows it next to the computed status and flags Epics where the owner is more optimistic than the data.</div>
+      <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={x.resources} onChange={e => setX({ resources: e.target.checked })} /> Show resource information (team, hours booked, and “over capacity” counts towards attention). Off = a pure portfolio view.</label>
       <ExecQueries s={s} onChange={p.onChange} />
       </>}
     </div>

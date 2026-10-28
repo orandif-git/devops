@@ -55,8 +55,38 @@ describe("executive status", () => {
   it("counts people booked over capacity on an Epic this month as needing attention", () => {
     const avail = { records: [{ key: "ann", name: "Ann" }], hours: () => 100, team: () => "T" };
     const bookings = [{ epicId: 2, sourceId: "g", person: "ann", personName: "Ann", month: "2026-10", hours: 150 }];
-    const r = buildExec({ epics, gridDone: {}, bookings, avail, settings, today: TODAY });
+    const r = buildExec({ epics, gridDone: {}, bookings, avail, settings: { ...settings, executive: { ...settings.executive, resources: true } }, today: TODAY });
     expect(by(r, 2).status).toBe("amber"); expect(by(r, 2).over).toEqual(["Ann"]);
+    const off = buildExec({ epics, gridDone: {}, bookings, avail, settings, today: TODAY });                                       // a pure portfolio view ignores capacity
+    expect(by(off, 2).status).toBe("green"); expect(by(off, 2).over).toEqual([]);
+  });
+  it("takes the limits from the Epic's own field, then a rule by category, then the global limits", () => {
+    const ex = (o: object) => ({ ...settings, executive: { ...settings.executive, ...o } });
+    const base = by(buildExec({ epics, gridDone: {}, bookings: [], avail: none, settings, today: TODAY }), 2);
+    expect(base.status).toBe("green");
+    const rule = buildExec({ epics, gridDone: {}, bookings: [], avail: none, settings: ex({ rules: [{ id: "r", field: "Custom.Type", value: "regulatory", gapAmberPts: 0, gapRedPts: 1 }] }), today: TODAY });
+    expect(by(rule, 2).limits.from.join()).toContain("rule Type = regulatory");                // a rule applies (case does not matter)
+    expect(by(rule, 3).limits.from).toEqual([]);                                               // other Epics keep the global limits
+    const own = epics.map(e => (e.id === 2 ? { ...e, extra: { ...e.extra, "Custom.Tol": "0", "Custom.Lim": "0" } } : e));
+    const o = buildExec({ epics: own, gridDone: {}, bookings: [], avail: none, settings: ex({ tolGapAmberField: "Custom.Tol", tolGapRedField: "Custom.Lim", tolSlipAmberField: "Custom.Tol", tolSlipRedField: "Custom.Lim" }), today: TODAY });
+    expect(by(o, 2).limits.from.join()).toContain("own limit");
+    expect(by(o, 1).limits.from).toEqual([]);
+  });
+  it("compares the owner's declared status with the computed one", () => {
+    const ds = { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG" } };
+    const e2 = epics.map(e => (e.id === 1 ? { ...e, extra: { ...e.extra, "Custom.RAG": "Green" } } : e.id === 2 ? { ...e, extra: { ...e.extra, "Custom.RAG": "On track" } } : e));
+    const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: ds, today: TODAY });
+    expect(by(r, 1).compare).toBe("optimistic"); expect(by(r, 2).compare).toBe("same"); expect(by(r, 3).compare).toBeUndefined();
+  });
+  it("flags a stale Epic and a blocker field", () => {
+    const e2 = epics.map(e => (e.id === 2 ? { ...e, changed: "2026-06-01T00:00:00Z", extra: { ...e.extra, "Custom.Blocked": "Yes" } } : e));
+    const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, staleDays: 60, blockerField: "Custom.Blocked" } }, today: TODAY });
+    expect(by(r, 2).status).toBe("amber"); expect(by(r, 2).reasons.join("|")).toMatch(/Not updated for \d+ days/); expect(by(r, 2).reasons.join("|")).toContain("Flagged: Blocked = Yes");
+  });
+  it("sizes an Epic by the size field, else 1", () => {
+    const e2 = epics.map(e => (e.id === 2 ? { ...e, extra: { ...e.extra, "Custom.Budget": "250000" } } : e));
+    const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, sizeField: "Custom.Budget" } }, today: TODAY });
+    expect(by(r, 2).size).toBe(250000); expect(by(r, 1).size).toBe(1);
   });
   it("uses the area path when no category field is chosen", () => {
     const r = buildExec({ epics: [epics[1]], gridDone: {}, bookings: [], avail: none, settings: defaultWith(), today: TODAY });
@@ -94,8 +124,13 @@ describe("Executive dashboard page", () => {
   const mount = (st = settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
   const rows = (h: HTMLElement) => h.querySelectorAll("tr.ex-row").length;
   const type = (h: HTMLElement, v: string) => { const i = h.querySelector('input[aria-label="Search the Epics"]') as HTMLInputElement; act(() => { Simulate.change(i, { target: { value: v } } as never); }); };
+  it("is a portfolio view by default (no team slicer) and offers Declared vs data when a declared field is set", () => {
+    const h = mount(); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("Team"); expect(h.querySelector(".ex-slicers")!.textContent).not.toContain("Declared vs data");
+    const h2 = mount({ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", resources: true } });
+    expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Declared vs data"); expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Team");
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
-    const h = mount();
+    const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");
     expect(rows(h)).toBe(8);                                                                  // the Removed Epic is not listed
     const risk = Array.from(h.querySelectorAll(".ex-kpi")).find(b => b.textContent!.includes("At risk"))!, n = Number(risk.querySelector(".v")!.textContent);

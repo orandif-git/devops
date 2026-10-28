@@ -48,6 +48,10 @@ export function normalizeExec(raw: unknown): ExecSettings {
     doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
     slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
     minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries), formulas: normalizeFormulas(r.formulas),
+    tolSlipAmberField: str(r.tolSlipAmberField), tolSlipRedField: str(r.tolSlipRedField), tolGapAmberField: str(r.tolGapAmberField), tolGapRedField: str(r.tolGapRedField),
+    rules: (Array.isArray(r.rules) ? r.rules : []).filter(q => q && typeof q === "object").map((q, i) => { const o = q as Record<string, unknown>, k = (v: unknown, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(0, v)) : undefined);
+      return { id: str(o.id) || `r${i + 1}`, field: str(o.field), value: str(o.value), slipAmberDays: k(o.slipAmberDays, 730), slipRedDays: k(o.slipRedDays, 730), gapAmberPts: k(o.gapAmberPts, 100), gapRedPts: k(o.gapRedPts, 100) }; }).filter(q => q.field),
+    declaredField: str(r.declaredField), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), resources: r.resources === true,
   };
 }
 
