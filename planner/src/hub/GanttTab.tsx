@@ -4,6 +4,7 @@ import { epicsInView, Filters } from "../core/model";
 import { barOf, buildGantt, Category, GanttRow, GroupBy, windowOf } from "../core/timeline";
 import { epicTiles, passes, TILES } from "../core/epicStats";
 import { progressOf } from "../core/progress";
+import { dimLabel } from "../core/executive";
 import { PlannerSettings } from "../core/types";
 import { Loaded } from "../data/loadAll";
 import { downloadFile } from "../../../src/shared/ado";
@@ -32,7 +33,9 @@ export function GanttTab(p: {
 }) {
   const L = p.loaded;
   const [ownGroup, setOwnGroup] = React.useState<GroupBy>("area");
-  const group = (p.group ?? ownGroup) as GroupBy, setGroup = (v: GroupBy) => (p.onGroup ? p.onGroup(v) : setOwnGroup(v));
+  const groupFields = p.settings.ganttGroupFields;
+  const wanted = (p.group ?? ownGroup) as GroupBy, group: GroupBy = wanted.startsWith("f:") && !groupFields.includes(wanted.slice(2)) ? "area" : wanted;     // a field taken out of Settings falls back to Area
+  const setGroup = (v: GroupBy) => (p.onGroup ? p.onGroup(v) : setOwnGroup(v));
   const [dialog, setDialog] = React.useState<number>();
   const [tip, setTip] = React.useState<{ x: number; y: number; title: string; lines: string[] }>();
   const w = React.useMemo(() => windowOf(p.months), [p.months]);
@@ -70,7 +73,7 @@ export function GanttTab(p: {
         return v.filter ? <button key={id} type="button" className={"tile gs" + (on ? " on" : "")} aria-pressed={on} title={t.hint} onClick={() => toggleKey(v.filter!)}><div className="l">{t.label}</div><div className="v">{v.value}</div><div className="d">{v.detail}</div></button>
           : <div key={id} className="tile gs" title={t.hint}><div className="l">{t.label}</div><div className="v">{v.value}</div><div className="d">{v.detail}</div></div>; })}</div>
       <div className="toolbar filters">
-        <label>Group by <select value={group} onChange={e => setGroup(e.target.value as GroupBy)}><option value="area">Area</option><option value="state">State</option><option value="team">Team with most hours</option><option value="none">Nothing</option></select></label>
+        <label>Group by <select value={group} onChange={e => setGroup(e.target.value as GroupBy)}><option value="area">Area</option><option value="state">State</option><option value="team">Team with most hours</option>{groupFields.map(f => <option key={f} value={"f:" + f}>{dimLabel(f)}</option>)}<option value="none">Nothing</option></select></label>
         <button className="btn" onClick={exportCsv} disabled={!total}>Export CSV</button>
         <span className="muted">{total} Epics shown</span>
         {p.onTiles && <span className="cc-anchor"><button className="pill" aria-expanded={menu} onClick={() => setMenu(!menu)}>▦ Statistics</button>

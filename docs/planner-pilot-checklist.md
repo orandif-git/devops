@@ -74,3 +74,4 @@ Run once on a **test project** on Azure DevOps Server 2020 and once on Azure Dev
 - [ ] Full screen on the Heatmap and on the Epic Gantt hides the Azure DevOps menus and the page header; Esc or the button returns.
 - [ ] Views › Copy link: open the link in a new tab (and as another user with access): the same view opens full screen. If the copy is refused by the browser, the link is shown in a box to copy by hand.
 - [ ] Epic Gantt: Settings › Epic Gantt statistics picks the default tiles; Statistics (in the toolbar) changes them for your own view.
+- [ ] Settings › Epic Gantt grouping: add Delivery Status; the Epic Gantt Group by list now has it; groups sort in order (1., 2., … 10.) with “(none)” last. Remove the field in Settings: a view that used it falls back to Area.

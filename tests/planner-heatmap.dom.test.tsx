@@ -137,6 +137,17 @@ describe("Epic Gantt statistics, key filter and search", () => {
     click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "Clear filter")!); expect(bars(h)).toBe(4);
     click(Array.from(h.querySelectorAll(".gs")).find(b => b.textContent!.startsWith("Late"))!); expect(bars(h)).toBeGreaterThan(0); expect(bars(h)).toBeLessThan(4);
   });
+  it("groups by a configured Epic field, in natural order, with empty values last", () => {
+    const withStatus = { ...data, epics: data.epics.map((e, i) => ({ ...e, extra: i === 0 ? {} : { "Custom.Status": i === 1 ? "10. Live" : i === 2 ? "3. Design" : "3. Design" } })) } as unknown as Loaded;
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={{ ...settings, ganttGroupFields: ["Custom.Status"] }} loaded={withStatus} months={year} filters={noFilters()} group="f:Custom.Status" onGroup={() => undefined} />, h); });
+    expect(Array.from(h.querySelectorAll(".tl-grp")).map(x => x.textContent!.replace(/\(\d+\)/, "").trim())).toEqual(["3. Design", "10. Live", "(none)"]);
+    expect(Array.from(h.querySelectorAll("select option")).map(o => o.textContent)).toContain("Status");
+    // a field that is no longer in Settings falls back to Area
+    const h2 = document.createElement("div"); document.body.appendChild(h2);
+    act(() => { ReactDOM.render(<GanttTab project={{ id: "P", name: "Proj" }} settings={settings} loaded={withStatus} months={year} filters={noFilters()} group="f:Custom.Status" onGroup={() => undefined} />, h2); });
+    expect(h2.querySelector(".tl-grp")!.textContent).toContain("Team A");
+  });
   it("finds Epics by keyword (id, title or state)", () => {
     const h = mount2(); const q = h.querySelector("input") as HTMLInputElement; if (!q) throw new Error(h.innerHTML.slice(0, 300));
     const type = (v: string) => act(() => { Simulate.change(q, { target: { value: v } } as never); });

@@ -65,7 +65,7 @@ export function normalizeSettings(raw: unknown): PlannerSettings {
   });
   return {
     version: 1,
-    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField),
+    workItemType: str(r.workItemType) || d.workItemType, epicStartField: str(r.epicStartField), epicTargetField: str(r.epicTargetField), ganttLabelField: str(r.ganttLabelField), ganttGroupFields: list(r.ganttGroupFields),
     sources, estimateUnscheduled: r.estimateUnscheduled === undefined ? d.estimateUnscheduled : !!r.estimateUnscheduled,
     capacityTeams: teams(r.capacityTeams),
     period: { kind: (kinds.includes(str(per.kind)) ? str(per.kind) : d.period.kind) as PlannerSettings["period"]["kind"], from: str(per.from) || undefined, to: str(per.to) || undefined },

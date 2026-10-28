@@ -1,5 +1,6 @@
 import * as React from "react";
 import { TILES } from "../core/epicStats";
+import { isCategoryType } from "../core/fieldTypes";
 import { listTeams, TeamRef } from "../../../src/shared/capacityStore";
 import { autoMap, Slot } from "../core/detect";
 import { isDateType, isLongTextType } from "../core/fieldTypes";
@@ -170,6 +171,14 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
         <label className="field" style={{ width: 160 }}><span>Show figures as</span>
           <select value={s.plan.units} onChange={e => set({ plan: { ...s.plan, units: e.target.value as PlannerSettings["plan"]["units"] } })}><option value="h">Hours</option><option value="p">% of capacity</option><option value="f">FTE</option></select></label>
       </div>
+
+      <h3>Epic Gantt grouping</h3>
+      <div className="help">Epic fields offered in the Epic Gantt “Group by” list besides Area, State and Team, for example Delivery Status or Business Unit. Epics with an empty value go to a “(none)” group.</div>
+      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
+        {s.ganttGroupFields.map(f => <span key={f} className="chip on">{fields.find(y => y.referenceName.toLowerCase() === f.toLowerCase())?.name ?? f} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => set({ ganttGroupFields: s.ganttGroupFields.filter(y => y !== f) })}>×</button></span>)}
+        {!s.ganttGroupFields.length && <span className="muted">None.</span>}
+      </div>
+      <div className="row"><FieldPick label="Add a grouping field" value="" fields={fields} accept={f => isCategoryType(f.type)} placeholder="Custom.DeliveryStatus" onChange={v => { if (v && !s.ganttGroupFields.includes(v)) set({ ganttGroupFields: [...s.ganttGroupFields, v] }); }} /></div>
 
       <h3>Epic Gantt statistics</h3>
       <div className="help">The statistics shown above the Epic Gantt by default. Each person can change them for their own saved views.</div>

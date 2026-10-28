@@ -28,7 +28,7 @@ export function normalizeView(raw: unknown, d: ViewState): ViewState {
     view: pick(r.view, ["heat", "time", "gantt"], d.view), group: pick(r.group, ["team", "epic", "person"], d.group), units: pick(r.units, ["h", "p", "f"], d.units), rows: pick(r.rows, ["collapsed", "teams", "all"], d.rows),
     period, team: str(r.team), query: str(r.query), people: str(r.people), epics: str(r.epics), states: strs(r.states),
     extra: Object.fromEntries(Object.entries(x).map(([k, v]) => [k, strs(v)]).filter(([, v]) => (v as string[]).length)), showIdle: r.showIdle !== false,
-    ganttGroup: pick(r.ganttGroup, ["area", "state", "team", "none"], "area"), legend: strs(r.legend), tiles: cleanTiles(r.tiles, d.tiles),
+    ganttGroup: typeof r.ganttGroup === "string" && /^f:[A-Za-z][A-Za-z0-9_.]*$/.test(r.ganttGroup) ? r.ganttGroup : pick(r.ganttGroup, ["area", "state", "team", "none"], "area"), legend: strs(r.legend), tiles: cleanTiles(r.tiles, d.tiles),
   };
 }
 

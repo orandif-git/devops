@@ -58,7 +58,8 @@ export function categoryOf(state: string, groups: StateGroups = {}): Category {
   return "other";
 }
 
-export type GroupBy = "area" | "state" | "team" | "none";
+/** "f:<field reference name>" groups by the value of an Epic field */
+export type GroupBy = "area" | "state" | "team" | "none" | `f:${string}`;
 export interface GanttRow { epic: EpicRecord; start: string; end: string; derived: boolean; category: Category; late: boolean; people: number; hours: number; group: string }
 export interface GanttInput {
   epics: EpicRecord[];
@@ -72,6 +73,8 @@ export interface GanttInput {
   today: string;
 }
 
+/** the group of Epics whose chosen field is empty */
+export const NO_VALUE = "(none)";
 const monthEnd = (m: string) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).toISOString().slice(0, 10);
 
 /** Epics as bars: from the start-date field to the target-date field (or, when those are empty, from the first to the last month with hours). */
@@ -100,12 +103,13 @@ export function buildGantt(i: GanttInput): { name: string; rows: GanttRow[] }[] 
     let group = "";
     if (i.group === "area") group = epic.areaPath.split("\\").pop() || epic.areaPath || "(no area)";
     else if (i.group === "state") group = epic.state || "(no state)";
+    else if (i.group.startsWith("f:")) group = (epic.extra[i.group.slice(2)] ?? "").trim() || NO_VALUE;
     else if (i.group === "team") { const lead = Array.from(info.people).sort((a, b) => b[1] - a[1])[0]; group = (lead ? i.teamOf(lead[0]) : "") || "No team capacity entered"; }
     rows.push({ epic, start, end, derived, category, late: category !== "done" && category !== "removed" && end < i.today, people: info.people.size, hours: Math.round(info.hours * 100) / 100, group });
   }
   const groups = new Map<string, GanttRow[]>();
   for (const r of rows) groups.set(r.group, [...(groups.get(r.group) ?? []), r]);
-  return Array.from(groups, ([name, list]) => ({ name, rows: list.sort((a, b) => a.start.localeCompare(b.start) || a.epic.id - b.epic.id) })).sort((a, b) => a.name.localeCompare(b.name));
+  return Array.from(groups, ([name, list]) => ({ name, rows: list.sort((a, b) => a.start.localeCompare(b.start) || a.epic.id - b.epic.id) })).sort((a, b) => (a.name === NO_VALUE ? 1 : 0) - (b.name === NO_VALUE ? 1 : 0) || a.name.localeCompare(b.name, undefined, { numeric: true }));
 }
 
 /** Prefix sums of row heights and the index range that overlaps [top, bottom]: what a long list needs to draw only what is visible. */
