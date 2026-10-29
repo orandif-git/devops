@@ -158,6 +158,13 @@ describe("Executive dashboard page", () => {
     const h2 = mount({ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", resources: true } });
     expect(h2.querySelector(".ex-slicers")!.textContent).toContain("RAG check"); expect(h2.querySelector(".ex-slicers")!.textContent).toContain("Team");
   });
+  it("says when the declared field has values that are not green, amber or red (for example SDLC phases)", () => {
+    const st = { ...settings, executive: { ...settings.executive, declaredField: "Custom.Phase", statusSource: "rag-check" as const } };
+    const withPhase = { ...loaded, epics: loaded.epics.map((e: { extra: object }, i: number) => ({ ...e, extra: { ...e.extra, "Custom.Phase": i % 2 ? "UAT" : "Design" } })) };
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={withPhase} busy={false} error="" onReload={() => undefined} />, h); });
+    expect(h.textContent).toContain("not read as green, amber or red"); expect(h.textContent).toMatch(/Design|UAT/);
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");
