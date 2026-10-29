@@ -59,14 +59,13 @@ export function limitsFor(e: EpicRecord, x: ExecSettings): Limits {
   const from: string[] = [];
   const pick = (own: string, k: "slipAmberDays" | "slipRedDays" | "gapAmberPts" | "gapRedPts", name: string) => {
     const o = own ? numOf(valueOf(e, own)) : undefined; if (o !== undefined) { from.push(`${name}: this Epic's own limit`); return o; }
-    const r = rule(k); if (r) { from.push(`${name}: rule ${dimName(r.field)} = ${r.value || "(empty)"}`); return r[k]!; }
+    const r = rule(k); if (r) { from.push(`${name}: rule ${dimLabel(r.field)} = ${r.value || "(empty)"}`); return r[k]!; }
     return x[k];
   };
   const l = { slipAmber: pick(x.tolSlipAmberField, "slipAmberDays", "attention days"), slipRed: pick(x.tolSlipRedField, "slipRedDays", "at-risk days"), gapAmber: pick(x.tolGapAmberField, "gapAmberPts", "attention points"), gapRed: pick(x.tolGapRedField, "gapRedPts", "at-risk points") };
   if (l.slipAmber > l.slipRed) l.slipAmber = l.slipRed; if (l.gapAmber > l.gapRed) l.gapAmber = l.gapRed;
   return { ...l, from };
 }
-const dimName = (f: string) => (f === "System.AreaPath" ? "Area" : (f.split(".").pop() ?? f).replace(/([a-z0-9])([A-Z])/g, "$1 $2"));
 /** green / amber / red from the words people use in a status field */
 export function declaredOf(v: string, x?: ExecSettings): "green" | "amber" | "red" | undefined {
   const t = v.trim().toLowerCase(); if (!t) return undefined;
@@ -128,7 +127,7 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     if (x.advanced && !row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     else if (!row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed.slice(0, 10)); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
-    if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimName(x.blockerField)} = ${bv}`); } }
+    if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimLabel(x.blockerField)} = ${bv}`); } }
     const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
     if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }
     if (x.resources && row.over.length) { score = Math.max(score, 1); reasons.push(`${row.over.length} ${row.over.length > 1 ? "people are" : "person is"} booked over capacity on this Epic this month`); }

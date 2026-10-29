@@ -1,3 +1,4 @@
+import { dimLabel } from "../core/executive";
 import * as React from "react";
 import { buildPeople, Filters, noFilters, NO_TEAM } from "../core/model";
 import { Period, PlannerSettings } from "../core/types";
@@ -40,7 +41,7 @@ export function FilterBar(p: {
       <label>Epics from <select value={p.queryId} onChange={e => p.onQuery(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>
       <label>Team <select value={p.filters.team} onChange={e => set({ team: e.target.value })}><option value="">All teams</option>{teams.map(t => <option key={t} value={t}>{t}</option>)}</select></label>
       <MultiPick label="State" all={states} value={p.filters.states} onChange={v => set({ states: v })} />
-      {p.settings.extraFilterFields.map(f => <MultiPick key={f} label={f.split(".").pop() ?? f} all={extraValues(f)} value={p.filters.extra[f] ?? []} onChange={v => set({ extra: { ...p.filters.extra, [f]: v } })} />)}
+      {p.settings.extraFilterFields.map(f => <MultiPick key={f} label={dimLabel(f)} all={extraValues(f)} value={p.filters.extra[f] ?? []} onChange={v => set({ extra: { ...p.filters.extra, [f]: v } })} />)}
       <input type="search" placeholder="Find a person…" value={p.filters.search} onChange={e => set({ search: e.target.value })} style={{ width: 150 }} />
       <label><input type="checkbox" checked={p.filters.showIdle} onChange={e => set({ showIdle: e.target.checked })} /> {p.idleLabel ?? "people without hours"}</label>
     </div>

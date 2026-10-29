@@ -1,3 +1,4 @@
+import { dimLabel } from "../core/executive";
 import * as React from "react";
 import { Band } from "../core/aggregate";
 import { buildPeople, cellOf, epicsInView, Filters, heatmapCsv, monthSummary, noFilters, NO_TEAM, PersonRow, shortName } from "../core/model";
@@ -113,7 +114,7 @@ export function CommandCenter(p: {
     ...(p.queryId ? [{ label: "Query: " + (p.queries.find(q => q.id === p.queryId)?.name ?? "saved query"), clear: () => p.onQuery("") }] : []),
     ...(f.team ? [{ label: "Team: " + f.team, clear: () => set({ team: "" }) }] : []),
     ...f.states.map(s => ({ label: "State: " + s, clear: () => set({ states: f.states.filter(x => x !== s) }) })),
-    ...Object.entries(f.extra).flatMap(([k, v]) => v.map(x => ({ label: `${k.split(".").pop()}: ${x || "(empty)"}`, clear: () => set({ extra: { ...f.extra, [k]: v.filter(y => y !== x) } }) }))),
+    ...Object.entries(f.extra).flatMap(([k, v]) => v.map(x => ({ label: `${dimLabel(k)}: ${x || "(empty)"}`, clear: () => set({ extra: { ...f.extra, [k]: v.filter(y => y !== x) } }) }))),
     ...(hl ? [{ label: "Band: " + RAG[hl as Exclude<Band, "none">].label, clear: () => setHl(null) }] : []),
   ];
   const clearAll = () => { p.onFilters({ ...noFilters(), search: f.search }); setHl(null); if (p.queryId) p.onQuery(""); };
@@ -188,7 +189,7 @@ export function CommandCenter(p: {
           {drawer && <div className="cc-drawer" role="dialog" aria-label="More filters">
             <button className="modal-x" aria-label="Close filters" title="Close (Esc)" onClick={() => setDrawer(false)}><IconClose /></button>
             <h4>{p.settings.workItemType} state</h4><div className="g">{states.map(s => <label key={s}><input type="checkbox" checked={f.states.includes(s)} onChange={e => set({ states: e.target.checked ? [...f.states, s] : f.states.filter(x => x !== s) })} />{s}</label>)}</div>
-            {p.settings.extraFilterFields.map(k => <React.Fragment key={k}><h4>{k.split(".").pop()}</h4><div className="g">{extraValues(k).map(v => { const cur = f.extra[k] ?? []; return <label key={v}><input type="checkbox" checked={cur.includes(v)} onChange={e => set({ extra: { ...f.extra, [k]: e.target.checked ? [...cur, v] : cur.filter(x => x !== v) } })} />{v || "(empty)"}</label>; })}</div></React.Fragment>)}
+            {p.settings.extraFilterFields.map(k => <React.Fragment key={k}><h4>{dimLabel(k)}</h4><div className="g">{extraValues(k).map(v => { const cur = f.extra[k] ?? []; return <label key={v}><input type="checkbox" checked={cur.includes(v)} onChange={e => set({ extra: { ...f.extra, [k]: e.target.checked ? [...cur, v] : cur.filter(x => x !== v) } })} />{v || "(empty)"}</label>; })}</div></React.Fragment>)}
             <h4>People</h4><div className="g"><label><input type="checkbox" checked={f.showIdle} onChange={e => set({ showIdle: e.target.checked })} />Show people without hours</label></div>
           </div>}</span>
       </div>
