@@ -83,7 +83,6 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
         {lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => onDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <b>By {dimLabel(dim).toLowerCase()}</b>}
         <span className="m">{nv} {nv === 1 ? "value" : "values"} · % at risk</span><span className="sp" />
         {mode === "auto" && <span className="m">Auto → {auto}</span>}
-        {use === "pie" && nv > 12 && <span className="m warn" role="status">Pie suits up to 8 values: Table or Bars show all {nv}</span>}
         <div className="ex-bfsw" role="group" aria-label="Chart type">{SWITCH.map(([m, l]) => <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>{l}</button>)}</div></div>
       <div className="ex-bfb" ref={bodyRef}>{body}</div>
     </section>
