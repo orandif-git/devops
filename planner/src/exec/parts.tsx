@@ -112,27 +112,38 @@ export function Donut(p: { counts: Record<ExecStatus, number>; selected: ExecSta
 
 /** Horizontal stacked bars, one per value, split by status; a click on a bar picks the value, a click on a segment also the status. */
 export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void }) {
-  const rows = p.rows, mx = Math.max(1, ...rows.map(r => SHOWN.reduce((a, s) => a + r.counts[s], 0))), LW = 130, W = 420 - LW - 34;
+  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current;
+  const rows = p.rows, mx = Math.max(1, ...rows.map(r => SHOWN.reduce((a, s) => a + r.counts[s], 0))), LW = 130, W = 420 - LW - 100;
   return (
     <svg viewBox={`0 0 420 ${rows.length * 30 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
-      {rows.map((r, k) => { const y = k * 30 + 4, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label); let x = LW;
+      {rows.map((r, k) => { const y = k * 30 + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), width = Math.max(6, tot / mx * W), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
+        const parts = SHOWN.filter(s => r.counts[s]);
         return <g key={r.label} className={dim ? "dimmed" : ""}>
+          <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={width} height="22" rx="11" ry="11" /></clipPath>
           <text x="0" y={y + 15} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 19 ? r.label.slice(0, 18) + "…" : r.label}<title>{r.label}</title></text>
-          {SHOWN.filter(s => r.counts[s]).map(s => { const w = r.counts[s] / mx * W, el = <rect key={s} className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={Math.max(1, w - 1)} height="20" rx="6" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {STATUS_NAME[s]}: {r.counts[s]}</title></rect>; x += w; return el; })}
-          <text x={x + 5} y={y + 15}>{tot}</text></g>; })}
+          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * width, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="22" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {STATUS_NAME[s]}: {r.counts[s]}</title></rect>
+            {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 22} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
+            {w >= 17 && <text className="inl" x={x + w / 2} y={y + 15} textAnchor="middle">{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
+          <text x={LW + width + 7} y={y + 15} style={{ fontWeight: 600 }}>{tot}</text>
+          <text x="418" y={y + 15} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}% at risk` : "–"}</text></g>; })}
     </svg>
   );
 }
 
 /** Vertical stacked columns, one per value (for example a quarter). */
 export function Columns(p: { cols: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void }) {
+  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current;
   const cols = p.cols, H = 170, W = 420, bw = W / Math.max(1, cols.length), mx = Math.max(1, ...cols.map(c => SHOWN.reduce((a, s) => a + c.counts[s], 0)));
   return (
     <svg viewBox={`0 0 ${W} ${H + 34}`} width="100%" role="img" aria-label="Epics by go-live quarter">
-      {cols.map((c, k) => { const tot = SHOWN.reduce((a, s) => a + c.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(c.label); let y = H;
+      {cols.map((c, k) => { const tot = SHOWN.reduce((a, s) => a + c.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(c.label), w = Math.min(56, Math.max(8, bw - 24)), x = k * bw + (bw - w) / 2, full = tot / mx * (H - 22), parts = SHOWN.filter(s => c.counts[s]); let y = H;
         return <g key={c.label} className={dim ? "dimmed" : ""}>
-          {SHOWN.filter(s => c.counts[s]).map(s => { const hh = c.counts[s] / mx * (H - 22); y -= hh; return <rect key={s} className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={k * bw + 8} y={y} width={Math.max(4, bw - 16)} height={Math.max(1, hh - 1)} rx="5" fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {STATUS_NAME[s]}: {c.counts[s]}</title></rect>; })}
-          <text x={k * bw + bw / 2} y={y - 4} textAnchor="middle">{tot || ""}</text>
+          <clipPath id={`${uid}c${k}`}><rect x={x} y={H - full} width={w} height={Math.max(2, full)} rx="10" ry="10" /></clipPath>
+          <g clipPath={`url(#${uid}c${k})`}>{parts.map((s, n) => { const hh = c.counts[s] / mx * (H - 22); y -= hh;
+            return <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={Math.max(1, hh)} fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {STATUS_NAME[s]}: {c.counts[s]}</title></rect>
+              {n < parts.length - 1 && <line x1={x} x2={x + w} y1={y} y2={y} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
+              {hh >= 16 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{c.counts[s]}</text>}</g>; })}</g>
+          <text x={k * bw + bw / 2} y={H - full - 6} textAnchor="middle" style={{ fontWeight: 600 }}>{tot || ""}</text>
           <text x={k * bw + bw / 2} y={H + 16} textAnchor="middle" className="seg" onClick={() => p.onPick(c.label)}>{c.label.length > 9 ? c.label.slice(0, 8) + "…" : c.label}<title>{c.label}</title></text></g>; })}
     </svg>
   );
