@@ -62,8 +62,11 @@ export function StagesEditor(p: { s: PlannerSettings; fields: FieldInfo[]; proje
       {stagesOn(st) && <>
         <div className="help" style={{ marginTop: 12 }}><b>Rules</b></div>
         <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={st.smooth} onChange={e => set({ smooth: e.target.checked })} /> Move progress smoothly inside a stage with the time of its planned window (otherwise progress jumps from stage to stage)</label>
+        <div className="help rule-eg">e.g. In Development an Epic counts as 33%: off, it stays 33% until it moves to SIT (50%); on, it creeps towards 50% over the stage’s window.</div>
         <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={st.lagRule} onChange={e => set({ lagRule: e.target.checked })} /> Flag an Epic that is behind for its stage: Needs attention at <input type="number" min={1} max={10} style={{ width: 54 }} value={st.lagAmber} onChange={e => set({ lagAmber: Number(e.target.value) || 1 })} /> stages behind, At risk at <input type="number" min={1} max={10} style={{ width: 54 }} value={st.lagRed} onChange={e => set({ lagRed: Number(e.target.value) || 2 })} /></label>
+        <div className="help rule-eg">e.g. With 63% of its time used an Epic should be in UAT: still in SIT = Needs attention, still in Development = At risk.</div>
         <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={st.stuckRule} onChange={e => set({ stuckRule: e.target.checked })} /> Flag an Epic that has stayed in one stage for more than <input type="number" min={1} max={730} style={{ width: 64 }} value={st.stuckDays} onChange={e => set({ stuckDays: Number(e.target.value) || 45 })} /> days (read from the work item history)</label>
+        <div className="help rule-eg">e.g. An Epic in UAT for 70 days becomes Needs attention even if its dates look fine (needs the work item history).</div>
       </>}
     </div>
   );
