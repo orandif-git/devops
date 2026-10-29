@@ -1,0 +1,54 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Executive Dashboard – chart variants</title>
+<style>
+:root{--bg:#f4f6fb;--fg:#0f172a;--fg2:#64748b;--line:#e4e8f1;--g:#16a34a;--a:#d97706;--r:#dc2626;--i:#64748b;--d:#2563eb}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.4 "Segoe UI",system-ui,sans-serif;padding:22px}
+h2{margin:22px 0 10px;font-size:15px}.row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.card{background:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.06)}
+.card h4{margin:0 0 4px;font-size:14px;display:flex;justify-content:space-between}.card h4 span{font-weight:400;color:var(--fg2);font-size:12px}
+.tag{display:inline-block;margin-bottom:8px;padding:2px 9px;border-radius:99px;background:#fbeff3;color:#6b1634;font-weight:700;font-size:11px}
+.lg{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;color:var(--fg2);font-size:11.5px}.lg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px}
+/* bars A: seamless */
+.brow{display:grid;grid-template-columns:128px 1fr 34px;gap:10px;align-items:center;margin:9px 0}.brow .n{color:var(--fg2);text-align:right;font-weight:600}
+.pill{display:flex;height:22px;border-radius:11px;overflow:hidden;background:#eef1f7}.pill>b{display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700;min-width:0;border-right:2px solid #fff}.pill>b:last-child{border-right:0}
+/* bars B: share */
+.thin{display:flex;height:9px;border-radius:5px;overflow:hidden;background:#eef1f7}.thin>i{display:block}
+.risk{font-weight:700;font-size:12px;text-align:right}.crow{display:grid;grid-template-columns:128px 1fr 74px;gap:10px;align-items:center;margin:11px 0}.crow small{display:block;color:var(--fg2);font-size:11px;margin-top:3px}
+/* bars C: dots */
+.dots{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.dg{display:flex;gap:3px;flex-wrap:wrap}.dg i{width:11px;height:11px;border-radius:3px;display:block}
+.drow{display:grid;grid-template-columns:128px 1fr;gap:10px;align-items:center;margin:9px 0;min-height:24px}
+.lbl{font-size:12.5px}
+svg text{font:11.5px "Segoe UI",system-ui,sans-serif;fill:var(--fg2)}svg .t{font-weight:700;fill:var(--fg)}
+</style></head><body>
+<h1 style="font-size:18px;margin:0 0 4px">Chart variants for “By type” and “Go-live by quarter”</h1>
+<div style="color:#64748b">Same data in every variant. The current look has a gap between every segment; these either remove it or change the form.</div>
+<h2>By type (Epics by status)</h2><div class="row" id="bars"></div>
+<h2>Go-live by quarter</h2><div class="row" id="cols"></div>
+<script>
+const C={g:"#16a34a",a:"#d97706",r:"#dc2626",i:"#64748b",d:"#2563eb"},N={g:"On track",a:"Needs attention",r:"At risk",i:"Not started",d:"Done"},K=["g","a","r","i","d"];
+const TY=[["Regulatory",[2,1,2,1,1]],["Software upgrade",[5,2,0,0,0]],["Customer experience",[2,1,1,1,0]],["Infrastructure",[1,2,1,1,0]],["Security",[1,1,1,0,1]],["Data & Analytics",[2,1,0,0,0]]].map(([l,v])=>({l,v,t:v.reduce((a,b)=>a+b,0)}));
+const QU=[["Q3 26",[2,0,0,0,2]],["Q4 26",[8,6,3,0,0]],["Q1 27",[3,2,2,1,0]],["Q2 27",[0,0,0,2,0]]].map(([l,v])=>({l,v,t:v.reduce((a,b)=>a+b,0)}));
+const legend=()=>`<div class="lg">${K.map(k=>`<span><i style="background:${C[k]}"></i>${N[k]}</span>`).join("")}</div>`;
+const card=(tag,title,sub,body)=>`<div class="card"><span class="tag">${tag}</span><h4>${title}<span>${sub}</span></h4>${body}${legend()}</div>`;
+const mx=Math.max(...TY.map(r=>r.t));
+// A: seamless pills, counts inside, scaled to the largest row
+const A=TY.map(r=>`<div class="brow"><span class="lbl">${r.l}</span><div class="pill" style="width:${r.t/mx*100}%">${r.v.map((n,k)=>n?`<b style="flex:${n};background:${C[K[k]]}">${n}</b>`:"").join("")}</div><span class="n">${r.t}</span></div>`).join("");
+// B: 100% share, thin, sorted by at-risk share, with the at-risk percentage
+const B=[...TY].sort((a,b)=>(b.v[2]/b.t)-(a.v[2]/a.t)).map(r=>{const rp=Math.round(r.v[2]/r.t*100);return `<div class="crow"><span class="lbl">${r.l}<small>${r.t} Epics</small></span><div class="thin">${r.v.map((n,k)=>n?`<i style="width:${n/r.t*100}%;background:${C[K[k]]}"></i>`:"").join("")}</div><span class="risk" style="color:${rp?C.r:"#94a3b8"}">${rp}% at risk</span></div>`;}).join("");
+// C: unit dots, one square per Epic
+const Cd=TY.map(r=>`<div class="drow"><span class="lbl">${r.l}</span><div class="dots">${r.v.map((n,k)=>n?`<div class="dg">${Array.from({length:n},()=>`<i style="background:${C[K[k]]}"></i>`).join("")}</div>`:"").join("")}</div></div>`).join("");
+document.getElementById("bars").innerHTML=card("A · Seamless","By type","counts inside",A)+card("B · Share of each type","By type","sorted by % at risk",B)+card("C · One square per Epic","By type","each square is an Epic",Cd);
+// columns
+const H=170,W=330,bw=W/QU.length,mq=Math.max(...QU.map(q=>q.t));
+const colA=()=>{let s=`<svg viewBox="0 0 ${W} ${H+30}" width="100%">`;QU.forEach((q,i)=>{let y=H;const w=48,x=i*bw+(bw-w)/2;const id="c"+i;s+=`<clipPath id="${id}"><rect x="${x}" y="${H-q.t/mq*(H-24)}" width="${w}" height="${q.t/mq*(H-24)}" rx="10" ry="10"/></clipPath><g clip-path="url(#${id})">`;
+  q.v.forEach((n,k)=>{if(!n)return;const hh=n/mq*(H-24);y-=hh;s+=`<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="${C[K[k]]}"/><line x1="${x}" x2="${x+w}" y1="${y}" y2="${y}" stroke="#fff" stroke-width="2"/>${hh>16?`<text x="${x+w/2}" y="${y+hh/2+4}" text-anchor="middle" style="fill:#fff;font-weight:700">${n}</text>`:""}`;});
+  s+=`</g><text class="t" x="${x+w/2}" y="${H-q.t/mq*(H-24)-6}" text-anchor="middle">${q.t}</text><text x="${x+w/2}" y="${H+18}" text-anchor="middle">${q.l}</text>`;});return s+"</svg>";};
+const colB=()=>{let s=`<svg viewBox="0 0 ${W} ${H+30}" width="100%"><g stroke="#e4e8f1">${[0,.5,1].map(f=>`<line x1="0" x2="${W}" y1="${H-f*(H-24)}" y2="${H-f*(H-24)}" ${f?'stroke-dasharray="3 4"':""}/>`).join("")}</g>`;
+  QU.forEach((q,i)=>{const w=16,gap=4,x0=i*bw+(bw-(w+gap)*3)/2;[["g",q.v[0]+q.v[4]],["a",q.v[1]],["r",q.v[2]]].forEach(([k,n],j)=>{const hh=n/mq*(H-24)*1.9;const x=x0+j*(w+gap);s+=`<rect x="${x}" y="${H-hh}" width="${w}" height="${Math.max(hh,0)}" rx="5" ry="5" fill="${C[k]}"/>${n?`<text x="${x+w/2}" y="${H-hh-4}" text-anchor="middle" style="font-size:10.5px">${n}</text>`:""}`;});s+=`<text x="${i*bw+bw/2}" y="${H+18}" text-anchor="middle">${q.l}</text>`;});return s+"</svg>";};
+const colC=()=>{ // smooth stacked area: how the quarter loads look over time
+  const xs=QU.map((_,i)=>20+i*(W-40)/(QU.length-1)),Hh=H-20;const tot=QU.map(q=>q.t),m=Math.max(...tot);const cum=QU.map(q=>{let a=0;return K.map((_,k)=>(a+=q.v[k]));});
+  const y=v=>H-v/m*Hh;const path=(top,bot)=>{const f=(arr)=>arr.map((v,i)=>[xs[i],y(v)]);const t=f(top),b=f(bot).reverse();const sm=(p)=>p.map((q,i)=>i?` C ${(p[i-1][0]+q[0])/2} ${p[i-1][1]}, ${(p[i-1][0]+q[0])/2} ${q[1]}, ${q[0]} ${q[1]}`:`M ${q[0]} ${q[1]}`).join("");return sm(t)+" L "+b[0][0]+" "+b[0][1]+sm(b).replace(/^M[^C]*/,"")+" Z";};
+  let s=`<svg viewBox="0 0 ${W} ${H+30}" width="100%"><g stroke="#e4e8f1">${[0,.5,1].map(f=>`<line x1="0" x2="${W}" y1="${H-f*Hh}" y2="${H-f*Hh}" ${f?'stroke-dasharray="3 4"':""}/>`).join("")}</g>`;
+  [...K].reverse().forEach(k=>{const idx=K.indexOf(k);const top=cum.map(c=>c[idx]),bot=cum.map(c=>idx?c[idx-1]:0);s+=`<path d="${path(top,bot)}" fill="${C[k]}" opacity=".92" stroke="#fff" stroke-width="1.5"/>`;});
+  xs.forEach((x,i)=>s+=`<text x="${x}" y="${H+18}" text-anchor="middle">${QU[i].l}</text><text class="t" x="${x}" y="${y(tot[i])-6}" text-anchor="middle">${tot[i]}</text>`);return s+"</svg>";};
+document.getElementById("cols").innerHTML=card("A · Seamless columns","Go-live by quarter","counts inside",colA())+card("B · Slim grouped columns","Go-live by quarter","on track · attention · at risk",colB())+card("C · Smooth stacked area","Go-live by quarter","how the load moves",colC());
+</script></body></html>
