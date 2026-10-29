@@ -112,7 +112,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
               <option value="rag-check">Owner’s RAG decides, data checks it</option></select></label>
         </div>
         <div className="help">{x.statusSource === "rag" ? "The owner's RAG is the status. Epics without a recognised value show as Not assessed. Done and Not started Epics keep their own state." : x.statusSource === "rag-check" ? "The owner's RAG is the status. The status from the data stays in the Epic panel, and Epics where the RAG looks better than the data get a “Check this” warning (filter and card). Epics without a value use the data status." : "The status is worked out from the data (section 5). The owner's RAG is only shown next to it, with a RAG check filter."}</div>
-        <div className="help"><b>Which to choose</b>
+        <div className="help"><b>Which to choose</b> (this is the view people see when the dashboard opens; unless it is “Owner’s RAG decides”, they can switch between Owner’s RAG, Data and Variance on the dashboard)
           <ul style={{ margin: "4px 0 0 18px" }}>
             <li><b>Data decides</b>: if you don’t trust people to keep the RAG up to date, or you have no RAG field.</li>
             <li><b>Owner’s RAG decides</b>: if the RAG is the official statement and you want the dashboard to show it exactly.</li>

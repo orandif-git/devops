@@ -3,7 +3,7 @@ import "./exec.css";
 import { IconDensity, IconExitFullScreen, IconFullScreen, IconMap, IconRefresh, IconReport, IconRoadmap, IconSearch } from "../../../src/shared/icons";
 import { ago } from "./ago";
 import { fmtDate } from "../core/dates";
-import { buildExec, dayText, dimFields } from "../core/executive";
+import { buildExec, dayText, dimFields, withSource } from "../core/executive";
 import { catalog, calcKey, formatCell, runQuery } from "../core/execQuery";
 import { monthsOfPeriod } from "../core/period";
 import { ExecLayout, PlannerSettings } from "../core/types";
@@ -34,6 +34,10 @@ export function ExecDashboard(p: {
   const [layout, setLayout] = React.useState<ExecLayout>(x.layout);
   const [f, setF] = React.useState<XF>(emptyXF());
   const [savedId, setSavedId] = React.useState("");
+  // which status the dashboard shows: the owner's RAG, the data, or the variance between them (the switch needs a declared status field and a mode that keeps the data)
+  const canSwitch = !!x.declaredField && x.statusSource !== "rag", defaultView: "rag" | "data" = x.declaredField && x.statusSource !== "data" ? "rag" : "data";
+  const [viewPick, setView] = React.useState<"rag" | "data" | "var" | "">("");
+  const view: "rag" | "data" | "var" = canSwitch ? (viewPick || defaultView) : defaultView;
   const [density, setDensity] = React.useState<"comfortable" | "compact">("comfortable");
   const searchRef = React.useRef<HTMLInputElement>(null);
   const [sel, setSel] = React.useState<number>();
@@ -43,8 +47,9 @@ export function ExecDashboard(p: {
   const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
   const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
-  const all = React.useMemo(() => (L && built ? buildItems(built.rows, L, p.settings) : []), [L, built, p.settings]);
-  const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: built.rows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
+  const viewRows = React.useMemo(() => (built ? built.rows.map(r => withSource(r, view === "rag" ? (x.statusSource === "rag" ? "rag" : "rag-check") : view === "data" || view === "var" ? "data" : "data")) : []), [built, view, x.statusSource]);
+  const all = React.useMemo(() => (L && built ? buildItems(viewRows, L, p.settings) : []), [L, built, viewRows, p.settings]);
+  const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: viewRows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
 
   // saved filters: the named Epic queries of the settings, run on the current data
   const saved = x.queries.filter(q => q.name.trim() && q.show === "epics");
@@ -64,11 +69,11 @@ export function ExecDashboard(p: {
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: L?.snapshots };
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setDensity(v.density); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, dims: v.dims, text: v.text }); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setDensity(v.density); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, dims: v.dims, text: v.text }); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -83,7 +88,7 @@ export function ExecDashboard(p: {
 
   // subtle motion: the cards and charts ease in when the dashboard appears or the layout changes; a filter change eases the view in
   const [phase, setPhase] = React.useState<"" | "enter" | "upd">(""), seenF = React.useRef<string | undefined>(undefined), fKey = JSON.stringify(f);
-  React.useEffect(() => { if (!L || !motionOk()) return; setPhase("enter"); const t = setTimeout(() => setPhase(""), 1700); return () => clearTimeout(t); }, [!!L, layout]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (!L || !motionOk()) return; setPhase("enter"); const t = setTimeout(() => setPhase(""), 1700); return () => clearTimeout(t); }, [!!L, layout, view]);   // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => { const first = seenF.current === undefined; seenF.current = fKey; if (first || !L || !motionOk()) return; setPhase("upd"); const t = setTimeout(() => setPhase(""), 260); return () => clearTimeout(t); }, [fKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!L && p.busy) return <div className="ex ex-loading" aria-busy="true"><div className="ex-kpis">{Array.from({ length: 6 }, (_, k) => <div key={k} className="ex-sk" style={{ height: 110 }} />)}</div><div className="ex-sk" style={{ height: 300, marginTop: 14 }} />{p.progress && <div className="muted" style={{ marginTop: 8 }}>{p.progress.phase === "history" ? "Reading the go-live history…" : p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</div>}</div>;
   if (!L) return (
@@ -99,6 +104,7 @@ export function ExecDashboard(p: {
       <div className="ex-bar">
         <div className="ex-brand"><div className="logo" aria-hidden="true">E</div><div><b>Executive Dashboard</b><span className="live"><i className="pulse" />{p.busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(L.at))} · {L.epics.length} Epics</span></div></div>
         <div className="ex-seg" role="tablist" aria-label="Layout" style={{ ["--i" as string]: LAYOUTS.findIndex(l => l.id === layout) }}>{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>
+        {canSwitch && <div className="ex-seg" role="tablist" aria-label="Status view" title="Which status the dashboard shows" style={{ ["--i" as string]: ["rag", "data", "var"].indexOf(view) }}>{([["rag", "Owner’s RAG"], ["data", "Data"], ["var", "Variance"]] as const).map(([id, l]) => <button key={id} role="tab" aria-selected={view === id} className={view === id ? "on" : ""} onClick={() => { setView(id); setF({ ...f, cell: [] }); }}>{l}</button>)}</div>}
         <label className="ex-search"><IconSearch /><input ref={searchRef} type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /><span className="kbd" aria-hidden="true">/</span></label>
         {saved.length > 0 && <label className="ex-chip sel"><span className="k">Saved filter</span><select aria-label="Saved filter" value={savedId} onChange={e => setSavedId(e.target.value)}><option value="">None</option>{saved.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}</select></label>}
         {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
@@ -114,6 +120,7 @@ export function ExecDashboard(p: {
         </div>
       </div>
       {(chips.length > 0 || !isEmpty(fx)) && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="ex-fchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={() => { setF(emptyXF()); setSavedId(""); }}>Clear all</button>}<span className="muted">{items.length} of {all.length} Epics</span></div>}
+      {canSwitch && <div className="ex-note" role="status"><span className="tag">{view === "rag" ? "Showing: Owner’s RAG" : view === "data" ? "Showing: Data" : "Showing: Variance"}</span> {view === "rag" ? `The status is what owners entered; ${all.filter(i => !i.r.declared && i.r.dataStatus !== "done" && i.r.dataStatus !== "idle").length} Epics have no RAG, so they show the data status. “Data check” says where the data disagrees.` : view === "data" ? "The status is worked out from dates and progress. The owner’s RAG is shown beside it." : "Owner’s RAG against the data. The Portfolio map and Roadmap show the data status here; on the map a coloured edge is the owner’s RAG."}</div>}
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {historyOn && L.history && !all.some(i => i.sum.moves > 0) && <div className="muted" style={{ marginBottom: 6 }} role="status">No go-live date change is recorded in the field "{goLiveField}" that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads "${p.settings.epicTargetField}"` : ""}. Check Settings › Executive dashboard › Go-live date field.</div>}
       {x.declaredField && built && (() => { const bad = built.rows.filter(r => r.declaredText && !r.declared), vals = Array.from(new Set(bad.map(r => r.declaredText!))).slice(0, 6); return bad.length > 0 ? <div className="muted" style={{ marginBottom: 6 }} role="status">{bad.length} Epic(s) have a value in the declared status field that is not read as green, amber or red ({vals.join(", ")}{new Set(bad.map(r => r.declaredText)).size > vals.length ? ", …" : ""}); their status comes from the data. Say which values mean what in Settings › Executive Dashboard › Declared status, or choose a different field.</div> : null; })()}

@@ -14,6 +14,8 @@ export interface LP {
   historyOn: boolean;
   /** the weekly snapshots (this week last): trends and the change since last week, shown while no filter is applied */
   snaps?: Snapshot[];
+  /** the status view: the owner's RAG, the data, or the variance between them */
+  view: "rag" | "data" | "var"; canSwitch: boolean;
 }
 const DAY = 86400000;
 
@@ -68,23 +70,70 @@ function KpiRow({ lp }: { lp: LP }) {
   );
 }
 
+/** The owner's RAG as a pill (Red, Amber, Green), with a warning where it looks better than the data. */
+function RagPill({ i }: { i: Item }) {
+  const r = i.r;
+  if (!r.declaredText) return <span className="muted">–</span>;
+  if (!r.declared) return <span className="muted" title="Not read as green, amber or red">{r.declaredText}</span>;
+  return <span className="ex-rag" style={{ ["--pc" as string]: COLOR[r.declared] }} title={r.compare === "optimistic" ? r.check : undefined}><i />{r.declaredText}{r.compare === "optimistic" && <span className="ex-warn" aria-label="Check this"> ⚠</span>}</span>;
+}
+/** In the Owner's RAG view: does the data agree? */
+function DataCheck({ i }: { i: Item }) {
+  const r = i.r;
+  if (r.dataStatus === "done" || r.dataStatus === "idle") return <span className="ex-agree">–</span>;
+  if (!r.declared) return <span className="ex-agree">No RAG</span>;
+  if (r.dataStatus === i.status) return <span className="ex-agree">✓ agrees</span>;
+  return <span className="ex-differs" title={r.check}>{r.compare === "optimistic" && "⚠ "}Data says <StatusPill s={r.dataStatus} /></span>;
+}
 type SortKey = "status" | "title" | "dim" | "state" | "pct" | "goLive" | "forecast" | "conf" | string;
 /** The Epics as a table: sortable, with progress against time and the calculated fields. */
 export function ItemsTable({ lp, items, limit = 100 }: { lp: LP; items: Item[]; limit?: number }) {
-  const [sort, setSort] = React.useState<{ k: SortKey; d: number }>({ k: "status", d: 1 }), [more, setMore] = React.useState(limit);
+  const [sort, setSort] = React.useState<{ k: SortKey; d: number }>({ k: lp.view === "var" ? "gap" : "status", d: lp.view === "var" ? -1 : 1 }), [more, setMore] = React.useState(limit);
   const order = { red: 0, amber: 1, green: 2, unknown: 3, idle: 4, done: 5 };
-  const val = (i: Item, k: SortKey): number | string => k === "status" ? order[i.status] * 1e6 - i.r.slip : k === "title" ? i.title : k === "state" ? i.state : k === "dim" ? i.r.dims[lp.fields[0]] : k === "pct" ? i.r.pct ?? -1 : k === "goLive" ? i.r.goLive ?? 9e15 : k === "forecast" ? i.r.forecast ?? 9e15 : k === "conf" ? i.r.conf ?? -1 : k === "moves" ? i.sum.moves : k === "rag" ? (i.r.declared ? ({ red: 0, amber: 1, green: 2 } as Record<string, number>)[i.r.declared] : 9) : k === "data" ? order[i.r.dataStatus] : lp.extra.find(c => c.key === k)?.get(i) ?? "";
+  const val = (i: Item, k: SortKey): number | string => k === "status" ? order[i.status] * 1e6 - i.r.slip : k === "title" ? i.title : k === "state" ? i.state : k === "dim" ? i.r.dims[lp.fields[0]] : k === "pct" ? i.r.pct ?? -1 : k === "goLive" ? i.r.goLive ?? 9e15 : k === "forecast" ? i.r.forecast ?? 9e15 : k === "conf" ? i.r.conf ?? -1 : k === "moves" ? i.sum.moves : k === "rag" ? (i.r.declared ? ({ red: 0, amber: 1, green: 2 } as Record<string, number>)[i.r.declared] : 9) : k === "data" ? order[i.r.dataStatus] : k === "gap" ? i.gap * 1e6 + i.r.slip : lp.extra.find(c => c.key === k)?.get(i) ?? "";
   const rows = React.useMemo(() => [...items].sort((a, b) => { const x = val(a, sort.k), y = val(b, sort.k); return ((x > y ? 1 : x < y ? -1 : 0) || a.title.localeCompare(b.title)) * sort.d; }), [items, sort]);   // eslint-disable-line react-hooks/exhaustive-deps
-  const rag = !!lp.settings.executive.declaredField, ds = lp.settings.executive.statusSource;
-  const th = (k: SortKey, label: string) => <th key={k} aria-sort={sort.k === k ? (sort.d > 0 ? "ascending" : "descending") : "none"}><button className="lk" onClick={() => setSort({ k, d: sort.k === k ? -sort.d : 1 })}>{label}{sort.k === k ? (sort.d > 0 ? " ▲" : " ▼") : ""}</button></th>;
+  const v = lp.view, two = lp.canSwitch;                                // the second column compares the owner's RAG and the data
+  const th = (k: SortKey, label: React.ReactNode) => <th key={k} aria-sort={sort.k === k ? (sort.d > 0 ? "ascending" : "descending") : "none"}><button className="lk" onClick={() => setSort({ k, d: sort.k === k ? -sort.d : 1 })}>{label}{sort.k === k ? (sort.d > 0 ? " ▲" : " ▼") : ""}</button></th>;
   return (
-    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{th("status", "Status")}{rag && th("rag", "Owner’s RAG")}{rag && ds !== "data" && th("data", "Status from the data")}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{lp.historyOn && th("moves", "Go-live changes")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
+    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{v === "var" ? th("rag", "Owner’s RAG") : th("status", <span className="ex-th">Status{two && <small>{v === "rag" ? "owner’s RAG" : "from the data"}</small>}</span>)}{two && (v === "var" ? th("data", "Data says") : v === "rag" ? th("data", "Data check") : th("rag", "Owner’s RAG"))}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{lp.historyOn && th("moves", "Go-live changes")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
       <tbody>{rows.slice(0, more).map(i => <tr key={i.id} className="ex-row" tabIndex={0} onClick={() => lp.open(i)} onKeyDown={e => { if (e.key === "Enter") lp.open(i); }}>
-        <td><StatusPill s={i.status} /></td>{rag && <td>{i.r.declared ? <span className="ex-pill" style={{ ["--pc" as string]: COLOR[i.r.declared] }} title={i.r.compare === "optimistic" ? i.r.check : undefined}><Sw s={i.r.declared} />{i.r.declaredText}{i.r.compare === "optimistic" && <span className="ex-warn" aria-label="Check this"> ⚠</span>}</span> : i.r.declaredText ? <span className="muted" title="Not read as green, amber or red">{i.r.declaredText}</span> : <span className="muted">–</span>}</td>}{rag && ds !== "data" && <td><StatusPill s={i.r.dataStatus} /></td>}<td><b>{i.title}</b><div className="muted">{i.id}</div></td><td>{i.r.dims[lp.fields[0]]}</td><td>{i.state}</td>
+        {v === "var" ? <td><RagPill i={i} /></td> : <td><StatusPill s={i.status} /></td>}{two && (v === "var" ? <td><StatusPill s={i.r.dataStatus} /></td> : v === "rag" ? <td><DataCheck i={i} /></td> : <td><RagPill i={i} /></td>)}<td><b>{i.title}</b><div className="muted">{i.id}</div></td><td>{i.r.dims[lp.fields[0]]}</td><td>{i.state}</td>
         <td><ProgressBar i={i} /> <span>{i.r.pct === undefined ? "–" : i.r.pct + "%"}</span></td><td>{lp.day(i.r.goLive)}</td>
         <td>{i.status === "done" ? "–" : lp.day(i.r.forecast)}{i.r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{i.r.slip}d</span>}</td>{lp.historyOn && <td title={i.hist ? `Original ${lp.day(Date.parse(i.hist.baseline + "T00:00:00Z"))}` : undefined}>{i.sum.moves ? <><b>{i.sum.moves}×</b> <span className={i.sum.net > 0 ? "ex-slip" : "ex-good"}>{signed(i.sum.net)}d</span></> : "–"}</td>}<td>{i.r.conf === null ? "–" : i.r.conf + "%"}</td><td className="muted">{i.r.reasons[0]}</td>{lp.extra.map(c => <td key={c.key}>{c.get(i)}</td>)}</tr>)}</tbody></table>
       {rows.length > more && <div style={{ padding: 10 }}><button className="btn" onClick={() => setMore(more + 100)}>Show {Math.min(100, rows.length - more)} more ({rows.length - more} left)</button></div>}
       {!rows.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div>
+  );
+}
+
+/** The variance between the owner's RAG and the data: counts, a grid to click, the biggest gaps and the table. */
+function VarianceReport({ lp }: { lp: LP }) {
+  const { f, setF, items } = lp, base = lp.all.filter(i => pass(i, f, "cell")), J = base.filter(i => i.cell);
+  const opt = J.filter(i => i.gap > 0), cau = J.filter(i => i.gap < 0), same = J.filter(i => i.gap === 0), none = base.filter(i => !i.r.declared && i.r.dataStatus !== "done" && i.r.dataStatus !== "idle");
+  const K: ExecStatus[] = ["green", "amber", "red"], RGN: Record<string, string> = { green: "Green", amber: "Amber", red: "Red" };
+  const cellsOf = (test: (g: number) => boolean) => K.flatMap(r => K.filter(d => test(K.indexOf(d) - K.indexOf(r))).map(d => `${r}|${d}`));
+  const pickCells = (cells: string[]) => setF({ ...f, cell: cells.every(c => f.cell.includes(c)) ? [] : cells });
+  const top = [...opt].sort((a, b) => b.gap - a.gap || b.r.slip - a.r.slip).slice(0, 8);
+  const card = (label: React.ReactNode, n: number, detail: string, c: string, onClick: () => void, on?: boolean) => <Kpi c={c} label={label} value={n} detail={detail} on={on} onClick={onClick} />;
+  return (
+    <div className="ex-report">
+      <Slicers {...lp} />
+      <div className="ex-kpis" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
+        {card(<>⚠ Check this</>, opt.length, "Owner’s RAG looks better than the data", "#b45309", () => pickCells(cellsOf(g => g > 0)), cellsOf(g => g > 0).every(c => f.cell.includes(c)) && f.cell.length > 0)}
+        {card(<>↓ Owner more cautious</>, cau.length, "RAG is worse than the data says", "#2563eb", () => pickCells(cellsOf(g => g < 0)))}
+        {card(<>✓ Matches</>, same.length, `${pct(same.length, J.length)}% of Epics with a RAG agree with the data`, "#16a34a", () => pickCells(cellsOf(g => g === 0)))}
+        {card(<>– No RAG</>, none.length, "status comes from the data only", "#64748b", () => undefined)}
+      </div>
+      <div className="ex-charts" style={{ gridTemplateColumns: "1.25fr 1fr" }}>
+        <section className="ex-card"><h4>Owner’s RAG against the data <span>click a cell to filter</span></h4>
+          <div className="ex-mx"><div className="hd" />{K.map(d => <div key={d} className="hd">Data: {STATUS_NAME[d]}</div>)}
+            {K.map(r => <React.Fragment key={r}><div className="hd rl">Owner: {RGN[r]}</div>{K.map(d => { const g = K.indexOf(d) - K.indexOf(r), n = J.filter(i => i.cell === `${r}|${d}`).length, k = `${r}|${d}`;
+              return <button key={d} type="button" className={"ex-mxc " + (g === 0 ? "ok" : g > 1 ? "bad" : g > 0 ? "warn" : "cau") + (n ? "" : " zero")} aria-pressed={f.cell.includes(k)} onClick={() => setF({ ...f, cell: toggle(f.cell, k) })}><b>{n}</b><span>{g === 0 ? "agree" : g > 0 ? "owner more optimistic" : "owner more cautious"}</span></button>; })}</React.Fragment>)}</div>
+          <div className="ex-mxl"><span><i style={{ background: "#bbf7d0" }} />agree</span><span><i style={{ background: "#fdba74" }} />owner one step better than the data</span><span><i style={{ background: "#fca5a5" }} />owner two steps better (Green against At risk)</span><span><i style={{ background: "#bfdbfe" }} />owner more cautious</span></div></section>
+        <section className="ex-card"><h4>Biggest gaps to ask about <span>{opt.length} Epics</span></h4>
+          {top.length ? top.map(i => <button key={i.id} type="button" className="ex-gap" onClick={() => lp.open(i)}><span><RagPill i={i} /><span className="arrow">→</span><StatusPill s={i.r.dataStatus} /></span><span><b>{i.title}</b><span className="muted">{i.r.dims[lp.fields[0]]} · {i.r.dataReasons[0]}</span></span><span className="ex-slip">{i.r.slip > 0 ? "+" + i.r.slip + "d" : ""}</span></button>) : <div className="muted" style={{ padding: 14 }}>No gaps: every RAG agrees with the data.</div>}</section>
+      </div>
+      <section className="ex-card"><h4>Epics <span>{items.length} of {lp.all.length} · biggest gap first</span></h4><ItemsTable key="var" lp={lp} items={items} /></section>
+    </div>
   );
 }
 
@@ -97,6 +146,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
   const dimRows = optionsOf(lp, { dim }, i => i.r.dims[dim]).map(o => ({ label: o.value, counts: byStatus(forDim.filter(i => i.r.dims[dim] === o.value)) })).filter(r => SHOWN.some(s => r.counts[s])).sort((a, b) => SHOWN.reduce((x, s) => x + b.counts[s], 0) - SHOWN.reduce((x, s) => x + a.counts[s], 0)).slice(0, 12);
   const qs = sortQuarters(Array.from(new Set(lp.all.map(i => i.quarter)))).map(q => ({ label: q, counts: byStatus(forQ.filter(i => i.quarter === q)) }));
   const pick = (label: string, s?: ExecStatus, which?: "dim" | "q") => setF(which === "q" ? { ...f, quarter: toggle(f.quarter, label), status: s ? toggle(f.status, s) : f.status } : { ...f, dims: { ...f.dims, [dim]: toggle(f.dims[dim] ?? [], label) }, status: s ? toggle(f.status, s) : f.status });
+  if (lp.view === "var") return <VarianceReport lp={lp} />;
   return (
     <div className="ex-report">
       <Slicers {...lp} /><KpiRow lp={lp} />
@@ -106,7 +156,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
           <StackedBars rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} /></section>
         <section className="ex-card"><h4>Go-live by quarter <span>Epics</span></h4><Columns cols={qs} selected={f.quarter} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "q")} /></section>
       </div>
-      <section className="ex-card"><h4>Epics <span>{items.length} of {lp.all.length}</span></h4><ItemsTable lp={lp} items={items} /></section>
+      <section className="ex-card"><h4>Epics <span>{items.length} of {lp.all.length}</span></h4><ItemsTable key={lp.view} lp={lp} items={items} /></section>
     </div>
   );
 }
@@ -127,7 +177,7 @@ export function MapLayout({ lp }: { lp: LP }) {
     r.forEach(g => { const gt = g.list.reduce((a, i) => a + wt(i), 0), gw = w * gt / rowT[ri];
       blocks.push(<div key={"c" + ri + g.g} className="ex-cat" style={{ left: x, top: y, width: gw, height: rh }}><div className="cl">{g.g} · {g.list.length}</div>{(() => { const cols = Math.max(1, Math.round(Math.sqrt(g.list.length * gw / Math.max(1, rh) / 1.6))), per = Math.ceil(g.list.length / cols); const out: React.ReactNode[] = []; let cx = 0;
         for (let c = 0; c < cols; c++) { const part = g.list.slice(c * per, (c + 1) * per); if (!part.length) continue; const ct = part.reduce((a, i) => a + wt(i), 0), cw = gw * ct / gt; let cy = 22;
-          part.forEach(i => { const bh = Math.max(1, (rh - 22) * wt(i) / ct); out.push(<button key={i.id} type="button" className={"ex-blk " + i.status} style={{ left: cx, top: cy, width: cw, height: bh, background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · ${i.hours.toLocaleString()} h`}>{bh > 26 && cw > 64 ? <b>{i.title}</b> : null}{bh > 48 && cw > 90 ? <span>{i.r.pct ?? "–"}% · {i.state}</span> : null}</button>); cy += bh; }); cx += cw; } return out; })()}</div>); x += gw; });
+          part.forEach(i => { const bh = Math.max(1, (rh - 22) * wt(i) / ct); out.push(<button key={i.id} type="button" className={"ex-blk " + i.status + (lp.view === "var" && i.r.declared ? " rag" : "")} style={{ left: cx, top: cy, width: cw, height: bh, background: COLOR[i.status], ["--rc" as string]: i.r.declared ? COLOR[i.r.declared] : undefined }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · ${i.hours.toLocaleString()} h`}>{bh > 26 && cw > 64 ? <b>{i.title}</b> : null}{bh > 48 && cw > 90 ? <span>{i.r.pct ?? "–"}% · {i.state}</span> : null}</button>); cy += bh; }); cx += cw; } return out; })()}</div>); x += gw; });
     y += rh; });
   const attention = items.filter(i => i.status === "red" || i.status === "amber").sort((a, b) => (a.status === "red" ? 0 : 1) - (b.status === "red" ? 0 : 1) || b.r.slip - a.r.slip).slice(0, 12);
   return (
@@ -171,7 +221,7 @@ export function RoadmapLayout({ lp }: { lp: LP }) {
       </section>
       <Slicers {...lp} />
       <div className="ex-tabs" role="tablist">{(["Roadmap", "Scorecards", "Table"] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} className={"ex-tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{t}</button>)}</div>
-      {tab === "Roadmap" ? <Roadmap lp={lp} /> : tab === "Scorecards" ? <Scorecards lp={lp} /> : <section className="ex-card"><ItemsTable lp={lp} items={items} /></section>}
+      {tab === "Roadmap" ? <Roadmap lp={lp} /> : tab === "Scorecards" ? <Scorecards lp={lp} /> : <section className="ex-card"><ItemsTable key={lp.view} lp={lp} items={items} /></section>}
     </div>
   );
 }

@@ -134,17 +134,25 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     if (row.status === "green") reasons.push(pr ? `Progress ${pr.pct}% against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : "On track");
     rows.push(row);
   }
-  const mode = x.declaredField ? x.statusSource : "data";
   for (const r of rows) {
     r.dataStatus = r.status; r.dataReasons = r.reasons;
     const judged = r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red";
-    if (r.declared && judged) { const d = RANK[r.declared] - RANK[r.dataStatus as "green" | "amber" | "red"]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; if (d < 0 && x.statusSource !== "rag") { const why = (r.dataReasons[0] ?? "").replace(/^./, c => c.toLowerCase()); r.check = `RAG is ${r.declaredText}, but ${why || "the data says " + STATUS_NAME[r.dataStatus].toLowerCase()}`; } }
-    if (mode === "data" || r.dataStatus === "done" || r.dataStatus === "idle") continue;
-    if (r.declared) { r.status = r.declared; r.reasons = [...(r.check ? [r.check] : []), `Declared by the owner: ${r.declaredText}`, ...(mode === "rag-check" ? r.dataReasons.map(t => "Data check: " + t) : [])]; }
-    else if (mode === "rag") { r.status = "unknown"; r.reasons = [r.declaredText ? `The declared status “${r.declaredText}” is not recognised as green, amber or red` : "No declared status (RAG) on this Epic"]; }
-    else r.reasons = ["No declared status, so the status comes from the data", ...r.dataReasons];
+    if (r.declared && judged) { const d = RANK[r.declared] - RANK[r.dataStatus as "green" | "amber" | "red"]; r.compare = d === 0 ? "same" : d < 0 ? "optimistic" : "cautious"; if (d < 0) { const why = (r.dataReasons[0] ?? "").replace(/^./, c => c.toLowerCase()); r.check = `RAG is ${r.declaredText}, but ${why || "the data says " + STATUS_NAME[r.dataStatus].toLowerCase()}`; } }
   }
-  return { rows, ignored, noGoLive, noProgress };
+  const mode: StatusMode = x.declaredField ? x.statusSource : "data";
+  return { rows: rows.map(r => withSource(r, mode)), ignored, noGoLive, noProgress };
 }
+
+export type StatusMode = "data" | "rag" | "rag-check";
+/** The same Epic with its status taken from the data, from the owner's RAG only, or from the RAG with the data kept as a check. Always starts from the data status, so any view can be derived from one assessment. */
+export function withSource(r: ExecEpic, mode: StatusMode): ExecEpic {
+  const o: ExecEpic = { ...r, status: r.dataStatus, reasons: r.dataReasons };
+  if (mode === "data" || r.dataStatus === "done" || r.dataStatus === "idle") return o;
+  if (r.declared) { o.status = r.declared; o.reasons = [...(mode === "rag-check" && r.check ? [r.check] : []), `Declared by the owner: ${r.declaredText}`, ...(mode === "rag-check" ? r.dataReasons.map(t => "Data check: " + t) : [])]; }
+  else if (mode === "rag") { o.status = "unknown"; o.reasons = [r.declaredText ? `The declared status “${r.declaredText}” is not recognised as green, amber or red` : "No declared status (RAG) on this Epic"]; }
+  else o.reasons = ["No declared status, so the status comes from the data", ...r.dataReasons];
+  return o;
+}
+
 
 export const likely = (r: ExecEpic, x: PlannerSettings["executive"]) => r.conf !== null && r.conf >= x.likelyPct;

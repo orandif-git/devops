@@ -105,7 +105,7 @@ describe("executive status", () => {
     const r = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag-check" } }, today: TODAY });
     expect(by(r, 3).status).toBe("green"); expect(by(r, 3).check).toMatch(/^RAG is Green, but past its go-live date/);
     const only = buildExec({ epics: e2, gridDone: {}, bookings: [], avail: none, settings: { ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag" } }, today: TODAY });
-    expect(by(only, 3).check).toBeUndefined();
+    expect(by(only, 3).reasons.join("|")).not.toContain("RAG is Green, but");                    // RAG only: no data check in the reasons
   });
   it("flags a stale Epic and a blocker field", () => {
     const e2 = epics.map(e => (e.id === 2 ? { ...e, changed: "2026-06-01T00:00:00Z", extra: { ...e.extra, "Custom.Blocked": "Yes" } } : e));
@@ -165,14 +165,32 @@ describe("Executive dashboard page", () => {
     act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={withPhase as never} busy={false} error="" onReload={() => undefined} />, h); });
     expect(h.textContent).toContain("not read as green, amber or red"); expect(h.textContent).toMatch(/Design|UAT/);
   });
-  it("shows the owner's RAG next to the status in the Epic table, and the data status when the RAG decides", () => {
+  it("compares the owner's RAG and the data in two columns: Data check in the RAG view, Owner's RAG in the Data view", () => {
     const withRag = { ...(loaded as unknown as { epics: { extra: object }[] }), epics: (loaded as unknown as { epics: { extra: object }[] }).epics.map((e, i) => ({ ...e, extra: { ...e.extra, "Custom.RAG": ["Green", "Red", "Amber"][i % 3] } })) };
-    const show = (src: "data" | "rag-check") => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: src } }} loaded={withRag as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
-    const a = show("data"), heads = (h: HTMLElement) => Array.from(h.querySelectorAll(".ex-table th")).map(t => t.textContent!.replace(/[▲▼ ]+$/, ""));
-    expect(heads(a)).toContain("Owner’s RAG"); expect(heads(a)).not.toContain("Status from the data");
+    const show = (src: "data" | "rag" | "rag-check") => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: src } }} loaded={withRag as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+    const heads = (h: HTMLElement) => Array.from(h.querySelectorAll(".ex-table th")).map(t => t.textContent!.replace(/[▲▼ ]+$/, ""));
+    const a = show("data");                                                                  // the data decides: Status from the data, then the owner's RAG
+    expect(heads(a)[0]).toContain("from the data"); expect(heads(a)).toContain("Owner’s RAG"); expect(heads(a)).not.toContain("Data check");
     const rows = Array.from(a.querySelectorAll("tr.ex-row")).map(r => r.textContent!); expect(rows.some(t => t.includes("Green"))).toBe(true); expect(rows.some(t => t.includes("Red"))).toBe(true);
-    const b = show("rag-check"); expect(heads(b)).toContain("Owner’s RAG"); expect(heads(b)).toContain("Status from the data");
+    const b = show("rag-check");                                                             // the RAG decides: Status (owner's RAG), then whether the data agrees
+    expect(heads(b)[0]).toContain("owner’s RAG"); expect(heads(b)).toContain("Data check"); expect(heads(b)).not.toContain("Owner’s RAG");
+    expect(Array.from(b.querySelectorAll("tr.ex-row")).some(r => /agrees|Data says|No RAG/.test(r.textContent!))).toBe(true);
+    const c = show("rag"); expect(heads(c)).not.toContain("Data check"); expect(c.querySelector("[aria-label='Status view']")).toBeNull();   // RAG only: no switch
+    expect(b.querySelector("[aria-label='Status view']")).not.toBeNull();
     const none = mount(); expect(heads(none)).not.toContain("Owner’s RAG");
+  });
+  it("switches between Owner's RAG, Data and Variance", () => {
+    const withRag = { ...(loaded as unknown as { epics: { extra: object }[] }), epics: (loaded as unknown as { epics: { extra: object }[] }).epics.map((e, i) => ({ ...e, extra: { ...e.extra, "Custom.RAG": ["Green", "Red", "Amber"][i % 3] } })) };
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag-check" } }} loaded={withRag as never} busy={false} error="" onReload={() => undefined} />, h); });
+    const tab = (n: string) => Array.from(h.querySelectorAll("[aria-label='Status view'] button")).find(b => b.textContent === n)!;
+    expect(h.querySelector(".ex-note")!.textContent).toContain("Showing: Owner’s RAG");
+    act(() => { Simulate.click(tab("Data")); }); expect(h.querySelector(".ex-note")!.textContent).toContain("Showing: Data");
+    act(() => { Simulate.click(tab("Variance")); }); expect(h.querySelector(".ex-note")!.textContent).toContain("Showing: Variance");
+    expect(h.querySelector(".ex-mx")).not.toBeNull(); expect(h.textContent).toContain("Biggest gaps to ask about"); expect(h.textContent).toContain("Check this");
+    const cell = h.querySelector(".ex-mxc:not(.zero)") as HTMLElement; act(() => { Simulate.click(cell); });
+    expect(h.querySelector(".ex-chips")!.textContent).toMatch(/Owner (Green|Amber|Red) · Data/);
+    act(() => { Simulate.click(tab("Owner’s RAG")); }); expect(h.querySelector(".ex-mx")).toBeNull(); expect(h.querySelector(".ex-chips")?.textContent ?? "").not.toMatch(/Owner (Green|Amber|Red) · Data/);
   });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
