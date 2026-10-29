@@ -15,6 +15,7 @@ import { buildExec } from "../planner/src/core/executive";
 import { gridDoneOf, progressOf } from "../planner/src/core/progress";
 import { normalizeSettings, validateExec } from "../planner/src/core/settings";
 import { defaultSettings, EpicRecord } from "../planner/src/core/types";
+import { execAccessTeams } from "../planner/src/data/access";
 import { ExecDashboard } from "../planner/src/exec/ExecDashboard";
 
 const TODAY = new Date("2026-10-14T00:00:00Z");
@@ -140,6 +141,13 @@ describe("progress sources", () => {
     expect(g).toMatchObject({ rows: 4, done: 2, weighted: false });
     expect(gridDoneOf("{}", { ...settings.sources[0], columns: { resource: "r" } })).toBeUndefined();
   });
+  it("has its own access teams: the dashboard uses them, else the Resource Planner's Access teams", () => {
+    const team = (id: string) => ({ id, name: id });
+    const base = normalizeSettings({ accessTeams: [team("plan")] });
+    expect(execAccessTeams(base).map(t => t.id)).toEqual(["plan"]);                                       // none chosen for the dashboard: the same people as the Planner
+    const own = normalizeSettings({ accessTeams: [team("plan")], executive: { accessTeams: [team("execs"), { nope: 1 }] } });
+    expect(own.executive.accessTeams.map(t => t.id)).toEqual(["execs"]); expect(execAccessTeams(own).map(t => t.id)).toEqual(["execs"]);
+  });
   it("is validated: needs a go-live date and complete sources", () => {
     expect(validateExec(defaultSettings())).toEqual(["Choose the go-live date field (or set the Epic target-date field)."]);
     expect(validateExec(settings)).toEqual([]);
@@ -165,17 +173,17 @@ describe("Executive dashboard page", () => {
     act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={withPhase as never} busy={false} error="" onReload={() => undefined} />, h); });
     expect(h.textContent).toContain("not read as green, amber or red"); expect(h.textContent).toMatch(/Design|UAT/);
   });
-  it("compares the owner's RAG and the data in two columns: Data check in the RAG view, Owner's RAG in the Data view", () => {
+  it("compares the owner's RAG and the data in two columns: Data says in the RAG view, Owner's RAG in the Data view", () => {
     const withRag = { ...(loaded as unknown as { epics: { extra: object }[] }), epics: (loaded as unknown as { epics: { extra: object }[] }).epics.map((e, i) => ({ ...e, extra: { ...e.extra, "Custom.RAG": ["Green", "Red", "Amber"][i % 3] } })) };
     const show = (src: "data" | "rag" | "rag-check") => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: src } }} loaded={withRag as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
     const heads = (h: HTMLElement) => Array.from(h.querySelectorAll(".ex-table th")).map(t => t.textContent!.replace(/[▲▼ ]+$/, ""));
     const a = show("data");                                                                  // the data decides: Status from the data, then the owner's RAG
-    expect(heads(a)[0]).toContain("from the data"); expect(heads(a)).toContain("Owner’s RAG"); expect(heads(a)).not.toContain("Data check");
+    expect(heads(a)[0]).toContain("from the data"); expect(heads(a)).toContain("Owner’s RAG"); expect(heads(a)).not.toContain("Data says");
     const rows = Array.from(a.querySelectorAll("tr.ex-row")).map(r => r.textContent!); expect(rows.some(t => t.includes("Green"))).toBe(true); expect(rows.some(t => t.includes("Red"))).toBe(true);
     const b = show("rag-check");                                                             // the RAG decides: Status (owner's RAG), then whether the data agrees
-    expect(heads(b)[0]).toContain("owner’s RAG"); expect(heads(b)).toContain("Data check"); expect(heads(b)).not.toContain("Owner’s RAG");
-    expect(Array.from(b.querySelectorAll("tr.ex-row")).some(r => /agrees|Data says|No RAG/.test(r.textContent!))).toBe(true);
-    const c = show("rag"); expect(heads(c)).not.toContain("Data check"); expect(c.querySelector("[aria-label='Status view']")).toBeNull();   // RAG only: no switch
+    expect(heads(b)[0]).toContain("owner’s RAG"); expect(heads(b)).toContain("Data says"); expect(heads(b)).not.toContain("Owner’s RAG");
+    expect(Array.from(b.querySelectorAll("tr.ex-row")).some(r => /✓|⚠|no RAG/.test(r.textContent!))).toBe(true);
+    const c = show("rag"); expect(heads(c)).not.toContain("Data says"); expect(c.querySelector("[aria-label='Status view']")).toBeNull();   // RAG only: no switch
     expect(b.querySelector("[aria-label='Status view']")).not.toBeNull();
     const none = mount(); expect(heads(none)).not.toContain("Owner’s RAG");
   });
@@ -453,7 +461,7 @@ describe("enabling the Executive Dashboard", () => {
     expect(normalizeSettings({}).executive.enabled).toBe(false);
     const hostEl = document.createElement("div"); document.body.appendChild(hostEl);
     let s = normalizeSettings({});
-    const render = () => ReactDOM.render(<ExecSettingsView s={s} fields={[]} project="Proj" onChange={n => { s = n; render(); }} />, hostEl);
+    const render = () => ReactDOM.render(<ExecSettingsView s={s} fields={[]} teams={[]} project="Proj" onChange={n => { s = n; render(); }} />, hostEl);
     act(() => { render(); });
     expect(hostEl.textContent).toContain("Enable the Executive Dashboard"); expect(hostEl.textContent).not.toContain("Saved filters");
     act(() => { Simulate.change(hostEl.querySelector('input[type="checkbox"]')!, { target: { checked: true } } as never); });

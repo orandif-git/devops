@@ -149,6 +149,8 @@ export interface ExecSettings {
   staleDays: number;
   /** a field that flags a blocker or open risk (any value except empty, No, False, None or 0, or only the values listed) */
   blockerField: string; blockerValues: string[];
+  /** who may open the Executive Dashboard: members of these teams and project administrators (empty = the same people as the Resource Planner's Access teams) */
+  accessTeams: TeamRef[];
   /** show team, hours booked and the over-capacity check (resource information; off = a pure portfolio view) */
   resources: boolean;
   /** the layout the dashboard opens in (each person's last choice is remembered for them) */
@@ -163,7 +165,7 @@ export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
-  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], resources: false,
+  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], resources: false,
 });
 
 export const defaultSettings = (): PlannerSettings => ({

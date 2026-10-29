@@ -14,7 +14,7 @@ import { ExecSettings } from "./ExecSettings";
 
 const SLOTS: [Slot, string, boolean][] = [["resource", "Resource (person)", true], ["start", "Start date", false], ["end", "End date", false], ["effort", "Effort (hours)", false], ["allocation", "Allocation %", false], ["status", "Review status", false], ["task", "Task / activity", false]];
 
-function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): void }) {
+export function Chips(p: { all: TeamRef[]; value: TeamRef[]; onChange(v: TeamRef[]): void }) {
   const on = (t: TeamRef) => p.value.some(x => x.id === t.id);
   return (
     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
@@ -213,7 +213,7 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
 
       </>}
       {sub === "exec" && <>
-      <ExecSettings s={s} fields={fields} project={p.projectName} onChange={p.onChange} />
+      <ExecSettings s={s} fields={fields} teams={teams} project={p.projectName} onChange={p.onChange} />
       </>}
     </div>
   );

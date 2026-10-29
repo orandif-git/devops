@@ -77,13 +77,11 @@ function RagPill({ i }: { i: Item }) {
   if (!r.declared) return <span className="muted" title="Not read as green, amber or red">{r.declaredText}</span>;
   return <span className="ex-rag" style={{ ["--pc" as string]: COLOR[r.declared] }} title={r.compare === "optimistic" ? r.check : undefined}><i />{r.declaredText}{r.compare === "optimistic" && <span className="ex-warn" aria-label="Check this"> ⚠</span>}</span>;
 }
-/** In the Owner's RAG view: does the data agree? */
+/** In the Owner's RAG view: what the data says, with a tick where it agrees and a warning where the RAG looks better. */
 function DataCheck({ i }: { i: Item }) {
   const r = i.r;
   if (r.dataStatus === "done" || r.dataStatus === "idle") return <span className="ex-agree">–</span>;
-  if (!r.declared) return <span className="ex-agree">No RAG</span>;
-  if (r.dataStatus === i.status) return <span className="ex-agree">✓ agrees</span>;
-  return <span className="ex-differs" title={r.check}>{r.compare === "optimistic" && "⚠ "}Data says <StatusPill s={r.dataStatus} /></span>;
+  return <span className="ex-dc"><StatusPill s={r.dataStatus} />{!r.declared ? <span className="ex-agree"> no RAG</span> : r.dataStatus === i.status ? <span className="ex-agree" title="Agrees with the owner’s RAG"> ✓</span> : r.compare === "optimistic" ? <span className="ex-warn" title={r.check}> ⚠</span> : null}</span>;
 }
 type SortKey = "status" | "title" | "dim" | "state" | "pct" | "goLive" | "forecast" | "conf" | string;
 /** The Epics as a table: sortable, with progress against time and the calculated fields. */
@@ -95,7 +93,7 @@ export function ItemsTable({ lp, items, limit = 100 }: { lp: LP; items: Item[]; 
   const v = lp.view, two = lp.canSwitch;                                // the second column compares the owner's RAG and the data
   const th = (k: SortKey, label: React.ReactNode) => <th key={k} aria-sort={sort.k === k ? (sort.d > 0 ? "ascending" : "descending") : "none"}><button className="lk" onClick={() => setSort({ k, d: sort.k === k ? -sort.d : 1 })}>{label}{sort.k === k ? (sort.d > 0 ? " ▲" : " ▼") : ""}</button></th>;
   return (
-    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{v === "var" ? th("rag", "Owner’s RAG") : th("status", <span className="ex-th">Status{two && <small>{v === "rag" ? "owner’s RAG" : "from the data"}</small>}</span>)}{two && (v === "var" ? th("data", "Data says") : v === "rag" ? th("data", "Data check") : th("rag", "Owner’s RAG"))}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{lp.historyOn && th("moves", "Go-live changes")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
+    <div className="ex-tablewrap"><table className="ex-table"><thead><tr>{v === "var" ? th("rag", "Owner’s RAG") : th("status", <span className="ex-th">Status{two && <small>{v === "rag" ? "owner’s RAG" : "from the data"}</small>}</span>)}{two && (v === "var" ? th("data", "Data says") : v === "rag" ? th("data", "Data says") : th("rag", "Owner’s RAG"))}{th("title", "Epic")}{th("dim", dimLabel(lp.fields[0]))}{th("state", "State")}{th("pct", "Progress vs time")}{th("goLive", "Go-live")}{th("forecast", "Forecast")}{lp.historyOn && th("moves", "Go-live changes")}{th("conf", "Confidence")}<th>Why</th>{lp.extra.map(c => th(c.key, c.label))}</tr></thead>
       <tbody>{rows.slice(0, more).map(i => <tr key={i.id} className="ex-row" tabIndex={0} onClick={() => lp.open(i)} onKeyDown={e => { if (e.key === "Enter") lp.open(i); }}>
         {v === "var" ? <td><RagPill i={i} /></td> : <td><StatusPill s={i.status} /></td>}{two && (v === "var" ? <td><StatusPill s={i.r.dataStatus} /></td> : v === "rag" ? <td><DataCheck i={i} /></td> : <td><RagPill i={i} /></td>)}<td><b>{i.title}</b><div className="muted">{i.id}</div></td><td>{i.r.dims[lp.fields[0]]}</td><td>{i.state}</td>
         <td><ProgressBar i={i} /> <span>{i.r.pct === undefined ? "–" : i.r.pct + "%"}</span></td><td>{lp.day(i.r.goLive)}</td>

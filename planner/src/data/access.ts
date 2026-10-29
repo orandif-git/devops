@@ -30,4 +30,7 @@ export async function checkAccess(projectId: string, accessTeams: TeamRef[]): Pr
   });
 }
 
+/** The teams that may open the Executive Dashboard: its own list when one is set, otherwise the Resource Planner's Access teams. */
+export const execAccessTeams = (s: { accessTeams: TeamRef[]; executive: { accessTeams: TeamRef[] } }): TeamRef[] => (s.executive.accessTeams.length ? s.executive.accessTeams : s.accessTeams);
+export const NO_EXEC_ACCESS = "You do not have access to the Executive Dashboard for this project. Ask a project administrator to add you to one of its Executive Dashboard access teams.";
 export const NO_ACCESS = "You do not have access to the Resource Planner for this project. Ask a project administrator to add you to one of its access teams.";

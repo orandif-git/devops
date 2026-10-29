@@ -10,7 +10,7 @@ import { LoadProgress } from "../data/epics";
 import { Loaded, loadAll } from "../data/loadAll";
 import { listSavedQueries, SavedQuery } from "../data/queries";
 import { loadSettings } from "../data/settingsStore";
-import { Access, checkAccess, NO_ACCESS } from "../data/access";
+import { Access, checkAccess, execAccessTeams, NO_EXEC_ACCESS } from "../data/access";
 import { ExecPage } from "./ExecPage";
 import { readLink, setHostFullScreen } from "../data/share";
 
@@ -30,7 +30,7 @@ function App(p: { projectId: string; projectName: string }) {
   React.useEffect(() => { readLink().then(setLink); }, []);
   const goFull = React.useCallback((on: boolean) => { setFull(on); void setHostFullScreen(on); }, []);
 
-  React.useEffect(() => { loadSettings(p.projectId).then(r => { setSettings(r.settings); checkAccess(p.projectId, r.settings.accessTeams).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
+  React.useEffect(() => { loadSettings(p.projectId).then(r => { setSettings(r.settings); checkAccess(p.projectId, execAccessTeams(r.settings)).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const on = !!settings?.executive.enabled, valid = !!settings && !validateSettings(settings).length;
   const reload = React.useCallback(async (force: boolean, qid = queryId) => {
@@ -45,7 +45,7 @@ function App(p: { projectId: string; projectName: string }) {
   const box = (body: React.ReactNode, bare = false) => <div style={{ padding: bare ? "8px 12px" : "16px 22px" }}>{!bare && head}{body}</div>;
   if (!settings) return box(<div className="muted">{msg || "Loading…"}</div>);
   if (!access) return box(<div className="muted">Checking access…</div>);
-  if (!access.mayOpen) return box(<div className="err" role="alert">{NO_ACCESS}</div>);
+  if (!access.mayOpen) return box(<div className="err" role="alert">{NO_EXEC_ACCESS}</div>);
   if (!on) return box(<div className="card" role="status">The Executive Dashboard is not enabled for this project. A project administrator can switch it on in <b>Resource Planner › Settings › Executive dashboard</b>.</div>);
   if (!valid) return box(<div className="err">Complete the Resource Planner settings first (Boards › Resource Planner › Settings).</div>);
   if (!link) return box(<div className="muted">Loading…</div>);
