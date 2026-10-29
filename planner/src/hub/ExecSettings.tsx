@@ -107,11 +107,16 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; proje
         <div className="row">
           <label className="field" style={{ width: 340 }}><span>Where the status shown comes from</span>
             <select value={x.statusSource} onChange={e => setX({ statusSource: e.target.value as Exec["statusSource"] })}>
-              <option value="data">From the data (dates and progress); the declared status is only shown</option>
-              <option value="rag">From the declared status (RAG) only</option>
-              <option value="rag-check">From the declared status, with the data as a check</option></select></label>
+              <option value="data">Data decides</option>
+              <option value="rag">Owner’s RAG decides</option>
+              <option value="rag-check">Owner’s RAG decides, data checks it</option></select></label>
         </div>
-        <div className="help">{x.statusSource === "rag" ? "The declared status is the status. Epics without a recognised value show as Not assessed. Done and Not started Epics keep their own state." : x.statusSource === "rag-check" ? "The declared status is the status; the data status stays in the Epic panel and Epics where the owner is more optimistic than the data are flagged (filter and card). Epics without a value use the data status." : "The status is worked out from the data (section 4). The declared status is shown next to it, with a Declared vs data filter."}</div>
+        <div className="help">{x.statusSource === "rag" ? "The owner's RAG is the status. Epics without a recognised value show as Not assessed. Done and Not started Epics keep their own state." : x.statusSource === "rag-check" ? "The owner's RAG is the status. The status from the data stays in the Epic panel, and Epics where the RAG looks better than the data get a “Check this” warning (filter and card). Epics without a value use the data status." : "The status is worked out from the data (section 5). The owner's RAG is only shown next to it, with a RAG check filter."}</div>
+        <div className="help"><b>Which to choose</b>
+          <ul style={{ margin: "4px 0 0 18px" }}>
+            <li><b>Data decides</b>: if you don’t trust people to keep the RAG up to date, or you have no RAG field.</li>
+            <li><b>Owner’s RAG decides</b>: if the RAG is the official statement and you want the dashboard to show it exactly.</li>
+            <li><b>Owner’s RAG decides, data checks it</b>: the RAG is the official status, and the data tells you which RAGs to question.</li></ul></div>
         <div className="help"><b>Which values mean what</b> (comma separated; leave empty to recognise words such as green, on track, amber, yellow, red, at risk, delayed)</div>
         <div className="row">
           {([["ragGreen", "Green values"], ["ragAmber", "Amber values"], ["ragRed", "Red values"]] as const).map(([k, l]) => <label className="field" key={k} style={{ flex: 1, minWidth: 200 }}><span>{l}</span><input defaultValue={x[k].join(", ")} key={x[k].join("|")} onBlur={e => setX({ [k]: csv(e.target.value) } as Partial<Exec>)} /></label>)}
