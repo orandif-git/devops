@@ -1,0 +1,72 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>By-field chart: auto chart type</title>
+<style>
+:root{--g:#1fae5a;--a:#d97706;--r:#dc2626;--i:#64748b;--d:#166534;--ink:#1b1f2a;--mut:#667085;--line:#e6e8ee;--acc:#7a1a3c}
+*{box-sizing:border-box}body{margin:0;background:#f4f5f8;color:var(--ink);font:13px/1.4 Inter,system-ui,Segoe UI,sans-serif;padding:24px}
+h1{font-size:16px;margin:0 0 4px}p.n{color:var(--mut);margin:0 0 16px;max-width:900px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:0 1px 2px rgba(16,24,40,.04);width:900px}
+.hd{display:flex;align-items:center;gap:10px;margin-bottom:10px}.hd h4{margin:0;font-size:14px;display:flex;gap:8px;align-items:center}
+select{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:#fff;font-weight:600}
+.sp{flex:1}.meta{color:var(--mut);font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}.seg button{border:0;background:#fff;padding:4px 10px;font:inherit;cursor:pointer;color:var(--mut)}
+.seg button.on{background:var(--acc);color:#fff}.seg button+button{border-left:1px solid var(--line)}
+.body{height:330px;overflow:hidden;position:relative}
+/* bars */
+.bars{height:100%;display:flex;flex-direction:column;justify-content:space-between}.brow{display:grid;grid-template-columns:170px 1fr 38px 46px;gap:10px;align-items:center;flex:1;max-height:44px}
+.brow .l{color:#475467;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar{display:flex;height:70%;max-height:26px;border-radius:99px;overflow:hidden;background:#eef0f4}
+.bar i{display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-weight:600;font-size:11px;border-right:2px solid #fff}.bar i:last-child{border:0}
+.risk{color:var(--r);font-weight:700;text-align:right}.tot{font-weight:600}
+/* columns */
+.cols{height:100%;display:flex;align-items:flex-end;gap:18px;padding:0 6px}.col{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;min-width:0}
+.col .t{font-weight:600;font-size:12px;margin-bottom:3px}.stk{width:min(64px,70%);display:flex;flex-direction:column-reverse;border-radius:10px;overflow:hidden;flex:none}
+.stk i{display:flex;align-items:center;justify-content:center;color:#fff;font-style:normal;font-weight:600;font-size:11px;border-top:2px solid #fff}.stk i:last-child{border-top:0}
+.col .x{margin-top:6px;color:#475467;font-size:12px;text-align:center;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.col .rk{font-size:11px;color:var(--r);font-weight:700;height:14px}
+/* table */
+.tw{height:100%;display:flex;flex-direction:column}.tools{display:flex;gap:8px;align-items:center;margin-bottom:6px}
+.tools input{font:inherit;padding:4px 10px;border:1px solid var(--line);border-radius:8px;width:220px}
+.scr{flex:1;overflow:auto;border:1px solid var(--line);border-radius:8px}table{width:100%;border-collapse:collapse}
+th{position:sticky;top:0;background:#f8f9fb;text-align:right;font-size:11px;color:var(--mut);padding:6px 8px;cursor:pointer;white-space:nowrap;border-bottom:1px solid var(--line);user-select:none}
+th:first-child,td:first-child{text-align:left}td{padding:5px 8px;text-align:right;border-bottom:1px solid #f0f1f5;white-space:nowrap}tr:hover td{background:#faf5f7}
+th.s{color:var(--acc)}th.s:after{content:" ▾"}th.s.up:after{content:" ▴"}
+.mini{display:inline-flex;width:110px;height:10px;border-radius:99px;overflow:hidden;background:#eef0f4;vertical-align:middle}.mini i{display:block}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}.z{color:#c3c8d2}
+.note{margin-top:10px;color:var(--mut);font-size:12px}.chip{background:#f6e9ee;color:var(--acc);border-radius:99px;padding:2px 10px;font-size:12px;margin-left:8px}
+.leg{display:flex;gap:14px;margin-top:8px;color:var(--mut);font-size:12px}.leg span i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+</style></head><body>
+<h1>By-field chart: auto-chosen type with an override</h1>
+<p class="n">Pick a field in the drop-down. <b>Auto</b> chooses Columns (≤ 6 values), Bars (≤ 12) or a ranked Table (more), or Columns in natural order for ordered fields. The Bars / Columns / Table switch overrides it. The card keeps a fixed height, so the columns around it never move. Try the <b>Project manager</b> field (44 values).</p>
+<div class="card"><div class="hd"><h4><select id="f"></select></h4><span class="meta" id="meta"></span><span class="sp"></span><span class="meta" id="auto"></span><div class="seg" id="sw"></div></div>
+<div class="body" id="body"></div><div class="leg" id="leg"></div></div>
+<div class="note">Click a bar, column or table row to filter the dashboard (a chip appears, as today). <span id="chip"></span></div>
+<script>
+let seed=7;const rnd=()=>(seed=(seed*16807)%2147483647)/2147483647;
+const S=[["g","On track","var(--g)"],["a","Needs attention","var(--a)"],["r","At risk","var(--r)"],["i","Not started","var(--i)"],["d","Done","var(--d)"]];
+const F={"Delivery type":{vals:["Regulatory","Software upgrade","Customer experience","Infrastructure","Security"]},
+"Priority":{ordered:true,vals:["P1 Critical","P2 High","P3 Medium","P4 Low"]},
+"Business unit":{vals:["Retail","Corporate","Treasury","Risk","Operations","Digital","Finance","HR"]},
+"Vendor":{vals:Array.from({length:18},(_, i)=>["Accenture","Infosys","TCS","Oracle","SAP","Microsoft","IBM","Temenos","Finastra","Capgemini","Wipro","Cognizant","AWS","Thales","Mastercard","Visa","Backbase","In-house"][i])},
+"Project manager":{vals:Array.from({length:44},(_, i)=>["Ahmed","Fatima","Omar","Layla","Hassan","Noor","Khalid","Mariam","Yusuf","Sara","Ali","Huda","Ibrahim","Aisha","Tariq","Dina","Rashid","Amal","Faisal","Rana","Saeed","Lina"][i%22]+" "+["Al-Thani","Hamad","Nasser","Saleh","Khoury","Mansour"][Math.floor(i/22)*3+(i%3)])}};
+const E=[];for(let n=0;n<485;n++){const r=rnd(),st=r<.17?"i":r<.37?"d":r<.62?"g":r<.82?"a":"r",e={st,pct:st==="d"?100:st==="i"?0:Math.round(15+rnd()*75)};
+ for(const k in F){const v=F[k].vals;e[k]=v[Math.floor(Math.pow(rnd(),k==="Project manager"||k==="Vendor"?1.7:1.15)*v.length)];}E.push(e);}
+const fs=document.getElementById("f");Object.keys(F).forEach(k=>fs.add(new Option("By "+k.toLowerCase(),k)));
+const sw=document.getElementById("sw");let mode="auto",sel=null,sortK="n",sortUp=false,q="";
+["auto","bars","columns","table"].forEach(m=>{const b=document.createElement("button");b.textContent=m[0].toUpperCase()+m.slice(1);b.dataset.m=m;b.onclick=()=>{mode=m;draw()};sw.appendChild(b)});
+document.getElementById("leg").innerHTML=S.map(s=>`<span><i style="background:${s[2]}"></i>${s[1]}</span>`).join("");
+fs.onchange=()=>{sel=null;q="";sortK="n";sortUp=false;draw()};
+function agg(f){const m={};F[f].vals.forEach(v=>m[v]={v,n:0,pct:0,g:0,a:0,r:0,i:0,d:0});E.forEach(e=>{const o=m[e[f]];o.n++;o[e.st]++;o.pct+=e.pct});
+ return Object.values(m).filter(o=>o.n).map(o=>({...o,risk:Math.round(o.r/o.n*100),avg:Math.round(o.pct/o.n)}))}
+const pick=v=>{sel=sel===v?null:v;document.getElementById("chip").innerHTML=sel?`<span class="chip">${fs.value}: ${sel} ✕</span>`:"";draw()};
+window.pick=pick;
+function draw(){const f=fs.value,rows=agg(f),meta=F[f],nv=rows.length;
+ const auto=meta.ordered?"columns":nv<=6?"columns":nv<=12?"bars":"table",use=mode==="auto"?auto:mode;
+ document.getElementById("meta").textContent=nv+" values · "+E.length+" Epics";document.getElementById("auto").textContent=mode==="auto"?"Auto → "+auto+(meta.ordered?" (ordered field)":""):"";
+ sw.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b.dataset.m===mode));
+ const body=document.getElementById("body"),dim=v=>sel&&sel!==v?' style="opacity:.35"':"";
+ if(use==="bars"){const r=meta.ordered?rows:[...rows].sort((a,b)=>b.n-a.n);body.innerHTML='<div class="bars">'+r.map(o=>`<div class="brow" onclick="pick('${o.v}')"${dim(o.v)}><span class="l" title="${o.v}">${o.v}</span><div class="bar">${S.filter(s=>o[s[0]]).map(s=>`<i style="flex:${o[s[0]]};background:${s[2]}">${o[s[0]]}</i>`).join("")}</div><span class="tot">${o.n}</span><span class="risk">${o.risk?o.risk+"%":"–"}</span></div>`).join("")+"</div>"}
+ else if(use==="columns"){const r=meta.ordered?rows:[...rows].sort((a,b)=>b.n-a.n).slice(0,12),mx=Math.max(...r.map(o=>o.n)),H=250;body.innerHTML='<div class="cols">'+r.map(o=>`<div class="col" onclick="pick('${o.v}')"${dim(o.v)}><div class="rk">${o.risk?o.risk+"% at risk":""}</div><div class="t">${o.n}</div><div class="stk" style="height:${Math.max(24,o.n/mx*H)}px">${S.filter(s=>o[s[0]]).map(s=>`<i style="flex:${o[s[0]]};background:${s[2]}">${o[s[0]]}</i>`).join("")}</div><div class="x" title="${o.v}">${o.v}</div></div>`).join("")+"</div>"}
+ else{let r=rows.filter(o=>o.v.toLowerCase().includes(q.toLowerCase()));r.sort((a,b)=>(typeof a[sortK]==="string"?a[sortK].localeCompare(b[sortK]):a[sortK]-b[sortK])*(sortUp?1:-1));
+  const H=[["v","Value"],["n","Epics"],["bar","Status mix"],["g","On track"],["a","Attention"],["r","At risk"],["i","Not started"],["d","Done"],["risk","% at risk"],["avg","Avg progress"]];
+  body.innerHTML=`<div class="tw"><div class="tools"><input id="q" placeholder="Search ${nv} values" value="${q}"><span class="meta">${r.length} shown · click a header to sort, a row to filter</span></div><div class="scr"><table><thead><tr>${H.map(h=>`<th data-k="${h[0]}" class="${sortK===h[0]?"s"+(sortUp?" up":""):""}">${h[1]}</th>`).join("")}</tr></thead><tbody>${r.map(o=>`<tr onclick="pick('${o.v}')"${dim(o.v)}><td>${o.v}</td><td><b>${o.n}</b></td><td><span class="mini">${S.filter(s=>o[s[0]]).map(s=>`<i style="width:${o[s[0]]/o.n*100}%;background:${s[2]}"></i>`).join("")}</span></td>${["g","a","r","i","d"].map(k=>`<td class="${o[k]?"":"z"}">${o[k]||"–"}</td>`).join("")}<td style="color:${o.risk>=30?"var(--r)":"inherit"};font-weight:${o.risk>=30?700:400}">${o.risk?o.risk+"%":"–"}</td><td>${o.avg}%</td></tr>`).join("")}</tbody></table></div></div>`;
+  body.querySelectorAll("th").forEach(t=>t.onclick=()=>{const k=t.dataset.k;if(k==="bar")return;sortUp=sortK===k?!sortUp:false;sortK=k;draw()});
+  const qi=document.getElementById("q");qi.oninput=e=>{q=e.target.value;const p=qi.selectionStart;draw();const n=document.getElementById("q");n.focus();n.setSelectionRange(p,p)}}}
+draw();
+</script></body></html>
