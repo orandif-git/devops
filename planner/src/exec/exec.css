@@ -148,3 +148,8 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 .ex-drawer.open > * { animation: ex-rise .35s cubic-bezier(.2,.7,.2,1) both; }
 .ex-drawer.open > *:nth-child(2) { animation-delay: .04s; } .ex-drawer.open > *:nth-child(3) { animation-delay: .08s; } .ex-drawer.open > *:nth-child(4) { animation-delay: .12s; } .ex-drawer.open > *:nth-child(n+5) { animation-delay: .16s; }
 @media (prefers-reduced-motion: reduce) { .ex *, .ex *::before { animation: none !important; transition: none !important; } }
+
+/* the toolbar: the action buttons stay together on the right and wrap as one group, never one button alone */
+.ex-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: nowrap; flex: 0 0 auto; }
+.ex-search { flex: 1 1 160px; min-width: 140px; max-width: 380px; }
+.ex-chip.sel select { max-width: 120px; }
