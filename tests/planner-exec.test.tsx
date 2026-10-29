@@ -200,6 +200,18 @@ describe("Executive dashboard page", () => {
     expect(h.querySelector(".ex-chips")!.textContent).toMatch(/Owner (Green|Amber|Red) · Data/);
     act(() => { Simulate.click(tab("Owner’s RAG")); }); expect(h.querySelector(".ex-mx")).toBeNull(); expect(h.querySelector(".ex-chips")?.textContent ?? "").not.toMatch(/Owner (Green|Amber|Red) · Data/);
   });
+  it("counts the data notes for the Epics shown, and treats values listed as 'no RAG yet' like an empty field", () => {
+    const withPhase = { ...(loaded as unknown as { epics: { extra: object }[] }), epics: (loaded as unknown as { epics: { extra: object }[] }).epics.map((e, i) => ({ ...e, extra: { ...e.extra, "Custom.Phase": i % 2 ? "Not Started" : "Weird" } })) };
+    const st = (none: string[]) => ({ ...settings, executive: { ...settings.executive, declaredField: "Custom.Phase", statusSource: "rag-check" as const, ragNone: none } });
+    const show = (none: string[]) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st(none)} loaded={withPhase as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+    const a = show([]); expect(a.querySelector(".ex-notes summary")!.textContent).toMatch(/with a RAG value that is not Red, Amber or Green/); expect(a.querySelector(".ex-notes")!.textContent).toContain("Not Started");
+    const b = show(["not started"]); expect(b.querySelector(".ex-notes")!.textContent).not.toContain("Not Started");     // listed values are not reported
+    expect(b.querySelector(".ex-notes")!.textContent).toContain("Weird");
+    const first = a.querySelector(".ex-notes summary")!.textContent!.match(/(\d+) with a RAG/)![1];
+    act(() => { Simulate.change(a.querySelector("input[type=search]")!, { target: { value: "basel" } } as never); });
+    const after = a.querySelector(".ex-notes summary")?.textContent ?? "";
+    expect(after).toContain("Epics shown"); expect(after.match(/(\d+) with a RAG/)?.[1] ?? "0").not.toBe(first);               // the counts follow the filter
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");

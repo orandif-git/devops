@@ -105,7 +105,7 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const pr = progressOf(e, x, p.gridDone[e.id], s.sources);
     const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
     const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
-    const dv = x.declaredField ? valueOf(e, x.declaredField) : ""; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
+    const dv0 = x.declaredField ? valueOf(e, x.declaredField) : "", dv = x.ragNone.some(o => same(o, dv0)) ? "" : dv0; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
     if (goLive === undefined) noGoLive++;
     if (pr === undefined) noProgress++;

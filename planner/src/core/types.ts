@@ -143,6 +143,8 @@ export interface ExecSettings {
   statusSource: "data" | "rag" | "rag-check";
   /** the values of the declared field that mean green, amber and red (empty = recognised by its words: green, on track, amber, yellow, red, at risk...) */
   ragGreen: string[]; ragAmber: string[]; ragRed: string[];
+  /** values of the declared field that mean "no RAG yet" (for example Not Started, N/A): treated like an empty field, without a warning */
+  ragNone: string[];
   /** a number field that sizes the blocks of the portfolio map (empty = every Epic counts as 1) */
   sizeField: string;
   /** an Epic not updated for this many days needs attention (0 = off) */
@@ -165,7 +167,7 @@ export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
-  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], resources: false,
+  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], ragNone: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], resources: false,
 });
 
 export const defaultSettings = (): PlannerSettings => ({

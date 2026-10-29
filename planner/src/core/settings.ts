@@ -51,7 +51,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     tolSlipAmberField: str(r.tolSlipAmberField), tolSlipRedField: str(r.tolSlipRedField), tolGapAmberField: str(r.tolGapAmberField), tolGapRedField: str(r.tolGapRedField),
     rules: (Array.isArray(r.rules) ? r.rules : []).filter(q => q && typeof q === "object").map((q, i) => { const o = q as Record<string, unknown>, k = (v: unknown, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(0, v)) : undefined);
       return { id: str(o.id) || `r${i + 1}`, field: str(o.field), value: str(o.value), slipAmberDays: k(o.slipAmberDays, 730), slipRedDays: k(o.slipRedDays, 730), gapAmberPts: k(o.gapAmberPts, 100), gapRedPts: k(o.gapRedPts, 100) }; }).filter(q => q.field),
-    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), resources: r.resources === true,
+    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), ragNone: list(r.ragNone), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), resources: r.resources === true,
   };
 }
 

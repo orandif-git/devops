@@ -175,3 +175,6 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 /* the closed detail panel must not leak its shadow into the page edge (a narrow strip at the right in full screen) */
 .ex-drawer:not(.open) { visibility: hidden; box-shadow: none; pointer-events: none; transition: transform .32s cubic-bezier(.2,.7,.2,1), box-shadow .2s, visibility 0s .32s; }
 .ex-drawer.open { visibility: visible; }
+
+.ex-notes { margin: 0 0 10px; color: var(--fg2); font-size: 12.5px; } .ex-notes summary { cursor: pointer; padding: 5px 10px; border-radius: 10px; background: #fff; box-shadow: var(--ring); list-style: none; } .ex-notes summary::-webkit-details-marker { display: none; }
+.ex-notes[open] summary { border-radius: 10px 10px 0 0; } .ex-notes ul { margin: 0; padding: 8px 12px 8px 28px; background: #fff; box-shadow: var(--ring); border-radius: 0 0 10px 10px; } .ex-notes li { margin: 3px 0; }

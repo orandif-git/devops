@@ -121,7 +121,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
             <li><b>Owner’s RAG decides, data checks it</b>: the RAG is the official status, and the data tells you which RAGs to question.</li></ul></div>
         <div className="help"><b>Which values mean what</b> (comma separated; leave empty to recognise words such as green, on track, amber, yellow, red, at risk, delayed)</div>
         <div className="row">
-          {([["ragGreen", "Green values"], ["ragAmber", "Amber values"], ["ragRed", "Red values"]] as const).map(([k, l]) => <label className="field" key={k} style={{ flex: 1, minWidth: 200 }}><span>{l}</span><input defaultValue={x[k].join(", ")} key={x[k].join("|")} onBlur={e => setX({ [k]: csv(e.target.value) } as Partial<Exec>)} /></label>)}
+          {([["ragGreen", "Green values"], ["ragAmber", "Amber values"], ["ragRed", "Red values"], ["ragNone", "No RAG yet (for example Not Started, N/A)"]] as const).map(([k, l]) => <label className="field" key={k} style={{ flex: 1, minWidth: 200 }}><span>{l}</span><input defaultValue={x[k].join(", ")} key={x[k].join("|")} onBlur={e => setX({ [k]: csv(e.target.value) } as Partial<Exec>)} /></label>)}
         </div></>}
       </section>
       <section className="set-sec">
