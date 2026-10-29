@@ -12,6 +12,21 @@ export const StatusPill = ({ s }: { s: ExecStatus }) => <span className="ex-pill
 export const pct = (n: number, d: number) => (d ? Math.round(n / d * 100) : 0);
 
 /** A small line of the last few weeks. */
+/** Subtle motion is on unless the person asks their system for reduced motion (or there is no browser, as in tests). */
+export const motionOk = () => typeof window !== "undefined" && typeof window.matchMedia === "function" && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** A number that counts up from 0 when it first appears and moves from the old to the new value when it changes. */
+export function Num({ to, suffix = "" }: { to: number; suffix?: string }) {
+  const [v, setV] = React.useState(() => (motionOk() ? 0 : to)), prev = React.useRef<number | undefined>(undefined), raf = React.useRef(0);
+  React.useEffect(() => {
+    const first = prev.current === undefined, from = first ? 0 : prev.current!; prev.current = to;
+    if (!motionOk() || from === to) { setV(to); return; }
+    const ms = first ? 700 : 450, t0 = performance.now();
+    const f = (t: number) => { const k = Math.min(1, (t - t0) / ms); setV(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)))); if (k < 1) raf.current = requestAnimationFrame(f); };
+    raf.current = requestAnimationFrame(f);
+    return () => cancelAnimationFrame(raf.current);
+  }, [to]);
+  return <>{v}{suffix}</>;
+}
 export function Spark({ values, color, w = 84, h = 26 }: { values: number[]; color: string; w?: number; h?: number }) {
   if (values.length < 2) return null;
   const mx = Math.max(...values, 1), mn = Math.min(...values), pts = values.map((v, k) => `${(k / (values.length - 1) * w).toFixed(1)},${(h - 2 - (v - mn) / (mx - mn || 1) * (h - 4)).toFixed(1)}`).join(" ");

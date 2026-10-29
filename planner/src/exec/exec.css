@@ -107,3 +107,44 @@ span.ex-bar { height: 7px; border-radius: 99px; background: #e8ecf4; } span.ex-b
 .ex-road .gb { cursor: pointer; } .ex-road .gb:hover { filter: brightness(1.08); }
 
 .ex-check { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-weight: 500; }
+
+/* ---- subtle motion: short, one purpose each, off for reduced motion ---- */
+@keyframes ex-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes ex-fadeq { from { opacity: .55; } to { opacity: 1; } }
+@keyframes ex-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes ex-growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ex-growy { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes ex-fillw { from { width: 0; } }
+@keyframes ex-gauge { from { stroke-dashoffset: 140px; } to { stroke-dashoffset: 0; } }
+@keyframes ex-segin { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ex-dash { from { stroke-dashoffset: 220; } to { stroke-dashoffset: 0; } }
+@keyframes ex-drop { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.ex.enter .ex-kpis > *, .ex.enter .ex-card { animation: ex-rise .42s cubic-bezier(.2,.7,.2,1) both; }
+.ex.upd .ex-kpis, .ex.upd .ex-card, .ex.upd .ex-table, .ex.upd .ex-road { animation: ex-fadeq .22s ease-out; }
+.ex.enter .ex-kpi.hero svg path:nth-of-type(2) { animation: ex-gauge .9s cubic-bezier(.2,.7,.2,1) .15s both; }
+.ex.enter .ex-kpi svg polyline { stroke-dasharray: 220; animation: ex-dash 1s ease-out .3s both; }
+.ex.enter .ex-card:nth-child(1) circle.seg { animation: ex-segin .5s ease-out .2s both; }
+.ex.enter svg rect.seg { transform-box: fill-box; transform-origin: left center; animation: ex-growx .6s cubic-bezier(.2,.7,.2,1) .25s both; }
+.ex.enter .ex-columns svg rect.seg, .ex.enter .ex-charts .ex-card:nth-child(3) rect.seg { transform-origin: center bottom; animation-name: ex-growy; }
+.ex.enter span.ex-bar > i { animation: ex-fillw .8s cubic-bezier(.2,.7,.2,1) .3s both; }
+.ex.enter .ex-cat { animation: ex-pop .38s cubic-bezier(.2,.7,.2,1) both; }
+.ex.enter .ex-road .gb { transform-origin: left center; animation: ex-growx .55s cubic-bezier(.2,.7,.2,1) .15s both; }
+.ex.enter .ex-road .lane:nth-child(n+8) .gb { animation-delay: .4s; }
+.ex.enter .ex-road .today { transform-origin: top; animation: ex-drop .7s cubic-bezier(.2,.7,.2,1) .3s both; }
+.ex.enter .rag > *, .ex.enter .mix > * { transform-origin: left center; animation: ex-growx .6s cubic-bezier(.2,.7,.2,1) both; }
+.ex.enter .ex-kpis > *:nth-child(1){animation-delay:0ms}.ex.enter .ex-kpis > *:nth-child(2){animation-delay:45ms}.ex.enter .ex-kpis > *:nth-child(3){animation-delay:90ms}.ex.enter .ex-kpis > *:nth-child(4){animation-delay:135ms}.ex.enter .ex-kpis > *:nth-child(5){animation-delay:180ms}.ex.enter .ex-kpis > *:nth-child(6){animation-delay:225ms}.ex.enter .ex-kpis > *:nth-child(7){animation-delay:270ms}.ex.enter .ex-kpis > *:nth-child(8){animation-delay:315ms}
+.ex.enter .ex-charts > .ex-card:nth-child(1){animation-delay:150ms}.ex.enter .ex-charts > .ex-card:nth-child(2){animation-delay:220ms}.ex.enter .ex-charts > .ex-card:nth-child(3){animation-delay:290ms}
+.ex.enter .ex-cat:nth-child(1){animation-delay:0ms}.ex.enter .ex-cat:nth-child(2){animation-delay:55ms}.ex.enter .ex-cat:nth-child(3){animation-delay:110ms}.ex.enter .ex-cat:nth-child(4){animation-delay:165ms}.ex.enter .ex-cat:nth-child(5){animation-delay:220ms}.ex.enter .ex-cat:nth-child(6){animation-delay:275ms}.ex.enter .ex-cat:nth-child(7){animation-delay:330ms}.ex.enter .ex-cat:nth-child(8){animation-delay:385ms}.ex.enter .ex-cat:nth-child(9){animation-delay:440ms}.ex.enter .ex-cat:nth-child(10){animation-delay:495ms}.ex.enter .ex-cat:nth-child(11){animation-delay:550ms}.ex.enter .ex-cat:nth-child(12){animation-delay:605ms}
+
+/* hover and focus responses */
+.ex-kpi, .ex-card { transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .18s cubic-bezier(.2,.7,.2,1), opacity .2s; }
+.ex-kpi:active { transform: scale(.985); }
+.ex-chip, .ex-fchip, .ex-seg button, .pill { transition: background .15s, border-color .15s, box-shadow .15s, color .2s, transform .15s; }
+.ex-fchip { animation: ex-pop .2s cubic-bezier(.2,.7,.2,1); }
+.ex-pop, .ex-slicer .pop { animation: ex-pop .14s ease-out; transform-origin: top left; }
+tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { box-shadow: inset 3px 0 0 #8a1f45; }
+.ex-blk, .ex-road .gb { transition: filter .15s, transform .15s cubic-bezier(.2,.7,.2,1), opacity .25s; }
+.ex-drawer { transition: transform .32s cubic-bezier(.2,.7,.2,1), box-shadow .32s; }
+.ex-drawer.open > * { animation: ex-rise .35s cubic-bezier(.2,.7,.2,1) both; }
+.ex-drawer.open > *:nth-child(2) { animation-delay: .04s; } .ex-drawer.open > *:nth-child(3) { animation-delay: .08s; } .ex-drawer.open > *:nth-child(4) { animation-delay: .12s; } .ex-drawer.open > *:nth-child(n+5) { animation-delay: .16s; }
+@media (prefers-reduced-motion: reduce) { .ex *, .ex *::before { animation: none !important; transition: none !important; } }

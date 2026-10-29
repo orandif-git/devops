@@ -17,7 +17,7 @@ import { EpicDialog } from "../hub/EpicDialog";
 import { ViewsMenu } from "../hub/ViewsMenu";
 import { ExtraCol, LP, MapLayout, ReportLayout, RoadmapLayout } from "./layouts";
 import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
-import { Drawer } from "./parts";
+import { Drawer, motionOk } from "./parts";
 import { useEpicHistory } from "../hub/HistoryTimeline";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
@@ -81,6 +81,10 @@ export function ExecDashboard(p: {
   const sub = (v: ExecView) => LAYOUTS.find(l => l.id === v.state.layout)?.label;
   React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement?.tagName ?? ""))) { e.preventDefault(); searchRef.current?.focus(); } if (e.key === "Escape" && !sel && p.full) p.onFull?.(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [sel, p.full]);   // eslint-disable-line react-hooks/exhaustive-deps
 
+  // subtle motion: the cards and charts ease in when the dashboard appears or the layout changes; a filter change eases the view in
+  const [phase, setPhase] = React.useState<"" | "enter" | "upd">(""), seenF = React.useRef<string | undefined>(undefined), fKey = JSON.stringify(f);
+  React.useEffect(() => { if (!L || !motionOk()) return; setPhase("enter"); const t = setTimeout(() => setPhase(""), 1700); return () => clearTimeout(t); }, [!!L, layout]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { const first = seenF.current === undefined; seenF.current = fKey; if (first || !L || !motionOk()) return; setPhase("upd"); const t = setTimeout(() => setPhase(""), 260); return () => clearTimeout(t); }, [fKey]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (!L && p.busy) return <div className="ex ex-loading" aria-busy="true"><div className="ex-kpis">{Array.from({ length: 6 }, (_, k) => <div key={k} className="ex-sk" style={{ height: 110 }} />)}</div><div className="ex-sk" style={{ height: 300, marginTop: 14 }} />{p.progress && <div className="muted" style={{ marginTop: 8 }}>{p.progress.phase === "history" ? "Reading the go-live history…" : p.progress.phase === "query" ? "Finding the Epics…" : p.progress.phase === "check" ? `Checking for changes (${p.progress.done}/${p.progress.total})` : `Reading Epics (${p.progress.done}/${p.progress.total})`}</div>}</div>;
   if (!L) return (
     <div>
@@ -91,7 +95,7 @@ export function ExecDashboard(p: {
   );
   const chips = chipsOf(fx, change);
   return (
-    <div className={"ex" + (p.full ? " ex-full" : "") + (density === "compact" ? " dense" : "")}>
+    <div className={"ex" + (phase ? " " + phase : "") + (p.full ? " ex-full" : "") + (density === "compact" ? " dense" : "")}>
       <div className="ex-bar">
         <div className="ex-brand"><div className="logo" aria-hidden="true">E</div><div><b>Executive Dashboard</b><span className="live"><i className="pulse" />{p.busy ? "Refreshing…" : "Live"} · refreshed {ago(Date.parse(L.at))} · {L.epics.length} Epics</span></div></div>
         <div className="ex-seg" role="tablist" aria-label="Layout" style={{ ["--i" as string]: LAYOUTS.findIndex(l => l.id === layout) }}>{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>

@@ -4,7 +4,7 @@ import { PlannerSettings } from "../core/types";
 import { MOVED, signed } from "../core/history";
 import { deltaOf, health, series, Snapshot } from "../core/snapshots";
 import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
-import { COLOR, Columns, Delta, Donut, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
+import { COLOR, Columns, Delta, Donut, Num, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
 export interface LP {
@@ -49,7 +49,7 @@ export function Slicers(lp: LP) {
 
 const Kpi = (p: { label: React.ReactNode; value: number | string; detail: React.ReactNode; on?: boolean; dim?: boolean; onClick(): void; c?: string; spark?: React.ReactNode; delta?: React.ReactNode; hero?: React.ReactNode }) =>
   <button type="button" className={"ex-kpi" + (p.hero ? " hero" : "") + (p.on ? " on" : p.dim ? " dim" : "")} aria-pressed={p.on} onClick={p.onClick} style={p.c ? { ["--c" as string]: p.c } : undefined}>
-    <div className="l">{p.label}</div><div className="row"><div className="v">{p.value}</div>{p.spark ?? p.hero}</div><div className="d"><span>{p.detail}</span>{p.delta}</div></button>;
+    <div className="l">{p.label}</div><div className="row"><div className="v">{typeof p.value === "number" ? <Num to={p.value} /> : /^\d+%$/.test(p.value) ? <Num to={parseInt(p.value, 10)} suffix="%" /> : p.value}</div>{p.spark ?? p.hero}</div><div className="d"><span>{p.detail}</span>{p.delta}</div></button>;
 
 /** Portfolio health, then one card per status; the trend and the change since last week come from the weekly snapshots. */
 function KpiRow({ lp }: { lp: LP }) {
