@@ -525,3 +525,17 @@ describe("enabling the Executive Dashboard", () => {
     expect(h.textContent).toContain("not set up yet"); expect(h.textContent).toContain("go-live date");
   });
 });
+
+describe("Delivery pipeline on the dashboard", () => {
+  const loaded = { epics, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: "", load: { ms: 10 } } as never;
+  const staged = normalizeSettings({ ...settings, executive: { ...settings.executive, stages: { source: "field", field: "Custom.Type", stages: [{ name: "Plan", pct: 20, from: 0, to: 50 }, { name: "Build", pct: 60, from: 50, to: 100 }], map: { Regulatory: "Build", "Software upgrade": "Plan" } } } });
+  const mount = (st: typeof settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+  it("asks to set up the stages when there are none", () => { expect(mount(settings).querySelector(".ex-pipeline")!.textContent).toContain("not set up yet"); });
+  it("shows a column per stage and filters the Epics by a click on a stage", () => {
+    const h = mount(staged), cols = h.querySelectorAll(".ex-pcol");
+    expect(cols.length).toBe(2); expect(cols[0].textContent).toContain("Plan"); expect(cols[1].textContent).toContain("Counts as60% done");
+    const all = h.querySelectorAll("tr.ex-row").length;
+    act(() => { Simulate.click(cols[1]); });
+    expect(h.querySelector(".ex-chips")!.textContent).toContain("Stage: Build"); expect(h.querySelectorAll("tr.ex-row").length).toBeLessThan(all);
+  });
+});

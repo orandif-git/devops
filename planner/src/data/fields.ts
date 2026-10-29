@@ -18,3 +18,19 @@ export async function listTypeFields(project: string, type: string): Promise<Fie
 
 /** Is `ref` one of the fields? (reference names are compared without regard to upper/lower case) */
 export const hasField = (fields: FieldInfo[], ref: string) => !ref || !fields.length || fields.some(f => f.referenceName.toLowerCase() === ref.toLowerCase());
+
+/** The allowed values of a pick-list field of the Epic type (empty when the field is free text or cannot be read). */
+export async function listFieldValues(project: string, type: string, ref: string): Promise<string[]> {
+  try {
+    const r = await restGet<{ allowedValues?: string[] }>(`wit/workitemtypes/${encodeURIComponent(type)}/fields/${encodeURIComponent(ref)}`, { "$expand": "allowedValues" }, project);
+    return (r.allowedValues ?? []).map(String);
+  } catch { return []; }
+}
+
+/** The states of the Epic type, in workflow order. */
+export async function listStates(project: string, type: string): Promise<string[]> {
+  try {
+    const r = await restGet<{ value: { name: string }[] }>(`wit/workitemtypes/${encodeURIComponent(type)}/states`, {}, project);
+    return (r.value ?? []).map(x => x.name);
+  } catch { return []; }
+}

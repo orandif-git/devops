@@ -5,7 +5,7 @@ import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
 vi.mock("../src/shared/ado", () => ({ downloadFile: () => undefined, getProject: () => Promise.resolve({ id: "P", name: "Proj" }) }));
 vi.mock("../src/shared/capacityStore", () => ({ listTeams: () => Promise.resolve([]) }));
-vi.mock("../planner/src/data/fields", () => ({ listTypeFields: () => Promise.resolve([]) }));
+vi.mock("../planner/src/data/fields", () => ({ listTypeFields: () => Promise.resolve([]), listFieldValues: () => Promise.resolve(["Design", "Build", "UAT"]), listStates: () => Promise.resolve([]) }));
 vi.mock("../planner/src/data/sample", () => ({ sampleGrid: () => Promise.resolve(undefined) }));
 import { SettingsTab } from "../planner/src/hub/SettingsTab";
 import { normalizeSettings } from "../planner/src/core/settings";

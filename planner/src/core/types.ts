@@ -1,3 +1,4 @@
+import { StageSettings, defaultStages } from "./stages";
 /** Settings of the Resource Planner (everything configurable; stored in the planner's own extension data). */
 export interface TeamRef { id: string; name: string }
 
@@ -175,6 +176,8 @@ export interface ExecSettings {
   accessTeams: TeamRef[];
   /** delivery performance card */
   delivery: DeliverySettings;
+  /** the delivery stages: the core of how progress is measured (the other progress sources are used only until stages are set up) */
+  stages: StageSettings;
   /** show team, hours booked and the over-capacity check (resource information; off = a pure portfolio view) */
   resources: boolean;
   /** the layout the dashboard opens in (each person's last choice is remembered for them) */
@@ -189,7 +192,7 @@ export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
-  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], ragNone: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], periodBasis: "active", periodField: "", periodDefault: "", delivery: { enabled: true, source: "history", dateField: "", graceDays: 0, severeDays: 30, predictDays: 14, quarters: 6, recent: 4, show: ["rate", "late", "delivered", "predict", "chart", "delays"] }, resources: false,
+  tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], ragNone: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], periodBasis: "active", periodField: "", periodDefault: "", stages: defaultStages(), delivery: { enabled: true, source: "history", dateField: "", graceDays: 0, severeDays: 30, predictDays: 14, quarters: 6, recent: 4, show: ["rate", "late", "delivered", "predict", "chart", "delays"] }, resources: false,
 });
 
 export const defaultSettings = (): PlannerSettings => ({

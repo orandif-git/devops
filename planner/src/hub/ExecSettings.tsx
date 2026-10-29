@@ -7,6 +7,7 @@ import { FieldInfo } from "../data/fields";
 import { sampleGrid } from "../data/sample";
 import { ColumnGuess } from "../core/detect";
 import { Chips, FieldPick } from "./SettingsTab";
+import { StagesEditor } from "./StagesEditor";
 import { ExecQueries } from "./ExecQueries";
 
 const KINDS: [ProgressSource["kind"], string][] = [["percentField", "A percent-complete field"], ["ratioFields", "Completed ÷ total (two number fields)"], ["gridDone", "Ticked rows of a grid"]];
@@ -87,8 +88,11 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
       </div>
       </section>
       <section className="set-sec">
-        <h4><span className="num">3</span> Progress</h4>
-        <div className="why">Where an Epic’s percent complete comes from.</div>
+        <h4><span className="num">3</span> Delivery stages and progress</h4>
+        <div className="why">The stages an Epic moves through (for example Design, Development, SIT, UAT) set its progress and feed the status. Once stages are set up they replace the percent field.</div>
+        <StagesEditor s={s} fields={p.fields} project={p.project} onChange={st => setX({ stages: st })} />
+        <details className="advanced" style={{ marginTop: 10 }}><summary>Other progress sources (used only until stages are set up)</summary>
+          <div className="help" style={{ marginTop: 6 }}>Sources are tried in order; the first one that has a value for an Epic is used.</div>
       <div className="help" style={{ marginTop: 10 }}><b>Where progress comes from</b>. Sources are tried in order; the first one that has a value for an Epic is used.</div>
       {x.progress.map((g, i) => (
         <div className="card" key={g.id}>
@@ -107,6 +111,7 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
           {g.kind === "gridDone" && <div className="help">The share of rows ticked done; weighted by the effort column when every row has one. Add the tick-box column to the grid first.</div>}
         </div>))}
       <button className="btn" onClick={() => setX({ progress: [...x.progress, { id: "pg" + Date.now().toString(36), kind: "percentField" }] })}><IconPlus /> Add a progress source</button>
+        </details>
       </section>
       <section className="set-sec">
         <h4><span className="num">4</span> Declared status (owner’s RAG)</h4>

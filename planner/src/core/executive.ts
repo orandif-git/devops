@@ -2,6 +2,7 @@ import { AvailabilityLike, buildPeople, cellOf, noFilters } from "./model";
 import { GridDone, progressOf } from "./progress";
 import { Booking, EpicRecord, ExecSettings, PlannerSettings } from "./types";
 import { Hist, signed, summarize } from "./history";
+import { expectedIdx, resolveStage, stageProgress, stagesOn } from "./stages";
 
 export type ExecStatus = "green" | "amber" | "red" | "idle" | "unknown" | "done";
 export const STATUS_NAME: Record<ExecStatus, string> = { green: "On track", amber: "Needs attention", red: "At risk", idle: "Not started", unknown: "Not assessed", done: "Done" };
@@ -45,6 +46,8 @@ export interface ExecEpic {
   /** set when the owner's RAG looks better than the data: what to ask the owner about */
   check?: string;
   declared?: "green" | "amber" | "red"; declaredText?: string; compare?: "same" | "optimistic" | "cautious";
+  /** the delivery stage (when stages are set up): its name and place, what the value was, how the value mapped, days in it, and how many stages behind the time used */
+  stage?: string; stageIdx?: number; stageKind?: "stage" | "ignore" | "unmapped" | "none"; stageValue?: string; stageDays?: number; stageLag?: number;
   /** the size of the Epic on the portfolio map (the size field, else 1) */
   size: number;
 }
@@ -86,8 +89,8 @@ export const dayText = (t: number) => new Date(t).toLocaleDateString("en-GB", { 
 export interface ExecResult { rows: ExecEpic[]; ignored: number; noGoLive: number; noProgress: number }
 
 /** Status, forecast and confidence of every Epic, from its dates, state, progress and the people booked over capacity. Pure: `today` is a parameter. */
-export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date; /** the go-live date history of each Epic, when it was read */ history?: Record<number, Hist> }): ExecResult {
-  const s = p.settings, x = s.executive;
+export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date; /** when each Epic entered its current stage */ stageSince?: Record<number, number>; /** the go-live date history of each Epic, when it was read */ history?: Record<number, Hist> }): ExecResult {
+  const s = p.settings, x = s.executive, st = x.stages, stOn = stagesOn(st);
   const today = Date.UTC((p.today ?? new Date()).getUTCFullYear(), (p.today ?? new Date()).getUTCMonth(), (p.today ?? new Date()).getUTCDate());
   const month = new Date(today).toISOString().slice(0, 7);
   // who is over capacity this month, and on which Epics they have hours
@@ -102,11 +105,14 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     for (const f of dimFields(s)) dims[f] = (f === "System.AreaPath" ? areaOf(e) : (e.extra[f] ?? "").trim()) || NO_VALUE;
     const start = ts(e.start);
     const goLive = ts(x.goLiveField ? e.extra[x.goLiveField] : e.target);
-    const pr = progressOf(e, x, p.gridDone[e.id], s.sources);
-    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
+    const el0 = start !== undefined && goLive !== undefined && goLive > start ? (today - start) / (goLive - start) : undefined;
+    const rs = stOn ? resolveStage(e, st) : undefined;
+    const pr = stOn ? (rs?.kind === "stage" ? { pct: stageProgress(st, rs.idx, el0), from: "stage: " + rs.stage!.name } : undefined) : progressOf(e, x, p.gridDone[e.id], s.sources);
+    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, ...(rs ? { stage: rs.kind === "stage" ? rs.stage!.name : undefined, stageIdx: rs.kind === "stage" ? rs.idx : undefined, stageKind: rs.kind, stageValue: rs.value } : {}), limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
     const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
     const dv0 = x.declaredField ? valueOf(e, x.declaredField) : "", dv = x.ragNone.some(o => same(o, dv0)) ? "" : dv0; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
+    { const since = p.stageSince?.[e.id]; if (since !== undefined && row.stage) row.stageDays = Math.max(0, Math.floor((today - since) / DAY)); }
     if (goLive === undefined) noGoLive++;
     if (pr === undefined) noProgress++;
     if (has(x.doneStates, e.state)) { row.status = "done"; row.conf = 100; row.pct = 100; reasons.push("Delivered"); rows.push(row); continue; }
@@ -124,17 +130,23 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     if (row.hold) { score = Math.max(score, 1); reasons.push("On hold"); }
     if (x.advanced && !row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
     else if (x.advanced && !row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
-    if (x.advanced && !row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
-    else if (!row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    if (!stOn && x.advanced && !row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    else if (!stOn && !row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
+    if (stOn && rs?.kind === "stage") {
+      if (st.lagRule && row.elapsed !== undefined && !row.late) { const exp = expectedIdx(st, row.elapsed), lag = exp - rs.idx; row.stageLag = Math.max(0, lag);
+        if (lag >= st.lagRed) { score = 2; reasons.push(`In ${rs.stage!.name}, but ${st.stages[exp].name} was due by now (${lag} stages behind for the time used)`); }
+        else if (lag >= st.lagAmber) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name}, but ${st.stages[exp].name} was due by now (${lag} stage${lag > 1 ? "s" : ""} behind for the time used)`); } }
+      if (st.stuckRule && row.stageDays !== undefined && row.stageDays > st.stuckDays) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name} for ${row.stageDays} days`); }
+    }
     if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed.slice(0, 10)); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
     if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimLabel(x.blockerField)} = ${bv}`); } }
     const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
     if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }
     if (x.resources && row.over.length) { score = Math.max(score, 1); reasons.push(`${row.over.length} ${row.over.length > 1 ? "people are" : "person is"} booked over capacity on this Epic this month`); }
-    if (prog === undefined && !row.late && !row.hold) { row.status = "unknown"; reasons.unshift("No progress value, so only the dates can be checked"); if (!(x.resources && row.over.length)) { rows.push(row); continue; } }
+    if (prog === undefined && !row.late && !row.hold) { row.status = "unknown"; reasons.unshift(stOn ? (rs?.kind === "unmapped" ? `“${rs.value}” is not mapped to a stage, so only the dates can be checked` : "No delivery stage, so only the dates can be checked") : "No progress value, so only the dates can be checked"); if (!(x.resources && row.over.length)) { rows.push(row); continue; } }
     row.status = score === 2 ? "red" : score === 1 ? "amber" : prog === undefined ? "unknown" : "green";
     row.conf = row.late ? 4 : Math.max(5, Math.min(99, Math.round(97 - Math.max(0, row.slip) * .45 - Math.max(0, gap) * .4 - row.over.length * 6 - (row.hold ? 20 : 0))));
-    if (row.status === "green") reasons.push(pr ? `Progress ${pr.pct}% against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : "On track");
+    if (row.status === "green") reasons.push(pr && stOn ? `In ${rs!.stage!.name}, which counts as ${pr.pct}% done, against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : pr ? `Progress ${pr.pct}% against ${row.elapsed !== undefined ? Math.round(row.elapsed * 100) + "% of the time used" : "no start date to compare with"}` : "On track");
     rows.push(row);
   }
   for (const r of rows) {

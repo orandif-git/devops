@@ -49,7 +49,7 @@ export function ExecDashboard(p: {
   const goLiveField = x.goLiveField || p.settings.epicTargetField, historyOn = !!L?.history && p.settings.history.enabled;
   const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
-  const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
+  const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, stageSince: L.stageSince, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
   const viewRows = React.useMemo(() => (built ? built.rows.map(r => withSource(r, view === "rag" ? (x.statusSource === "rag" ? "rag" : "rag-check") : view === "data" || view === "var" ? "data" : "data")) : []), [built, view, x.statusSource]);
   const all = React.useMemo(() => (L && built ? buildItems(viewRows, L, p.settings) : []), [L, built, viewRows, p.settings]);
   const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: viewRows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
@@ -75,8 +75,8 @@ export function ExecDashboard(p: {
   const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, showDelivery, onDelivery: setShowDelivery };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, period: v.period, dims: v.dims, text: v.text }); setShowDelivery(v.delivery); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, stage: f.stage, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, stage: v.stage, period: v.period, dims: v.dims, text: v.text }); setShowDelivery(v.delivery); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;

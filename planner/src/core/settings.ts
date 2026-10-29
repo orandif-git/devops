@@ -1,3 +1,4 @@
+import { defaultStages, IGNORE } from "./stages";
 import { isDateFormat } from "../../../src/core/dateFormat";
 import { cleanTiles } from "./epicStats";
 import { validateQueries } from "./execQuery";
@@ -34,6 +35,16 @@ const normHistory = (raw: unknown): PlannerSettings["history"] => {
   return { enabled: r.enabled !== false, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false, trendBackfill: r.trendBackfill !== false };
 };
 
+function normStages(raw: unknown): ExecSettings["stages"] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultStages();
+  const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
+  const seen = new Set<string>();
+  const stages = (Array.isArray(r.stages) ? r.stages : []).filter(x => x && typeof x === "object").map(x => { const o = x as Record<string, unknown>; return { name: str(o.name), pct: n(o.pct, 0, 0, 100), from: n(o.from, 0, 0, 100), to: n(o.to, 100, 0, 100) }; })
+    .filter(x => x.name && !seen.has(x.name.toLowerCase()) && !!seen.add(x.name.toLowerCase()));
+  const names = new Set(stages.map(x => x.name.toLowerCase()));
+  const map: Record<string, string> = {}; if (r.map && typeof r.map === "object") for (const [k, v] of Object.entries(r.map as Record<string, unknown>)) { const t = typeof v === "string" ? v : ""; if (k.trim() && (t === IGNORE || names.has(t.toLowerCase()))) map[k] = stages.find(x => x.name.toLowerCase() === t.toLowerCase())?.name ?? IGNORE; }
+  return { source: (["field", "state", "both"].includes(str(r.source)) ? str(r.source) : "both") as ExecSettings["stages"]["source"], field: str(r.field), stages, map, smooth: r.smooth === true, lagRule: r.lagRule !== false, lagAmber: n(r.lagAmber, d.lagAmber, 1, 10), lagRed: n(r.lagRed, d.lagRed, 1, 10), stuckRule: r.stuckRule !== false, stuckDays: n(r.stuckDays, d.stuckDays, 1, 730) };
+}
 const DELIVERY_PARTS = ["rate", "late", "delivered", "predict", "chart", "delays"];
 function normDelivery(raw: unknown): ExecSettings["delivery"] {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultExec().delivery;
@@ -58,7 +69,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     tolSlipAmberField: str(r.tolSlipAmberField), tolSlipRedField: str(r.tolSlipRedField), tolGapAmberField: str(r.tolGapAmberField), tolGapRedField: str(r.tolGapRedField),
     rules: (Array.isArray(r.rules) ? r.rules : []).filter(q => q && typeof q === "object").map((q, i) => { const o = q as Record<string, unknown>, k = (v: unknown, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(0, v)) : undefined);
       return { id: str(o.id) || `r${i + 1}`, field: str(o.field), value: str(o.value), slipAmberDays: k(o.slipAmberDays, 730), slipRedDays: k(o.slipRedDays, 730), gapAmberPts: k(o.gapAmberPts, 100), gapRedPts: k(o.gapRedPts, 100) }; }).filter(q => q.field),
-    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), ragNone: list(r.ragNone), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), periodBasis: (["active", "golive", "created", "field"].includes(str(r.periodBasis)) ? str(r.periodBasis) : "active") as ExecSettings["periodBasis"], periodField: str(r.periodField), delivery: normDelivery(r.delivery), periodDefault: (["thisQuarter", "nextQuarter", "thisYear", "last12", "next6"].includes(str(r.periodDefault)) ? str(r.periodDefault) : "") as ExecSettings["periodDefault"], resources: r.resources === true,
+    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), ragNone: list(r.ragNone), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), periodBasis: (["active", "golive", "created", "field"].includes(str(r.periodBasis)) ? str(r.periodBasis) : "active") as ExecSettings["periodBasis"], periodField: str(r.periodField), delivery: normDelivery(r.delivery), stages: normStages(r.stages), periodDefault: (["thisQuarter", "nextQuarter", "thisYear", "last12", "next6"].includes(str(r.periodDefault)) ? str(r.periodDefault) : "") as ExecSettings["periodDefault"], resources: r.resources === true,
   };
 }
 

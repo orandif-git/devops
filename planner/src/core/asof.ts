@@ -13,7 +13,7 @@ const day = (v: unknown): string | undefined => { const m = /^(\d{4}-\d{2}-\d{2}
 
 /** The fields the status depends on: state, the dates, the progress fields, the declared status and the blocker flag. */
 export function trackedFields(s: PlannerSettings): string[] {
-  const x = s.executive, f = ["System.State", s.epicStartField, s.epicTargetField, x.goLiveField, x.declaredField, x.blockerField, ...x.progress.flatMap(p => (p.kind === "percentField" ? [p.field] : p.kind === "ratioFields" ? [p.doneField, p.totalField] : []))];
+  const x = s.executive, f = ["System.State", s.epicStartField, s.epicTargetField, x.goLiveField, x.declaredField, x.blockerField, x.stages.field, ...x.progress.flatMap(p => (p.kind === "percentField" ? [p.field] : p.kind === "ratioFields" ? [p.doneField, p.totalField] : []))];
   return Array.from(new Set(f.filter((v): v is string => !!v)));
 }
 

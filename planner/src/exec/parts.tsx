@@ -142,11 +142,11 @@ export function Donut(p: { counts: Record<ExecStatus, number>; selected: ExecSta
 }
 
 /** Horizontal stacked bars, one per value, split by status; a click on a bar picks the value, a click on a segment also the status. */
-export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void }) {
-  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current;
-  const rows = p.rows, LW = 148, W = 420 - LW - 78;                           // every bar is the same width: the segments show the share of each status, the number after it the size
+export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void; /** drawing width: wide when the chart has a wide card to itself */ w?: number }) {
+  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current, vw = p.w ?? 420;
+  const rows = p.rows, LW = vw > 500 ? 200 : 148, W = vw - LW - (vw > 500 ? 100 : 78);                           // every bar is the same width: the segments show the share of each status, the number after it the size
   return (
-    <svg viewBox={`0 0 420 ${rows.length * 28 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
+    <svg viewBox={`0 0 ${vw} ${rows.length * 28 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
       {rows.map((r, k) => { const y = k * 28 + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
         const parts = SHOWN.filter(s => r.counts[s]);
         return <g key={r.label} className={dim ? "dimmed" : ""}>
@@ -156,7 +156,7 @@ export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatu
             {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 20} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
             {w >= 16 && <text className="inl" x={x + w / 2} y={y + 14} textAnchor="middle">{s === "done" && w >= 30 ? "✓ " : ""}{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
           <text x={LW + W + 8} y={y + 14} style={{ fontWeight: 600 }}>{tot}</text>
-          <text x="418" y={y + 14} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
+          <text x={vw - 2} y={y + 14} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
     </svg>
   );
 }
