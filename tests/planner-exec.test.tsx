@@ -165,6 +165,15 @@ describe("Executive dashboard page", () => {
     act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={withPhase as never} busy={false} error="" onReload={() => undefined} />, h); });
     expect(h.textContent).toContain("not read as green, amber or red"); expect(h.textContent).toMatch(/Design|UAT/);
   });
+  it("shows the owner's RAG next to the status in the Epic table, and the data status when the RAG decides", () => {
+    const withRag = { ...(loaded as unknown as { epics: { extra: object }[] }), epics: (loaded as unknown as { epics: { extra: object }[] }).epics.map((e, i) => ({ ...e, extra: { ...e.extra, "Custom.RAG": ["Green", "Red", "Amber"][i % 3] } })) };
+    const show = (src: "data" | "rag-check") => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: src } }} loaded={withRag as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+    const a = show("data"), heads = (h: HTMLElement) => Array.from(h.querySelectorAll(".ex-table th")).map(t => t.textContent!.replace(/[▲▼ ]+$/, ""));
+    expect(heads(a)).toContain("Owner’s RAG"); expect(heads(a)).not.toContain("Status from the data");
+    const rows = Array.from(a.querySelectorAll("tr.ex-row")).map(r => r.textContent!); expect(rows.some(t => t.includes("Green"))).toBe(true); expect(rows.some(t => t.includes("Red"))).toBe(true);
+    const b = show("rag-check"); expect(heads(b)).toContain("Owner’s RAG"); expect(heads(b)).toContain("Status from the data");
+    const none = mount(); expect(heads(none)).not.toContain("Owner’s RAG");
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");
