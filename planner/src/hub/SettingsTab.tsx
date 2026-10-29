@@ -153,7 +153,8 @@ export function SettingsTab(p: { projectId: string; projectName: string; value: 
       {s.history.enabled && <div className="row">
         <label className="field" style={{ width: 160 }}><span>“Recently” means (days)</span><input type="number" min={7} max={730} value={s.history.windowDays} onChange={e => set({ history: { ...s.history, windowDays: Number(e.target.value) } })} /></label>
         <label className="field" style={{ width: 220 }}><span>Needs attention after this many recent moves</span><input type="number" min={1} max={20} value={s.history.movesAmber} onChange={e => set({ history: { ...s.history, movesAmber: Number(e.target.value) } })} /></label>
-        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }}><input type="checkbox" checked={s.history.affectStatus} onChange={e => set({ history: { ...s.history, affectStatus: e.target.checked } })} /> Let moves change an Epic’s status on the Executive Dashboard</label></div>}
+        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }}><input type="checkbox" checked={s.history.affectStatus} onChange={e => set({ history: { ...s.history, affectStatus: e.target.checked } })} /> Let moves change an Epic’s status on the Executive Dashboard</label>
+        <label style={{ display: "flex", gap: 6, alignItems: "end", paddingBottom: 6 }} title="Uses the same read of the history; the trend lines and the change since last week then exist from the first day"><input type="checkbox" checked={s.history.trendBackfill} onChange={e => set({ history: { ...s.history, trendBackfill: e.target.checked } })} /> Rebuild earlier weeks of the trend lines (Executive Dashboard) from this history</label></div>}
 
       <h3>Access and filters</h3>
       <div className="help">Teams allowed to open the planner (none = every project member). This is a display rule, not access control.</div>

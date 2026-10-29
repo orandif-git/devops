@@ -212,6 +212,18 @@ describe("Executive dashboard page", () => {
     const after = a.querySelector(".ex-notes summary")?.textContent ?? "";
     expect(after).toContain("Epics shown"); expect(after.match(/(\d+) with a RAG/)?.[1] ?? "0").not.toBe(first);               // the counts follow the filter
   });
+  it("tells you when the trend will appear instead of leaving the cards bare", () => {
+    const one = [{ week: "2026-10-26", at: "2026-10-28T08:00:00Z", total: 8, progress: 50, late: 1, due30: 1, hold: 0, green: 2, amber: 1, red: 3, idle: 1, unknown: 0, done: 1 }];
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...(loaded as object), snapshots: one } as never} busy={false} error="" onReload={() => undefined} />, h); });
+    expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("trend starts next week");
+    expect(h.querySelector(".ex-kpi:not(.hero) .ex-delta")!.textContent).toContain("trend starts next week");
+    type(h, "basel"); expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("trend: whole portfolio");       // filtered: say why there is no trend
+    const two = [{ ...one[0], week: "2026-10-19", rebuilt: true }, ...one];
+    const h2 = document.createElement("div"); document.body.appendChild(h2);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...(loaded as object), snapshots: two } as never} busy={false} error="" onReload={() => undefined} />, h2); });
+    expect(h2.querySelector(".ex-delta .vs")!.textContent).toBe("vs last week"); expect(h2.querySelector(".ex-delta")!.getAttribute("title")).toContain("rebuilt from the work item history");
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");

@@ -33,10 +33,10 @@ export function Spark({ values, color, w = 84, h = 26 }: { values: number[]; col
   return <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><polyline fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" points={pts} /></svg>;
 }
 /** The change since last week: `good` says whether an increase is good news. */
-export function Delta({ d, good }: { d?: number; good?: boolean }) {
+export function Delta({ d, good, rebuilt }: { d?: number; good?: boolean; rebuilt?: boolean }) {
   if (d === undefined) return null;
   const tone = good === undefined || d === 0 ? "flat" : (d > 0) === good ? "up" : "down";
-  return <span className={"ex-delta " + tone} title="Change since last week">{d === 0 ? "no change" : `${d > 0 ? "▲ +" : "▼ "}${d}`} <span className="vs">vs last week</span></span>;
+  return <span className={"ex-delta " + tone} title={rebuilt ? "Change since last week (earlier weeks are rebuilt from the work item history)" : "Change since last week"}>{d === 0 ? "no change" : `${d > 0 ? "▲ +" : "▼ "}${d}`} <span className="vs">vs last week</span></span>;
 }
 
 /** A slicer: a button with a pop-up list of values and counts; several values can be chosen. */

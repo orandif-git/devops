@@ -56,16 +56,18 @@ const Kpi = (p: { label: React.ReactNode; value: number | string; detail: React.
 /** Portfolio health, then one card per status; the trend and the change since last week come from the weekly snapshots. */
 function KpiRow({ lp }: { lp: LP }) {
   const base = lp.all.filter(i => pass(i, lp.f, "status")), c = byStatus(base), snaps = lp.snaps ?? [];
-  const trend = snaps.length > 0 && lp.all.length > 0 && isEmpty({ ...lp.f, status: [] }), score = health(c), act = base.length - c.idle;
+  const whole = isEmpty({ ...lp.f, status: [] }), trend = snaps.length > 0 && lp.all.length > 0 && whole, wait = snaps.length < 2 && lp.all.length > 0 && whole, rebuilt = snaps.some(x => x.rebuilt);
+  const hint = wait ? <span className="ex-delta flat" title="The change since last week appears once there are two weeks to compare"><span className="vs">trend starts next week</span></span> : !whole && lp.all.length > 0 ? <span className="ex-delta flat" title="Trends are kept for the whole portfolio; clear the filters to see them"><span className="vs">trend: whole portfolio</span></span> : undefined;
+  const score = health(c), act = base.length - c.idle;
   const R = 44, C = Math.PI * R, prevScore = snaps.length > 1 ? health(snaps[snaps.length - 2]) : undefined;
   return (
     <div className="ex-kpis">
-      <Kpi hero label="Portfolio health" value={score + "%"} detail={`${base.length} Epics · ${act} in delivery`} delta={trend && prevScore !== undefined ? <Delta d={score - prevScore} good /> : undefined} onClick={() => lp.setF({ ...lp.f, status: [] })}
+      <Kpi hero label="Portfolio health" value={score + "%"} detail={`${base.length} Epics · ${act} in delivery`} delta={trend && prevScore !== undefined ? <Delta d={score - prevScore} good rebuilt={rebuilt} /> : hint} onClick={() => lp.setF({ ...lp.f, status: [] })}
         spark={<svg width="110" height="64" viewBox="0 0 110 64" aria-hidden="true"><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="rgba(255,255,255,.25)" strokeWidth="9" strokeLinecap="round" /><path d="M11 58 A44 44 0 0 1 99 58" fill="none" stroke="#fff" strokeWidth="9" strokeLinecap="round" strokeDasharray={`${C * score / 100} ${C}`} /></svg>} />
       {lp.historyOn && <Kpi c="#8a1f45" label={<>↔ Go-live moved</>} value={lp.all.filter(i => pass(i, lp.f, "moved") && pass(i, lp.f, "status") && i.moved.includes(MOVED.recent)).length} detail={`in the last ${lp.settings.history.windowDays} days`} on={lp.f.moved.includes(MOVED.recent)} dim={lp.f.moved.length > 0 && !lp.f.moved.includes(MOVED.recent)} onClick={() => lp.setF({ ...lp.f, moved: toggle(lp.f.moved, MOVED.recent) })} />}
       {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Kpi c="#b45309" label={<>⚠ Check this</>} value={lp.all.filter(i => pass(i, lp.f, "decl") && pass(i, lp.f, "status") && i.decl === DECL_ORDER[0]).length} detail="RAG looks better than the data" on={lp.f.decl.includes(DECL_ORDER[0])} dim={lp.f.decl.length > 0 && !lp.f.decl.includes(DECL_ORDER[0])} onClick={() => lp.setF({ ...lp.f, decl: toggle(lp.f.decl, DECL_ORDER[0]) })} />}
       {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <Kpi key={s} c={COLOR[s]} label={<><Sw s={s} />{STATUS_NAME[s]}</>} value={c[s]} detail={`${pct(c[s], base.length)}% of Epics`} on={lp.f.status.includes(s)} dim={lp.f.status.length > 0 && !lp.f.status.includes(s)} onClick={() => lp.setF({ ...lp.f, status: toggle(lp.f.status, s) })}
-        spark={trend ? <Spark values={series(snaps, s)} color={COLOR[s]} /> : undefined} delta={trend ? <Delta d={deltaOf(snaps, s)} good={s === "green" || s === "done" ? true : s === "amber" || s === "red" ? false : undefined} /> : undefined} />)}
+        spark={trend ? <Spark values={series(snaps, s)} color={COLOR[s]} /> : undefined} delta={trend && snaps.length > 1 ? <Delta d={deltaOf(snaps, s)} rebuilt={rebuilt} good={s === "green" || s === "done" ? true : s === "amber" || s === "red" ? false : undefined} /> : hint} />)}
     </div>
   );
 }

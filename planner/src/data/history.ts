@@ -1,11 +1,12 @@
 import { restGet } from "../rest";
 import { shortHash } from "../../../src/shared/ids";
 import { applyRevisions, Hist, historyFromUpdates, Rev } from "../core/history";
+import { addRevisions, Timelines } from "../core/asof";
 import { cacheGet, cacheSet } from "./idb";
 import { LoadProgress } from "./epics";
 
 export type HistoryMap = Record<string, Record<number, Hist>>;       // date field -> Epic id -> its history
-interface Cached { syncedAt: string; map: HistoryMap }
+interface Cached { syncedAt: string; map: HistoryMap; tl?: Timelines }
 interface Page { values?: { id: number; rev: number; fields: Record<string, unknown> }[]; continuationToken?: string; isLastBatch?: boolean; nextLink?: string }
 const who = (v: unknown): string => (typeof v === "string" ? v.replace(/\s*<[^>]*>\s*$/, "") : v && typeof v === "object" ? String((v as { displayName?: string }).displayName ?? "") : "");
 
@@ -14,13 +15,23 @@ const who = (v: unknown): string => (typeof v === "string" ? v.replace(/\s*<[^>]
  * those since the last read). The result is cached in the browser; `force` reads everything again.
  */
 export async function loadHistory(project: { id: string; name: string }, workItemType: string, fields: string[], opts: { force?: boolean; progress?: (p: LoadProgress) => void } = {}): Promise<HistoryMap> {
-  const key = `history|${project.id}|${shortHash(JSON.stringify([fields, workItemType]))}`;
+  return (await loadRevisionData(project, workItemType, fields, [], opts)).map;
+}
+
+/**
+ * The same single pass through the revisions report also keeps the value of the `track` fields over time (for each Epic, a point whenever one of them changed),
+ * which is what rebuilds the earlier weeks of the trend lines.
+ */
+export async function loadRevisionData(project: { id: string; name: string }, workItemType: string, fields: string[], track: string[], opts: { force?: boolean; progress?: (p: LoadProgress) => void } = {}): Promise<{ map: HistoryMap; timelines: Timelines }> {
+  const key = `history|${project.id}|${shortHash(JSON.stringify([fields, workItemType, track]))}`;
   const cached = opts.force ? undefined : await cacheGet<Cached>(key);
   const map: HistoryMap = {}; for (const f of fields) map[f] = cached?.map?.[f] ?? {};
   const seen: Record<string, Rev[]> = Object.fromEntries(fields.map(f => [f, []]));
+  const pts: { id: number; at: string; v: Record<string, string> }[] = [];
+  const all = Array.from(new Set([...fields, ...track]));
   let token: string | undefined, pages = 0, newest = cached?.syncedAt ?? "";
   do {
-    const q: Record<string, string | number> = { fields: ["System.Id", "System.Rev", "System.ChangedDate", "System.ChangedBy", ...fields].join(","), types: workItemType, includeLatestOnly: "false", "$maxPageSize": 1000 };
+    const q: Record<string, string | number> = { fields: ["System.Id", "System.Rev", "System.ChangedDate", "System.ChangedBy", ...all].join(","), types: workItemType, includeLatestOnly: "false", "$maxPageSize": 1000 };
     if (cached?.syncedAt) q.startDateTime = cached.syncedAt;
     if (token) q.continuationToken = token;
     const page = await restGet<Page>("wit/reporting/workitemrevisions", q, project.name);
@@ -29,12 +40,14 @@ export async function loadHistory(project: { id: string; name: string }, workIte
       const at = String(v.fields["System.ChangedDate"] ?? ""), by = who(v.fields["System.ChangedBy"]);
       if (at > newest) newest = at;
       for (const f of fields) seen[f].push({ id: v.id, rev: v.rev, at, by, value: String(v.fields[f] ?? "") });
+      if (track.length) { const tv: Record<string, string> = {}; for (const f of track) if (v.fields[f] !== undefined && v.fields[f] !== null) tv[f] = String(v.fields[f]); pts.push({ id: v.id, at, v: tv }); }
     }
     token = page.isLastBatch === false || (page.isLastBatch === undefined && page.continuationToken) ? page.continuationToken : undefined;
   } while (token && pages < 400);
   for (const f of fields) map[f] = applyRevisions(map[f], seen[f]);
-  await cacheSet(key, { syncedAt: newest || cached?.syncedAt || "", map } satisfies Cached);
-  return map;
+  const timelines = track.length ? addRevisions(cached?.tl ?? {}, pts) : {};
+  await cacheSet(key, { syncedAt: newest || cached?.syncedAt || "", map, ...(track.length ? { tl: timelines } : {}) } satisfies Cached);
+  return { map, timelines };
 }
 
 /** One Epic's history for one date field, read from its updates (used when the history of all Epics is not switched on). */

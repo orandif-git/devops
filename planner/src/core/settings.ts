@@ -31,7 +31,7 @@ export function normalizeFormulas(raw: unknown): ExecFormula[] {
 const normHistory = (raw: unknown): PlannerSettings["history"] => {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultSettings().history;
   const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
-  return { enabled: r.enabled !== false, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false };
+  return { enabled: r.enabled !== false, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false, trendBackfill: r.trendBackfill !== false };
 };
 
 export function normalizeExec(raw: unknown): ExecSettings {

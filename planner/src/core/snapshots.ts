@@ -4,8 +4,10 @@ import { ExecEpic, ExecStatus } from "./executive";
 export interface Snapshot {
   week: string; at: string; total: number; progress: number; late: number; due30: number; hold: number;
   green: number; amber: number; red: number; idle: number; unknown: number; done: number;
+  /** worked out afterwards from the work item history, not recorded at the time */
+  rebuilt?: boolean;
 }
-export type Metric = Exclude<keyof Snapshot, "week" | "at">;
+export type Metric = Exclude<keyof Snapshot, "week" | "at" | "rebuilt">;
 const DAY = 86400000;
 
 /** The Monday (YYYY-MM-DD, UTC) of the week a day falls in. */
