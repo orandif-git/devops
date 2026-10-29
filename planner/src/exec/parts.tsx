@@ -142,21 +142,21 @@ export function Donut(p: { counts: Record<ExecStatus, number>; selected: ExecSta
 }
 
 /** Horizontal stacked bars, one per value, split by status; a click on a bar picks the value, a click on a segment also the status. */
-export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void; /** drawing width: wide when the chart has a wide card to itself */ w?: number }) {
-  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current, vw = p.w ?? 420;
+export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void; /** row pitch (default 28): the report lets few rows grow to fill their card */ rowH?: number; /** drawing width: wide when the chart has a wide card to itself */ w?: number }) {
+  const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current, vw = p.w ?? 420, P = p.rowH ?? 28, BH = P - 8;
   const rows = p.rows, LW = vw > 500 ? 200 : 148, W = vw - LW - (vw > 500 ? 100 : 78);                           // every bar is the same width: the segments show the share of each status, the number after it the size
   return (
-    <svg viewBox={`0 0 ${vw} ${rows.length * 28 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
-      {rows.map((r, k) => { const y = k * 28 + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
+    <svg viewBox={`0 0 ${vw} ${rows.length * P + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
+      {rows.map((r, k) => { const y = k * P + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
         const parts = SHOWN.filter(s => r.counts[s]);
         return <g key={r.label} className={dim ? "dimmed" : ""}>
-          <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={W} height="20" rx="10" ry="10" /></clipPath>
-          <text x="0" y={y + 14} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label}<title>{r.label}</title></text>
-          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * W, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="20" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {r.counts[s]}</title></rect>
-            {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 20} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
-            {w >= 16 && <text className="inl" x={x + w / 2} y={y + 14} textAnchor="middle">{s === "done" && w >= 30 ? "✓ " : ""}{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
-          <text x={LW + W + 8} y={y + 14} style={{ fontWeight: 600 }}>{tot}</text>
-          <text x={vw - 2} y={y + 14} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
+          <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={W} height={BH} rx={BH / 2} ry={BH / 2} /></clipPath>
+          <text x="0" y={y + BH / 2 + 4} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label}<title>{r.label}</title></text>
+          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * W, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={BH} fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {r.counts[s]}</title></rect>
+            {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + BH} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
+            {w >= 16 && <text className="inl" x={x + w / 2} y={y + BH / 2 + 4} textAnchor="middle">{s === "done" && w >= 30 ? "✓ " : ""}{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
+          <text x={LW + W + 8} y={y + BH / 2 + 4} style={{ fontWeight: 600 }}>{tot}</text>
+          <text x={vw - 2} y={y + BH / 2 + 4} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
     </svg>
   );
 }

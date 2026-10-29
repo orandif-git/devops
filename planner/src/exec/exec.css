@@ -218,6 +218,9 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 .ex-pcol .pp { margin-top: 8px; padding-top: 7px; border-top: 1px dashed var(--line); font-size: 11.5px; color: var(--fg2); display: flex; justify-content: space-between; } .ex-pcol .pp b { color: var(--fg); font-weight: 600; }
 .ex-bn { display: flex; gap: 8px; align-items: center; margin: 0 0 4px; padding: 6px 10px; border-radius: 10px; background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; font-size: 12.5px; } .ex-bn.ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; } .ex-pempty { padding: 14px 4px; }
 /* two columns of charts: a fixed left stack, a tall right area */
-.ex-lay2 { display: grid; grid-template-columns: minmax(300px, 34%) 1fr; gap: 14px; margin-top: 14px; align-items: start; } .ex-lcol, .ex-rcol { display: grid; gap: 14px; min-width: 0; } .ex-lcol > .ex-card { height: 336px; overflow: hidden; }
+.ex-lay2 { display: grid; grid-template-columns: minmax(300px, 34%) 1fr; gap: 14px; margin-top: 14px; align-items: stretch; } .ex-lcol, .ex-rcol { display: grid; gap: 14px; min-width: 0; }
+/* both columns always end on the same line: the right one sets the height (By type is a fixed-height area that scrolls, the pipeline is its natural height), the left cards share it equally */
+.ex-lcol { grid-template-rows: 1fr 1fr; } .ex-lcol > .ex-card { min-height: 0; overflow: hidden; display: flex; flex-direction: column; } .ex-lcol > .ex-card > :not(h4) { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.ex-rcol { grid-template-rows: auto auto; } .ex-bybody { height: 292px; overflow-y: auto; }
 .ex-more { border: 0; background: none; color: #7a1a3c; font-weight: 600; cursor: pointer; padding: 6px 0 0; font: inherit; }
-@media (max-width: 1100px) { .ex-lay2 { grid-template-columns: 1fr; } .ex-lcol > .ex-card { height: auto; } }
+@media (max-width: 1100px) { .ex-lay2 { grid-template-columns: 1fr; } .ex-lcol { grid-template-rows: none; } .ex-lcol > .ex-card > :not(h4) { display: block; } }

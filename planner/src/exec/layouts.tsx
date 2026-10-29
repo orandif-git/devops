@@ -167,7 +167,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
         </div>
         <div className="ex-rcol">
           <section className="ex-card"><h4>{lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => setDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <>By {dimLabel(dim).toLowerCase()}</>} <span>Epics by status · % at risk · {dimAll.length} {dimAll.length === 1 ? "value" : "values"}</span></h4>
-            <StackedBars w={840} rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} />
+            <div className="ex-bybody"><StackedBars w={840} rowH={Math.max(28, Math.min(44, Math.floor(286 / Math.max(1, dimRows.length))))} rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} /></div>
             {dimAll.length > 8 && <button type="button" className="ex-more" onClick={() => setAllTypes(!allTypes)}>{allTypes ? "Show the top 8" : `Show all ${dimAll.length}`}</button>}</section>
           <PipelineCard lp={lp} />
         </div>
