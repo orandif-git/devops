@@ -38,6 +38,7 @@ export function ExecDashboard(p: {
   const [savedId, setSavedId] = React.useState("");
   // which status the dashboard shows: the owner's RAG, the data, or the variance between them (the switch needs a declared status field and a mode that keeps the data)
   const canSwitch = !!x.declaredField && x.statusSource !== "rag", defaultView: "rag" | "data" = x.declaredField && x.statusSource !== "data" ? "rag" : "data";
+  const [showDelivery, setShowDelivery] = React.useState(true);                  // the delivery performance card can be folded away; kept in saved views
   const [viewPick, setView] = React.useState<"rag" | "data" | "var" | "">("");
   const view: "rag" | "data" | "var" = canSwitch ? (viewPick || defaultView) : defaultView;
   const density = "compact" as const;                // one compact spacing for everyone
@@ -71,11 +72,11 @@ export function ExecDashboard(p: {
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch };
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, showDelivery, onDelivery: setShowDelivery };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, period: f.period, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, period: v.period, dims: v.dims, text: v.text }); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, period: v.period, dims: v.dims, text: v.text }); setShowDelivery(v.delivery); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;

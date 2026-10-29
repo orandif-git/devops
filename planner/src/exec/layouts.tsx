@@ -3,6 +3,7 @@ import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
 import { MOVED, signed } from "../core/history";
 import { deltaOf, health, series, Snapshot } from "../core/snapshots";
+import { DeliveryCard } from "./Delivery";
 import { periodState } from "../core/execPeriod";
 import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Delta, Donut, Num, PeriodSlicer, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
@@ -17,6 +18,8 @@ export interface LP {
   snaps?: Snapshot[];
   /** the status view: the owner's RAG, the data, or the variance between them */
   view: "rag" | "data" | "var"; canSwitch: boolean;
+  /** delivery performance: when each Epic reached Done, and whether the card is open */
+  deliveredAt?: Record<number, number>; showDelivery: boolean; onDelivery(on: boolean): void;
 }
 const DAY = 86400000;
 
@@ -160,6 +163,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
           <StackedBars rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} /></section>
         <section className="ex-card"><h4>Go-live by quarter <span>Epics</span></h4><Columns cols={qs} selected={f.quarter} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "q")} /></section>
       </div>
+      <DeliveryCard lp={lp} />
       <section className="ex-card"><h4>Epics <span>{items.length} of {lp.all.length}</span></h4><ItemsTable key={lp.view} lp={lp} items={items} /></section>
     </div>
   );

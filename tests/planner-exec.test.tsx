@@ -238,6 +238,20 @@ describe("Executive dashboard page", () => {
     act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-chips button")).find(b => b.getAttribute("aria-label")?.includes("Period"))!); });
     expect(rows(h)).toBe(all); expect(h.querySelector(".ex-chips")?.textContent ?? "").not.toContain("Period:");
   });
+  it("shows delivery performance for Epics that reached Done, can be folded, configured and switched off", () => {
+    const at = (o: object = {}, da?: Record<number, number>, ex: object = {}) => { const h = document.createElement("div"); document.body.appendChild(h);
+      act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={{ ...settings, executive: { ...settings.executive, delivery: { ...settings.executive.delivery, ...o }, ...ex } }} loaded={{ ...(loaded as object), deliveredAt: da } as never} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+    const da = { 4: Date.parse("2026-09-20T09:00:00Z") };                                       // FATCA (Closed, go-live 25 Sep) delivered five days early
+    const a = at({}, da); const card = a.querySelector(".ex-delivery")!;
+    expect(card.textContent).toContain("Delivery performance"); expect(card.textContent).toContain("On-time delivery rate"); expect(card.querySelector(".ex-dpt .v")!.textContent).toBe("100%");
+    expect(card.querySelector("svg[aria-label='Epics delivered by quarter']")).not.toBeNull(); expect(card.textContent).toContain("Biggest delays");
+    act(() => { Simulate.click(card.querySelector(".ex-fold")!); }); expect(a.querySelector(".ex-dp")).toBeNull(); expect(a.querySelector(".ex-delivery h4")).not.toBeNull();   // folded: only the title stays
+    act(() => { Simulate.click(a.querySelector(".ex-fold")!); }); expect(a.querySelector(".ex-dp")).not.toBeNull();
+    const parts = at({ show: ["rate"] }, da); expect(parts.querySelector(".ex-delivery")!.textContent).toContain("On-time delivery rate"); expect(parts.querySelector(".ex-delivery")!.textContent).not.toContain("Biggest delays"); expect(parts.querySelector("svg[aria-label='Epics delivered by quarter']")).toBeNull();
+    expect(at({}, undefined).querySelector(".ex-dpempty")!.textContent).toContain("work item history");     // no dates available yet: say what is needed
+    expect(at({ source: "field", dateField: "" }, undefined).querySelector(".ex-dpempty")!.textContent).toContain("date field");
+    expect(at({ enabled: false }, da).querySelector(".ex-delivery")).toBeNull();
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");

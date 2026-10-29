@@ -34,6 +34,13 @@ const normHistory = (raw: unknown): PlannerSettings["history"] => {
   return { enabled: r.enabled !== false, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false, trendBackfill: r.trendBackfill !== false };
 };
 
+const DELIVERY_PARTS = ["rate", "late", "delivered", "predict", "chart", "delays"];
+function normDelivery(raw: unknown): ExecSettings["delivery"] {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultExec().delivery;
+  const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
+  const show = Array.isArray(r.show) ? r.show.filter((x): x is string => typeof x === "string" && DELIVERY_PARTS.includes(x)) : d.show;
+  return { enabled: r.enabled !== false, source: r.source === "field" ? "field" : "history", dateField: str(r.dateField), graceDays: n(r.graceDays, d.graceDays, 0, 365), severeDays: n(r.severeDays, d.severeDays, 1, 730), predictDays: n(r.predictDays, d.predictDays, 0, 365), quarters: n(r.quarters, d.quarters, 2, 12), recent: n(r.recent, d.recent, 1, 8), show };
+}
 export function normalizeExec(raw: unknown): ExecSettings {
   const d = defaultExec();
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
@@ -51,7 +58,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     tolSlipAmberField: str(r.tolSlipAmberField), tolSlipRedField: str(r.tolSlipRedField), tolGapAmberField: str(r.tolGapAmberField), tolGapRedField: str(r.tolGapRedField),
     rules: (Array.isArray(r.rules) ? r.rules : []).filter(q => q && typeof q === "object").map((q, i) => { const o = q as Record<string, unknown>, k = (v: unknown, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(0, v)) : undefined);
       return { id: str(o.id) || `r${i + 1}`, field: str(o.field), value: str(o.value), slipAmberDays: k(o.slipAmberDays, 730), slipRedDays: k(o.slipRedDays, 730), gapAmberPts: k(o.gapAmberPts, 100), gapRedPts: k(o.gapRedPts, 100) }; }).filter(q => q.field),
-    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), ragNone: list(r.ragNone), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), periodBasis: (["active", "golive", "created", "field"].includes(str(r.periodBasis)) ? str(r.periodBasis) : "active") as ExecSettings["periodBasis"], periodField: str(r.periodField), periodDefault: (["thisQuarter", "nextQuarter", "thisYear", "last12", "next6"].includes(str(r.periodDefault)) ? str(r.periodDefault) : "") as ExecSettings["periodDefault"], resources: r.resources === true,
+    declaredField: str(r.declaredField), statusSource: (["data", "rag", "rag-check"].includes(str(r.statusSource)) ? str(r.statusSource) : "rag-check") as ExecSettings["statusSource"], ragGreen: list(r.ragGreen), ragAmber: list(r.ragAmber), ragRed: list(r.ragRed), ragNone: list(r.ragNone), sizeField: str(r.sizeField), staleDays: n(r.staleDays, 0, 0, 3650), blockerField: str(r.blockerField), blockerValues: list(r.blockerValues), accessTeams: teams(r.accessTeams), periodBasis: (["active", "golive", "created", "field"].includes(str(r.periodBasis)) ? str(r.periodBasis) : "active") as ExecSettings["periodBasis"], periodField: str(r.periodField), delivery: normDelivery(r.delivery), periodDefault: (["thisQuarter", "nextQuarter", "thisYear", "last12", "next6"].includes(str(r.periodDefault)) ? str(r.periodDefault) : "") as ExecSettings["periodDefault"], resources: r.resources === true,
   };
 }
 

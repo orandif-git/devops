@@ -40,6 +40,7 @@ function GridDonePick(p: { src?: GridSource; sources: GridSource[]; project: str
 export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams: TeamRef[]; project: string; onChange(s: PlannerSettings): void }) {
   const { s } = p, x = s.executive;
   const setX = (patch: Partial<Exec>) => p.onChange({ ...s, executive: { ...x, ...patch } });
+  const setDv = (patch: Partial<Exec["delivery"]>) => setX({ delivery: { ...x.delivery, ...patch } });
   const setProg = (i: number, v: ProgressSource) => setX({ progress: x.progress.map((q, j) => (j === i ? v : q)) });
   const move = (i: number, d: number) => { const a = [...x.progress]; const j = i + d; if (j < 0 || j >= a.length) return; [a[i], a[j]] = [a[j], a[i]]; setX({ progress: a }); };
   const problems = validateExec(s);
@@ -188,7 +189,26 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
       <label style={{ display: "block", margin: "8px 0" }}><input type="checkbox" checked={x.resources} onChange={e => setX({ resources: e.target.checked })} /> Show resource information (team, hours booked, and “over capacity” counts towards attention). Off = a pure portfolio view.</label>
       </section>
       <section className="set-sec">
-        <h4><span className="num">7</span> Calculated fields and saved filters</h4>
+        <h4><span className="num">7</span> Delivery performance</h4>
+        <div className="why">How Epics that reached Done compare with their go-live date: on-time rate, days late, the quarters, the biggest delays. Shown in the Report layout; each person can fold it away.</div>
+        <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={x.delivery.enabled} onChange={e => setDv({ enabled: e.target.checked })} /> <b>Show the delivery performance card</b></label>
+        {x.delivery.enabled && <>
+          <div className="row">
+            <label className="field" style={{ width: 300 }}><span>The date an Epic was delivered comes from</span>
+              <select value={x.delivery.source} onChange={e => setDv({ source: e.target.value as Exec["delivery"]["source"] })}><option value="history">The work item history: when its state last reached a done state</option><option value="field">A date field of the Epic</option></select></label>
+            {x.delivery.source === "field" && <FieldPick label="Completed date field (for example Closed date)" value={x.delivery.dateField} fields={p.fields} accept={f => isDateType(f.type)} placeholder="Microsoft.VSTS.Common.ClosedDate" onChange={v => setDv({ dateField: v })} />}
+          </div>
+          <div className="help">{x.delivery.source === "history" ? "Needs “Read the history of the go-live date” (Settings › General). Done states are the ones listed in section 2." : "Epics without a value in that field are left out."}</div>
+          <div className="row">
+            {([["graceDays", "On time up to this many days after go-live", 250], ["severeDays", "Second late band: late by more than (days)", 240], ["predictDays", "Predictable: within ± (days)", 200], ["quarters", "Quarters in the chart", 150], ["recent", "Quarters the tiles add up", 170]] as const).map(([k, l, w]) => <label className="field" key={k} style={{ width: w }}><span>{l}</span><input type="number" min={0} value={x.delivery[k]} onChange={e => setDv({ [k]: Number(e.target.value) } as Partial<Exec["delivery"]>)} /></label>)}
+          </div>
+          <div className="help"><b>Parts shown</b></div>
+          <div className="row" style={{ flexWrap: "wrap", gap: "4px 18px" }}>
+            {([["rate", "On-time delivery rate"], ["late", "Average days late"], ["delivered", "Delivered against due (last quarter)"], ["predict", "Delivered within ± days"], ["chart", "Delivered by quarter"], ["delays", "Biggest delays"]] as const).map(([k, l]) => <label key={k} style={{ display: "flex", gap: 6 }}><input type="checkbox" checked={x.delivery.show.includes(k)} onChange={e => setDv({ show: e.target.checked ? [...x.delivery.show, k] : x.delivery.show.filter(y => y !== k) })} /> {l}</label>)}
+          </div></>}
+      </section>
+      <section className="set-sec">
+        <h4><span className="num">8</span> Calculated fields and saved filters</h4>
         <div className="why">Extra columns worked out with formulas, and named filters offered on the dashboard.</div>
       <ExecQueries s={s} onChange={p.onChange} />
       </section>
