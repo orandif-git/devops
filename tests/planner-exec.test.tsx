@@ -539,3 +539,32 @@ describe("Delivery pipeline on the dashboard", () => {
     expect(h.querySelector(".ex-chips")!.textContent).toContain("Stage: Build"); expect(h.querySelectorAll("tr.ex-row").length).toBeLessThan(all);
   });
 });
+
+describe("By-field card", () => {
+  const loaded = { epics, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: "", load: { ms: 10 } } as never;
+  const mount = (st = settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+  const sw = (h: HTMLElement, name: string) => Array.from(h.querySelectorAll(".ex-bfsw button")).find(b => b.textContent === name)!;
+  it("opens with Auto (columns for 3 values) and the switch changes the chart", () => {
+    const h = mount(); expect(h.querySelector(".ex-bfh")!.textContent).toContain("Auto → columns"); expect(h.querySelector(".ex-vcols")).not.toBeNull();
+    act(() => { Simulate.click(sw(h, "Bars")); }); expect(h.querySelector(".ex-vcols")).toBeNull(); expect(h.querySelector(".ex-byfield svg")).not.toBeNull();
+    act(() => { Simulate.click(sw(h, "Table")); }); expect(h.querySelector(".ex-vtable")!.textContent).toContain("Regulatory"); expect(h.querySelector(".ex-vtable")!.textContent).toContain("% at risk");
+    act(() => { Simulate.click(sw(h, "Pie")); }); expect(h.querySelector(".ex-pie")!.textContent).toContain("Share"); expect(h.querySelectorAll(".ex-pie path").length).toBe(3);
+  });
+  it("a click on a column, table row or pie row filters the Epics by that value", () => {
+    const h = mount(), all = h.querySelectorAll("tr.ex-row").length;
+    act(() => { Simulate.click(h.querySelector(".ex-vcol")!); }); expect(h.querySelector(".ex-chips")!.textContent).toContain("Regulatory"); expect(h.querySelectorAll("tr.ex-row").length).toBeLessThan(all);
+    act(() => { Simulate.click(h.querySelector(".ex-chips button")!); }); expect(h.querySelectorAll("tr.ex-row").length).toBe(all);
+    act(() => { Simulate.click(sw(h, "Table")); }); act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable tbody tr")).find(r => r.textContent!.startsWith("Security"))!); });
+    expect(h.querySelector(".ex-chips")!.textContent).toContain("Security");
+  });
+  it("the table sorts by a header and searches the values", () => {
+    const h = mount(); act(() => { Simulate.click(sw(h, "Table")); });
+    const first = () => h.querySelector(".ex-vtable tbody tr td")!.textContent;
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable th")).find(t => t.textContent === "Epics")!); }); const big = first();
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable th")).find(t => t.textContent!.startsWith("Epics"))!); }); expect(first()).not.toBe(big);
+    act(() => { Simulate.change(h.querySelector(".ex-vtable input")!, { target: { value: "sec" } } as never); }); expect(h.querySelectorAll(".ex-vtable tbody tr").length).toBe(1);
+  });
+  it("a chart type set for the field in the settings is where it opens", () => {
+    const h = mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })); expect(h.querySelector(".ex-pie")).not.toBeNull();
+  });
+});

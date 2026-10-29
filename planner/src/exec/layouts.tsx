@@ -5,6 +5,7 @@ import { MOVED, signed } from "../core/history";
 import { deltaOf, health, series, Snapshot } from "../core/snapshots";
 import { DeliveryCard } from "./Delivery";
 import { PipelineCard } from "./Pipeline";
+import { ByFieldCard } from "./ByField";
 import { periodState } from "../core/execPeriod";
 import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Delta, Donut, Num, PeriodSlicer, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
@@ -147,28 +148,22 @@ function VarianceReport({ lp }: { lp: LP }) {
 
 /** Layout 1: slicers, status cards, charts in two columns (a fixed left stack and a tall right area) and the table. */
 export function ReportLayout({ lp }: { lp: LP }) {
-  const { f, setF, items } = lp, [dim, setDim] = React.useState(lp.fields[0]), [allTypes, setAllTypes] = React.useState(false);
+  const { f, setF, items } = lp, [dim, setDim] = React.useState(lp.fields[0]);
   React.useEffect(() => { if (!lp.fields.includes(dim)) setDim(lp.fields[0]); }, [lp.fields.join("|")]);   // eslint-disable-line react-hooks/exhaustive-deps
   if (lp.view === "var") return <VarianceReport lp={lp} />;
-  const forStatus = lp.all.filter(i => pass(i, f, "status")), counts = byStatus(forStatus);
-  const forDim = lp.all.filter(i => pass(i, f, { dim })), forQ = lp.all.filter(i => pass(i, f, "quarter"));
-  const dimAll = optionsOf(lp, { dim }, i => i.r.dims[dim]).map(o => ({ label: o.value, counts: byStatus(forDim.filter(i => i.r.dims[dim] === o.value)) })).filter(r => SHOWN.some(s => r.counts[s])).sort((a, b) => SHOWN.reduce((x, s) => x + b.counts[s], 0) - SHOWN.reduce((x, s) => x + a.counts[s], 0));
-  const rest = allTypes ? [] : dimAll.slice(8), other = rest.length ? { label: `Other (${rest.length} types)`, counts: rest.reduce((a, r) => { SHOWN.forEach(s => { a[s] += r.counts[s]; }); return a; }, { green: 0, amber: 0, red: 0, idle: 0, unknown: 0, done: 0 } as Record<ExecStatus, number>) } : undefined;
-  const dimRows = [...(allTypes ? dimAll : dimAll.slice(0, 8)), ...(other ? [other] : [])];
+  const forStatus = lp.all.filter(i => pass(i, f, "status")), counts = byStatus(forStatus), forQ = lp.all.filter(i => pass(i, f, "quarter"));
   const qs = sortQuarters(Array.from(new Set(lp.all.map(i => i.quarter)))).map(q => ({ label: q, counts: byStatus(forQ.filter(i => i.quarter === q)) }));
-  const pick = (label: string, s?: ExecStatus, which?: "dim" | "q") => { if (label.startsWith("Other (")) return; setF(which === "q" ? { ...f, quarter: toggle(f.quarter, label), status: s ? toggle(f.status, s) : f.status } : { ...f, dims: { ...f.dims, [dim]: toggle(f.dims[dim] ?? [], label) }, status: s ? toggle(f.status, s) : f.status }); };
+  const pickQuarter = (label: string, s?: ExecStatus) => setF({ ...f, quarter: toggle(f.quarter, label), status: s ? toggle(f.status, s) : f.status });
   return (
     <div className="ex-report">
       <Slicers {...lp} /><KpiRow lp={lp} />
       <div className="ex-lay2 ex-charts">
         <div className="ex-lcol">
           <section className="ex-card"><h4>Delivery status <span>click a slice</span></h4><Donut counts={counts} total={forStatus.length} selected={f.status} onPick={s => setF({ ...f, status: toggle(f.status, s) })} /></section>
-          <section className="ex-card"><h4>Go-live by quarter <span>Epics</span></h4><Columns cols={qs} selected={f.quarter} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "q")} /></section>
+          <section className="ex-card"><h4>Go-live by quarter <span>Epics</span></h4><Columns cols={qs} selected={f.quarter} selectedStatus={f.status} onPick={pickQuarter} /></section>
         </div>
         <div className="ex-rcol">
-          <section className="ex-card"><h4>{lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => setDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <>By {dimLabel(dim).toLowerCase()}</>} <span>Epics by status · % at risk · {dimAll.length} {dimAll.length === 1 ? "value" : "values"}</span></h4>
-            <div className="ex-bybody"><StackedBars w={840} rowH={Math.max(28, Math.min(44, Math.floor(286 / Math.max(1, dimRows.length))))} rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} /></div>
-            {dimAll.length > 8 && <button type="button" className="ex-more" onClick={() => setAllTypes(!allTypes)}>{allTypes ? "Show the top 8" : `Show all ${dimAll.length}`}</button>}</section>
+          <ByFieldCard lp={lp} dim={dim} onDim={setDim} />
           <PipelineCard lp={lp} />
         </div>
       </div>

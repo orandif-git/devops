@@ -1,6 +1,6 @@
 import { fmtDate } from "../core/dates";
 import { dimFields, dimLabel, ExecEpic, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
-import { PlannerSettings } from "../core/types";
+import { ChartType, PlannerSettings } from "../core/types";
 import { Hist, movedTags, Summary, summarize } from "../core/history";
 import { Loaded } from "../data/loadAll";
 import { Dates, parseDay, Period, periodLabel, periodState } from "../core/execPeriod";
@@ -51,8 +51,8 @@ export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings, toda
 }
 
 /** What the person has chosen. Within one slicer the choices add up (or); different slicers narrow each other (and). */
-export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; stage: string[]; /** the period (all time when absent) */ period?: Period; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
-export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], moved: [], decl: [], cell: [], stage: [], dims: {}, text: "" });
+export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; stage: string[]; /** the chart chosen for each field in the By-field card (kept in saved views) */ chart: Record<string, ChartType>; /** the period (all time when absent) */ period?: Period; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
+export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], moved: [], decl: [], cell: [], stage: [], chart: {}, dims: {}, text: "" });
 export const isEmpty = (f: XF) => !f.status.length && !f.state.length && !f.team.length && !f.quarter.length && !f.moved.length && !f.decl.length && !f.cell.length && !f.stage.length && !f.period && !Object.values(f.dims).some(v => v.length) && !f.text && !f.saved;
 export type Skip = "stage" | "period" | "status" | "state" | "team" | "quarter" | "moved" | "decl" | "cell" | { dim: string };
 

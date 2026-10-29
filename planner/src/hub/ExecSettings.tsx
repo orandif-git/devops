@@ -2,7 +2,7 @@ import * as React from "react";
 import { IconClose, IconDown, IconPlus, IconSearch, IconTrash, IconUp } from "./icons";
 import { isCategoryType, isDateType, isNumberType } from "../core/fieldTypes";
 import { validateExec } from "../core/settings";
-import { ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource, TeamRef, ThresholdRule } from "../core/types";
+import { CHART_TYPES, ChartType, ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource, TeamRef, ThresholdRule } from "../core/types";
 import { FieldInfo } from "../data/fields";
 import { sampleGrid } from "../data/sample";
 import { ColumnGuess } from "../core/detect";
@@ -74,9 +74,9 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
       <section className="set-sec">
         <h4><span className="num">2</span> Epics, grouping and dates</h4>
         <div className="why">Which fields group the Epics, which date is the go-live, and what each state means.</div>
-      <div className="help"><b>Category fields</b>: Epic fields that classify an Epic, for example project type or regulatory. They become filters, the “by category” panel and words you can use when asking questions. None chosen = the area path is used.</div>
+      <div className="help"><b>Category fields</b>: Epic fields that classify an Epic, for example project type or regulatory. They become filters, the “By field” chart (choose Auto, Bars, Columns, Pie or Table for each field; Auto picks from the number of values) and words you can use when asking questions. None chosen = the area path is used.</div>
       <div style={{ display: "flex", gap: 4, flexWrap: "wrap", margin: "4px 0" }}>
-        {x.categoryFields.map(f => <span key={f} className="chip on">{name(f)} <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => setX({ categoryFields: x.categoryFields.filter(y => y !== f) })}><IconClose size={12} /></button></span>)}
+        {x.categoryFields.map(f => <span key={f} className="chip on">{name(f)} <select aria-label={`Chart for ${name(f)}`} title="The chart this field opens with in the By-field card. Auto picks columns, bars or a table from the number of values." value={x.chartTypes[f] ?? "auto"} onChange={e => { const t = { ...x.chartTypes }; if (e.target.value === "auto") delete t[f]; else t[f] = e.target.value as ChartType; setX({ chartTypes: t }); }}>{CHART_TYPES.map(c => <option key={c} value={c}>{c === "auto" ? "Auto chart" : c[0].toUpperCase() + c.slice(1)}</option>)}</select> <button className="btn icon" aria-label={`Remove ${f}`} onClick={() => { const t = { ...x.chartTypes }; delete t[f]; setX({ categoryFields: x.categoryFields.filter(y => y !== f), chartTypes: t }); }}><IconClose size={12} /></button></span>)}
         {!x.categoryFields.length && <span className="muted">None (area path is used).</span>}
       </div>
       <div className="row"><FieldPick label="Add a category field" value="" fields={p.fields} accept={f => isCategoryType(f.type)} placeholder="Custom.ProjectType" onChange={v => { if (v && !x.categoryFields.includes(v)) setX({ categoryFields: [...x.categoryFields, v] }); }} />

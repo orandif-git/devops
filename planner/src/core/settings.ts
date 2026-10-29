@@ -2,7 +2,7 @@ import { defaultStages, IGNORE } from "./stages";
 import { isDateFormat } from "../../../src/core/dateFormat";
 import { cleanTiles } from "./epicStats";
 import { validateQueries } from "./execQuery";
-import { defaultExec, defaultSettings, ExecFormula, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
+import { CHART_TYPES, ChartType, defaultExec, defaultSettings, ExecFormula, ExecQuery, ExecSettings, GridSource, PlannerSettings, ProgressSource, QueryCondition, QueryOp, TeamRef } from "./types";
 
 const FIELD = /^[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+$/;
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -35,6 +35,12 @@ const normHistory = (raw: unknown): PlannerSettings["history"] => {
   return { enabled: r.enabled !== false, windowDays: n(r.windowDays, d.windowDays, 7, 730), movesAmber: n(r.movesAmber, d.movesAmber, 1, 20), affectStatus: r.affectStatus !== false, trendBackfill: r.trendBackfill !== false };
 };
 
+/** The chart chosen for each field: only known chart types, and "auto" (the default) is not stored. */
+function normChartTypes(raw: unknown): Record<string, ChartType> {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, out: Record<string, ChartType> = {};
+  for (const [k, v] of Object.entries(o)) if (k && CHART_TYPES.includes(v as ChartType) && v !== "auto") out[k] = v as ChartType;
+  return out;
+}
 function normStages(raw: unknown): ExecSettings["stages"] {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultStages();
   const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
@@ -62,7 +68,7 @@ export function normalizeExec(raw: unknown): ExecSettings {
     return { id: str(p.id) || `pg${i + 1}`, kind: (kinds.includes(str(p.kind)) ? str(p.kind) : "percentField") as ProgressSource["kind"], field: str(p.field) || undefined, doneField: str(p.doneField) || undefined, totalField: str(p.totalField) || undefined, sourceId: str(p.sourceId) || undefined };
   });
   return {
-    enabled: r.enabled === true, layout: (["report", "map", "roadmap"].includes(str(r.layout)) ? str(r.layout) : "report") as ExecSettings["layout"], categoryFields: list(r.categoryFields), goLiveField: str(r.goLiveField), progress,
+    enabled: r.enabled === true, layout: (["report", "map", "roadmap"].includes(str(r.layout)) ? str(r.layout) : "report") as ExecSettings["layout"], categoryFields: list(r.categoryFields), chartTypes: normChartTypes(r.chartTypes), goLiveField: str(r.goLiveField), progress,
     doneStates: list(r.doneStates, d.doneStates), holdStates: list(r.holdStates, d.holdStates), notStartedStates: list(r.notStartedStates, d.notStartedStates), ignoreStates: list(r.ignoreStates, d.ignoreStates),
     advanced: r.advanced === true, slipAmberDays: n(r.slipAmberDays, d.slipAmberDays, 0, 365), slipRedDays: n(r.slipRedDays, d.slipRedDays, 0, 730), gapAmberPts: n(r.gapAmberPts, d.gapAmberPts, 0, 100), gapRedPts: n(r.gapRedPts, d.gapRedPts, 0, 100),
     minElapsedPct: n(r.minElapsedPct, d.minElapsedPct, 0, 90), likelyPct: n(r.likelyPct, d.likelyPct, 1, 100), queries: normalizeQueries(r.queries), formulas: normalizeFormulas(r.formulas),
