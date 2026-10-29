@@ -1,0 +1,88 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Executive Dashboard – scatter plot by delivery status (prototype)</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--fg:#0f172a;--fg2:#64748b;--line:#e4e8f1;--ac:#7a1a3c;--ac2:#a8325c;--soft:#f8fafc;--g:#1fae5a;--a:#d97706;--r:#dc2626;--i:#64748b;--d:#166534;--sh:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.06)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:13px/1.45 "Segoe UI",system-ui,sans-serif}button,select,input{font:inherit}
+.top{display:flex;align-items:center;gap:12px;padding:12px 20px}.logo{width:34px;height:34px;border-radius:11px;background:linear-gradient(135deg,var(--ac2),var(--ac));color:#fff;display:grid;place-items:center;font-weight:700}.top b{font-size:16px}.top small{display:block;color:var(--fg2)}
+.wrap{display:grid;grid-template-columns:1fr 360px;gap:14px;padding:0 20px 30px;max-width:1480px;margin:0 auto}.card{background:var(--card);border-radius:16px;padding:14px 16px;box-shadow:var(--sh)}.card h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between;gap:8px;align-items:center}.card h3 span{font-weight:400;color:var(--fg2);font-size:12px}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px}.ctl label{display:flex;gap:6px;align-items:center;color:var(--fg2)}.ctl select{height:30px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:#fff;color:var(--fg)}
+.seg{display:inline-flex;padding:2px;border:1px solid var(--line);border-radius:10px;background:#fff}.seg button{border:0;background:none;padding:5px 12px;border-radius:8px;color:var(--fg2);cursor:pointer;font-weight:600}.seg button.on{background:linear-gradient(135deg,var(--ac2),var(--ac));color:#fff}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}.kp>div{background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px 12px}.kp .l{color:var(--fg2);font-size:12px}.kp .v{font-size:22px;font-weight:650;line-height:1.15}
+svg text{font:11px "Segoe UI",system-ui,sans-serif;fill:var(--fg2)}svg .dot{cursor:pointer;transition:r .12s}svg .dot:hover{stroke:#0f172a}svg .lane{font-weight:700;fill:var(--fg)}
+.leg{display:flex;gap:12px;flex-wrap:wrap;color:var(--fg2);font-size:11.5px;margin-top:6px}.leg i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
+.side .card{margin-bottom:14px}.side h4{margin:0 0 6px;font-size:13px}.help{color:var(--fg2);margin:4px 0 8px;font-size:12px}.row{display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap}.row select,.row input[type=text],.row input[type=number]{height:30px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:#fff}
+table.mp{width:100%;border-collapse:collapse}.mp th{text-align:left;color:var(--fg2);font-weight:600;padding:4px 4px;border-bottom:1px solid var(--line);font-size:12px}.mp td{padding:3px 4px;border-bottom:1px solid #eef1f7}.mp select,.mp input{width:100%;height:28px;border:1px solid var(--line);border-radius:7px;padding:0 6px;background:#fff}.mp input[type=number]{width:58px}.cnt{color:var(--fg2);text-align:right}
+.warn{color:#b45309;font-weight:600}.ok{color:#166534;font-weight:600}.pill{display:inline-flex;gap:5px;align-items:center;padding:1px 9px;border-radius:99px;font-weight:600;font-size:12px}
+.tip{position:fixed;display:none;background:#0f172a;color:#fff;padding:8px 10px;border-radius:10px;font-size:12px;pointer-events:none;z-index:30;max-width:280px}.tip b{display:block}
+.panel{position:fixed;right:0;top:0;bottom:0;width:360px;background:#fff;box-shadow:-20px 0 50px rgba(15,23,42,.22);border-radius:18px 0 0 18px;padding:22px;transform:translateX(105%);transition:transform .3s;z-index:40}.panel.open{transform:none}.panel .x{position:absolute;right:14px;top:12px;border:0;background:none;font-size:18px;color:var(--fg2);cursor:pointer}.panel h2{margin:0 0 2px;font-size:17px}.kv{display:grid;grid-template-columns:110px 1fr;gap:6px 10px;margin-top:12px}.kv dt{color:var(--fg2)}.kv dd{margin:0}
+@media(max-width:1100px){.wrap{grid-template-columns:1fr}.kp{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<div class="top"><div class="logo">E</div><div><b>Executive Dashboard</b><small>Prototype · scatter plot by delivery status (a field and/or the state, mapped to stages)</small></div></div>
+<div class="wrap"><div>
+ <div class="card"><h3>Scatter plot<span id="sub"></span></h3>
+  <div class="ctl"><label>X axis <div class="seg" id="xs"><button data-v="stage" class="on">Delivery stage</button><button data-v="time">Time used</button></div></label>
+   <label>Y axis <div class="seg" id="ys"><button data-v="pct" class="on">Progress</button><button data-v="days">Days to go-live</button></div></label>
+   <label>Colour by <select id="cs"><option value="status">Status (RAG / data)</option><option value="stage">Delivery stage</option></select></label></div>
+  <div class="kp" id="kp"></div><div id="plot"></div><div class="leg" id="leg"></div></div>
+</div><div class="side">
+ <div class="card"><h4>Delivery status mapping <span style="font-weight:400;color:var(--fg2)">· Settings › Executive Dashboard</span></h4>
+  <div class="help">The delivery stage of an Epic comes from a field, the state, or both. Map each value to a stage; the stages run left to right on the chart.</div>
+  <div class="row"><label><input type="radio" name="src" value="field"> A field</label><label><input type="radio" name="src" value="state"> The state</label><label><input type="radio" name="src" value="both" checked> Field, then the state when the field is empty</label></div>
+  <div class="row"><select id="fld"><option value="Custom.DeliveryStatus">Delivery Status · Custom.DeliveryStatus</option><option value="Custom.Phase">Phase · Custom.Phase</option></select></div>
+  <div class="row"><b>Stages</b> <span class="help" style="margin:0">left to right, comma separated</span></div><div class="row"><input type="text" id="stages" style="width:100%"></div>
+  <table class="mp" id="mp"></table>
+  <div class="row"><b>Expected progress per stage</b></div><div class="help" style="margin-top:0">Dots outside the band are flagged as ahead of or behind the stage.</div><table class="mp" id="band"></table></div>
+</div></div>
+<div class="panel" id="panel"></div><div class="tip" id="tip"></div>
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];const ST={green:["On track","#1fae5a"],amber:["Needs attention","#d97706"],red:["At risk","#dc2626"],idle:["Not started","#64748b"],done:["Done","#166534"]};
+const PAL=["#7a1a3c","#2563eb","#0891b2","#7c3aed","#ea580c","#16a34a","#64748b","#be185d"];
+// ---------- sample Epics: a delivery field, the state, progress, dates ----------
+let s=17;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;const TODAY=new Date("2026-10-28"),DAY=864e5;
+const FV=["Design","Development","SIT","UAT","Deployment","Closed","Dev","UAT sign-off",""];const STATE=["New","Active","Delivery Committed","On Hold","Closed"];
+const NAMES=["Core banking upgrade","Mobile app launch","Payments gateway","Data lake migration","Credit scoring","KYC automation","Branch queue system","Cloud landing zone","Loyalty revamp","Basel IV reporting","AML monitoring","Digital onboarding","SOC automation","Zero trust rollout","Chatbot v2","Reporting warehouse","ERP v12 upgrade","FATCA update","Treasury platform","Card tokenisation","Self-service portal","Network refresh","DR failover test","Windows 11 rollout","Open banking APIs","Fraud engine","Customer 360","Collections redesign","Data governance","Liquidity reporting","Cheque imaging","Statements redesign","Wealth portal","SME lending","ATM refresh","Call-centre routing","Pricing engine","Data masking","Tokenised payments","Branch analytics","API gateway","Regulatory sandbox","Mortgage origination","Collateral system","Biometric login","Alerts platform","HR system","Procurement portal"];
+const EP=NAMES.map((n,i)=>{const fv=FV[Math.floor(rnd()*FV.length)];const stageIdx={Design:0,Development:1,Dev:1,SIT:2,UAT:3,"UAT sign-off":3,Deployment:4,Closed:5,"":-1}[fv];let st=STATE[Math.floor(rnd()*5)];if(fv==="Closed")st="Closed";if(stageIdx===0)st=rnd()<.5?"New":"Active";
+ const goLive=new Date(+TODAY+(Math.floor(rnd()*260)-50)*DAY),dur=120+Math.floor(rnd()*200),start=new Date(+goLive-dur*DAY),el=Math.max(0,Math.min(1.2,(TODAY-start)/(goLive-start)));
+ const base=[8,35,65,85,95,100][Math.max(0,stageIdx)],pct=fv===""?Math.round(el*70*(.6+rnd()*.6)):Math.max(0,Math.min(100,Math.round(base+(rnd()-.5)*(rnd()<.25?60:30))));
+ const slip=Math.max(0,Math.round((el*100-pct)*dur/100*.6));const status=st==="Closed"||fv==="Closed"?"done":st==="New"?"idle":(slip>30||st==="On Hold")?"red":slip>7?"amber":"green";
+ return {id:1100+i*7,t:n,fv,state:st,pct,el:Math.round(el*100),days:Math.round((goLive-TODAY)/DAY),slip,status,goLive:goLive.toISOString().slice(0,10),hours:200+Math.floor(rnd()*1500)};});
+// ---------- configuration ----------
+const CFG={src:"both",stages:["Design","Development","SIT","UAT","Deployment"],map:{"Design":"Design","Development":"Development","Dev":"Development","SIT":"SIT","UAT":"UAT","UAT sign-off":"UAT","Deployment":"Deployment","Closed":"(ignore)","New":"Design","Active":"Development","Delivery Committed":"UAT","On Hold":"(ignore)"},
+ band:{Design:[0,25],Development:[20,65],SIT:[55,85],UAT:[75,98],Deployment:[90,100]},x:"stage",y:"pct",c:"status"};
+const stageOf=e=>{const f=e.fv,st=e.state;let v=CFG.src==="state"?st:CFG.src==="field"?f:(f||st);const m=CFG.map[v];return m&&m!=="(ignore)"&&CFG.stages.includes(m)?m:m==="(ignore)"?"(ignore)":"(unmapped)";};
+const valuesSeen=()=>{const v={};EP.forEach(e=>{const raw=CFG.src==="state"?e.state:CFG.src==="field"?e.fv:(e.fv||e.state);if(raw)v[raw]=(v[raw]||0)+1;});return v;};
+// ---------- the plot ----------
+function plot(){const items=EP.filter(e=>{const g=stageOf(e);return !(g==="(ignore)");}),stages=[...CFG.stages];const hasUn=items.some(e=>stageOf(e)==="(unmapped)");if(hasUn)stages.push("(unmapped)");
+ const W=900,H=420,L=48,R=16,T=14,B=44,pw=W-L-R,ph=H-T-B,stIdx=Object.fromEntries(stages.map((g,i)=>[g,i]));
+ const xval=e=>CFG.x==="stage"?null:Math.min(120,e.el),yv=e=>CFG.y==="pct"?e.pct:e.days;const ys=items.map(yv),ymin=CFG.y==="pct"?0:Math.min(-30,...ys),ymax=CFG.y==="pct"?100:Math.max(120,...ys);
+ const X=e=>CFG.x==="stage"?L+(stIdx[stageOf(e)]+.5)/stages.length*pw+((e.id*7919%100)/100-.5)*(pw/stages.length*.62):L+xval(e)/120*pw,Y=e=>T+ph-(yv(e)-ymin)/(ymax-ymin)*ph;
+ let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%">`;
+ // grid and axes
+ const ticks=CFG.y==="pct"?[0,25,50,75,100]:[...new Set([ymin,0,60,120,ymax].map(Math.round))];ticks.forEach(t=>{const y=T+ph-(t-ymin)/(ymax-ymin)*ph;svg+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="#eef1f7"/><text x="${L-6}" y="${y+4}" text-anchor="end">${CFG.y==="pct"?t+"%":t+" d"}</text>`;});
+ if(CFG.y==="days"){const y0=T+ph-(0-ymin)/(ymax-ymin)*ph;svg+=`<line x1="${L}" x2="${W-R}" y1="${y0}" y2="${y0}" stroke="#94a3b8" stroke-dasharray="4 4"/><text x="${W-R}" y="${y0-4}" text-anchor="end" style="fill:#b91c1c">past go-live ↓</text>`;}
+ if(CFG.x==="stage"){stages.forEach((g,i)=>{const x0=L+i/stages.length*pw,w=pw/stages.length,n=items.filter(e=>stageOf(e)===g).length;svg+=`<rect x="${x0}" y="${T}" width="${w}" height="${ph}" fill="${i%2?"#fafbfe":"#fff"}"/>`;
+   if(CFG.y==="pct"&&CFG.band[g]){const b=CFG.band[g],ya=T+ph-b[1]/100*ph,yb=T+ph-b[0]/100*ph;svg+=`<rect x="${x0+6}" y="${ya}" width="${w-12}" height="${yb-ya}" rx="8" fill="#1fae5a" opacity=".10" stroke="#1fae5a" stroke-opacity=".35" stroke-dasharray="3 3"/>`;}
+   svg+=`<text class="lane" x="${x0+w/2}" y="${H-24}" text-anchor="middle">${g}</text><text x="${x0+w/2}" y="${H-10}" text-anchor="middle">${n} Epics</text>`;});}
+ else{[0,25,50,75,100].forEach(t=>{const x=L+t/120*pw;svg+=`<text x="${x}" y="${H-24}" text-anchor="middle">${t}%</text>`;});svg+=`<text x="${L+pw/2}" y="${H-8}" text-anchor="middle">share of the time used (start to go-live)</text>`;if(CFG.y==="pct")svg+=`<polygon points="${L},${T+ph} ${L+100/120*pw},${T+ph} ${L+100/120*pw},${T}" fill="#fee2e2" opacity=".4"/><line x1="${L}" y1="${T+ph}" x2="${L+100/120*pw}" y2="${T}" stroke="#94a3b8" stroke-dasharray="4 4"/>`;}
+ const flagged=[];
+ items.forEach(e=>{const g=stageOf(e),col=CFG.c==="stage"?PAL[Math.max(0,stages.indexOf(g))%PAL.length]:ST[e.status][1];let ring="";if(CFG.y==="pct"&&CFG.band[g]){const b=CFG.band[g];if(e.pct<b[0]||e.pct>b[1]){ring=e.pct<b[0]?"behind":"ahead";flagged.push({e,ring});}}
+  svg+=`<circle class="dot" data-id="${e.id}" cx="${X(e)}" cy="${Y(e)}" r="${5+Math.sqrt(e.hours)/20}" fill="${col}" fill-opacity=".85" stroke="${ring==="behind"?"#dc2626":ring==="ahead"?"#2563eb":"#fff"}" stroke-width="${ring?2.5:1.5}"/>`;});
+ svg+=`</svg>`;$("#plot").innerHTML=svg;
+ $("#sub").textContent=`${items.length} Epics · dot size = hours booked`;
+ const behind=flagged.filter(f=>f.ring==="behind").length,ahead=flagged.filter(f=>f.ring==="ahead").length,unm=EP.filter(e=>stageOf(e)==="(unmapped)").length,ign=EP.filter(e=>stageOf(e)==="(ignore)").length;
+ $("#kp").innerHTML=`<div><div class="l">Epics on the chart</div><div class="v">${items.length}</div></div><div><div class="l">Behind for the stage</div><div class="v" style="color:#b91c1c">${CFG.y==="pct"?behind:"–"}</div></div><div><div class="l">Ahead of the stage</div><div class="v" style="color:#1d4ed8">${CFG.y==="pct"?ahead:"–"}</div></div><div><div class="l">Not on the chart</div><div class="v">${ign+unm}</div><div class="l">${ign} ignored · <span class="${unm?"warn":""}">${unm} unmapped</span></div></div>`;
+ $("#leg").innerHTML=(CFG.c==="stage"?stages.map((g,i)=>`<span><i style="background:${PAL[i%PAL.length]}"></i>${g}</span>`):Object.values(ST).map(v=>`<span><i style="background:${v[1]}"></i>${v[0]}</span>`)).join("")+(CFG.y==="pct"&&CFG.x==="stage"?`<span style="margin-left:8px"><i style="background:#fff;border:2.5px solid #dc2626"></i>behind the stage</span><span><i style="background:#fff;border:2.5px solid #2563eb"></i>ahead of the stage</span>`:"");
+ $$("#plot .dot").forEach(d=>{const e=EP.find(x=>x.id==d.dataset.id);d.onmousemove=ev=>{const t=$("#tip");t.style.display="block";t.style.left=Math.min(ev.clientX+14,innerWidth-300)+"px";t.style.top=ev.clientY+14+"px";t.innerHTML=`<b>${e.t}</b>${stageOf(e)} · ${ST[e.status][0]}<br>${e.pct}% done, ${e.el}% of the time used<br>go-live in ${e.days} days`;};d.onmouseleave=()=>$("#tip").style.display="none";d.onclick=()=>open(e);});}
+function open(e){const p=$("#panel");p.innerHTML=`<button class="x">✕</button><h2>${e.t}</h2><div style="color:var(--fg2)">${e.id}</div><p><span class="pill" style="background:${ST[e.status][1]}1a;color:${ST[e.status][1]}">${ST[e.status][0]}</span></p><dl class="kv"><dt>Delivery stage</dt><dd><b>${stageOf(e)}</b></dd><dt>Delivery Status field</dt><dd>${e.fv||"<span style='color:var(--fg2)'>(empty)</span>"}</dd><dt>State</dt><dd>${e.state}</dd><dt>Progress</dt><dd>${e.pct}%</dd><dt>Time used</dt><dd>${e.el}%</dd><dt>Go-live</dt><dd>in ${e.days} days (${e.goLive})</dd><dt>Forecast slip</dt><dd>${e.slip} days</dd></dl>`;p.classList.add("open");p.querySelector(".x").onclick=()=>p.classList.remove("open");}
+// ---------- mapping panel ----------
+function mapping(){const seen=valuesSeen(),opts=["(ignore)",...CFG.stages];
+ $("#mp").innerHTML='<tr><th>Value found</th><th>Epics</th><th>Stage</th></tr>'+Object.keys(seen).sort((a,b)=>seen[b]-seen[a]).map(v=>{const m=CFG.map[v],ok=m&&(m==="(ignore)"||CFG.stages.includes(m));return `<tr><td>${v} ${ok?"":'<span class="warn">○</span>'}</td><td class="cnt">${seen[v]}</td><td><select data-v="${v}"><option value="">(not mapped)</option>${opts.map(o=>`<option${m===o?" selected":""}>${o}</option>`).join("")}</select></td></tr>`;}).join("");
+ $$("#mp select").forEach(sl=>sl.onchange=()=>{if(sl.value)CFG.map[sl.dataset.v]=sl.value;else delete CFG.map[sl.dataset.v];render();});
+ $("#band").innerHTML='<tr><th>Stage</th><th>From %</th><th>To %</th></tr>'+CFG.stages.map(g=>{const b=CFG.band[g]||[0,100];return `<tr><td>${g}</td><td><input type="number" min="0" max="100" value="${b[0]}" data-g="${g}" data-i="0"></td><td><input type="number" min="0" max="100" value="${b[1]}" data-g="${g}" data-i="1"></td></tr>`;}).join("");
+ $$("#band input").forEach(i=>i.onchange=()=>{const b=CFG.band[i.dataset.g]||(CFG.band[i.dataset.g]=[0,100]);b[+i.dataset.i]=+i.value;plot();});
+ $("#stages").value=CFG.stages.join(", ");}
+function render(){mapping();plot();}
+$$("#xs button").forEach(b=>b.onclick=()=>{$$("#xs button").forEach(x=>x.classList.toggle("on",x===b));CFG.x=b.dataset.v;plot();});$$("#ys button").forEach(b=>b.onclick=()=>{$$("#ys button").forEach(x=>x.classList.toggle("on",x===b));CFG.y=b.dataset.v;plot();});$("#cs").onchange=e=>{CFG.c=e.target.value;plot();};
+$$("input[name=src]").forEach(r=>r.onchange=()=>{CFG.src=r.value;render();});$("#fld").onchange=()=>render();
+$("#stages").onchange=e=>{CFG.stages=e.target.value.split(",").map(x=>x.trim()).filter(Boolean);CFG.stages.forEach(g=>{if(!CFG.band[g])CFG.band[g]=[0,100];});render();};
+render();
+</script></body></html>
