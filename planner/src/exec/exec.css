@@ -66,7 +66,7 @@ span.ex-bar { display: inline-block; vertical-align: middle; width: 110px; heigh
 div.ex-bar { display: flex; flex-wrap: wrap; align-items: center; }
 .ex-brand { display: flex; align-items: center; gap: 10px; margin-right: 6px; } .ex-brand b { display: block; font-size: 16px; letter-spacing: -.01em; }
 .logo { width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(135deg, #a8325c, #7a1a3c); display: grid; place-items: center; color: #fff; font-weight: 700; box-shadow: 0 4px 12px rgba(122,26,60,.35); }
-.live { display: flex; align-items: center; gap: 6px; color: var(--fg2); font-size: 12px; } .pulse { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: exp 2s infinite; } @keyframes exp { 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
+.live { display: flex; align-items: center; gap: 6px; color: var(--fg2); font-size: 12px; } .pulse { width: 8px; height: 8px; border-radius: 50%; background: #1fae5a; box-shadow: 0 0 0 0 rgba(34,197,94,.6); animation: exp 2s infinite; } @keyframes exp { 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }
 .ex-seg { position: relative; display: inline-grid; grid-template-columns: repeat(3, 1fr); padding: 3px; border-radius: 13px; background: #fff; border: 1px solid var(--line); box-shadow: var(--ring); }
 .ex-seg::before { content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3); border-radius: 10px; background: linear-gradient(135deg, #a8325c, #7a1a3c); box-shadow: 0 4px 10px rgba(122,26,60,.35); transform: translateX(calc(var(--i, 0) * 100%)); transition: transform .25s cubic-bezier(.4,0,.2,1); }
 .ex-seg button { position: relative; z-index: 1; height: 30px; padding: 0 16px; background: none !important; justify-content: center; white-space: nowrap; font-weight: 500; transition: color .2s; } .ex-seg button.on { color: #fff; }
@@ -184,3 +184,9 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 .ex-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; } .ex-legend button { width: 100%; display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; border: 0; background: none; padding: 4px 6px; border-radius: 8px; font: inherit; font-size: 12px; color: var(--fg); cursor: pointer; text-align: left; }
 .ex-legend button:hover { background: var(--hover); } .ex-legend i { width: 10px; height: 10px; border-radius: 3px; display: block; } .ex-legend b { font-weight: 600; color: var(--fg2); font-variant-numeric: tabular-nums; } .ex-legend .dimmed { opacity: .4; }
 .ex svg text.risk { font-size: 11px; }
+
+/* Done is a deep green with a tick; On track is the bright green with a dot */
+.ex-sw.green { background: #1fae5a; } .ex-sw.done { background: #166534; color: #fff; }
+.ex-pill { color: color-mix(in srgb, var(--pc, #64748b) 72%, #000); }
+.ex-legend i { display: grid; place-items: center; color: #fff; font: 700 8px/1 system-ui; font-style: normal; }
+.ex-blk.done { background-image: none; }

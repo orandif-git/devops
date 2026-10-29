@@ -5,8 +5,8 @@ import { Hist } from "../core/history";
 import { HistoryTimeline } from "../hub/HistoryTimeline";
 import { Item, SHOWN } from "./model";
 
-export const COLOR: Record<ExecStatus, string> = { green: "#16a34a", amber: "#d97706", red: "#dc2626", unknown: "#94a3b8", idle: "#64748b", done: "#2563eb" };
-export const SYM: Record<ExecStatus, string> = { green: "✓", amber: "▲", red: "!", unknown: "?", idle: "○", done: "●" };
+export const COLOR: Record<ExecStatus, string> = { green: "#1fae5a", amber: "#d97706", red: "#dc2626", unknown: "#94a3b8", idle: "#64748b", done: "#166534" };
+export const SYM: Record<ExecStatus, string> = { green: "●", amber: "▲", red: "!", unknown: "?", idle: "○", done: "✓" };
 export const Sw = ({ s, size }: { s: ExecStatus; size?: number }) => <i className={"ex-sw " + s} aria-hidden="true" style={size ? { width: size, height: size } : undefined}>{SYM[s]}</i>;
 export const StatusPill = ({ s }: { s: ExecStatus }) => <span className="ex-pill" style={{ ["--pc" as string]: COLOR[s] }}><Sw s={s} />{STATUS_NAME[s]}</span>;
 export const pct = (n: number, d: number) => (d ? Math.round(n / d * 100) : 0);
@@ -104,10 +104,10 @@ export function Donut(p: { counts: Record<ExecStatus, number>; selected: ExecSta
   return (
     <div className="ex-donut">
       <svg viewBox="0 0 170 170" role="img" aria-label="Epics by status">
-        <g transform="translate(85,85) rotate(-90)">{parts.map(s => { const len = p.counts[s] / (p.total || 1) * C, el = <circle key={s} className={"seg" + (p.selected.length && !p.selected.includes(s) ? " dimmed" : "")} r={R} fill="none" stroke={COLOR[s]} strokeWidth={20} strokeLinecap="round" strokeDasharray={`${Math.max(2, len - 3)} ${C - Math.max(2, len - 3)}`} strokeDashoffset={-off} onClick={() => p.onPick(s)}><title>{STATUS_NAME[s]}: {p.counts[s]}</title></circle>; off += len; return el; })}</g>
+        <g transform="translate(85,85) rotate(-90)">{parts.map(s => { const len = p.counts[s] / (p.total || 1) * C, el = <circle key={s} className={"seg" + (p.selected.length && !p.selected.includes(s) ? " dimmed" : "")} r={R} fill="none" stroke={COLOR[s]} strokeWidth={20} strokeLinecap="round" strokeDasharray={`${Math.max(2, len - 3)} ${C - Math.max(2, len - 3)}`} strokeDashoffset={-off} onClick={() => p.onPick(s)}><title>{s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {p.counts[s]}</title></circle>; off += len; return el; })}</g>
         <text x="85" y="88" textAnchor="middle" className="big" style={{ pointerEvents: "none" }}>{p.total}</text><text x="85" y="106" textAnchor="middle" style={{ pointerEvents: "none" }}>Epics</text>
       </svg>
-      <ul className="ex-legend" aria-label="Status legend">{SHOWN.map(s => <li key={s}><button type="button" className={p.selected.length && !p.selected.includes(s) ? "dimmed" : ""} aria-pressed={p.selected.includes(s)} onClick={() => p.onPick(s)}><i style={{ background: COLOR[s] }} /><span>{STATUS_NAME[s]}</span><b>{p.counts[s]}</b></button></li>)}</ul>
+      <ul className="ex-legend" aria-label="Status legend">{SHOWN.map(s => <li key={s}><button type="button" className={p.selected.length && !p.selected.includes(s) ? "dimmed" : ""} aria-pressed={p.selected.includes(s)} onClick={() => p.onPick(s)}><i style={{ background: COLOR[s] }}>{s === "done" ? "✓" : ""}</i><span>{STATUS_NAME[s]}</span><b>{p.counts[s]}</b></button></li>)}</ul>
     </div>
   );
 }
@@ -123,9 +123,9 @@ export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatu
         return <g key={r.label} className={dim ? "dimmed" : ""}>
           <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={W} height="20" rx="10" ry="10" /></clipPath>
           <text x="0" y={y + 14} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label}<title>{r.label}</title></text>
-          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * W, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="20" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {STATUS_NAME[s]}: {r.counts[s]}</title></rect>
+          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * W, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="20" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {r.counts[s]}</title></rect>
             {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 20} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
-            {w >= 16 && <text className="inl" x={x + w / 2} y={y + 14} textAnchor="middle">{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
+            {w >= 16 && <text className="inl" x={x + w / 2} y={y + 14} textAnchor="middle">{s === "done" && w >= 30 ? "✓ " : ""}{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
           <text x={LW + W + 8} y={y + 14} style={{ fontWeight: 600 }}>{tot}</text>
           <text x="418" y={y + 14} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
     </svg>
@@ -142,9 +142,9 @@ export function Columns(p: { cols: { label: string; counts: Record<ExecStatus, n
         return <g key={c.label} className={dim ? "dimmed" : ""}>
           <clipPath id={`${uid}c${k}`}><rect x={x} y={H - full} width={w} height={Math.max(2, full)} rx={Math.min(9, Math.max(1, full / 2))} ry={Math.min(9, Math.max(1, full / 2))} /></clipPath>
           <g clipPath={`url(#${uid}c${k})`}>{parts.map((s, n) => { const hh = c.counts[s] / mx * (H - 22); y -= hh;
-            return <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={Math.max(1, hh)} fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {STATUS_NAME[s]}: {c.counts[s]}</title></rect>
+            return <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={Math.max(1, hh)} fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {c.counts[s]}</title></rect>
               {n < parts.length - 1 && <line x1={x} x2={x + w} y1={y} y2={y} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
-              {hh >= 16 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{c.counts[s]}</text>}</g>; })}</g>
+              {hh >= 16 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{s === "done" ? "✓ " : ""}{c.counts[s]}</text>}</g>; })}</g>
           <text x={k * bw + bw / 2} y={H - full - 6} textAnchor="middle" style={{ fontWeight: 600 }}>{tot || ""}</text>
           <text x={k * bw + bw / 2} y={H + 16} textAnchor="middle" className="seg" onClick={() => p.onPick(c.label)}>{c.label === "No go-live date" ? "No date" : c.label.length > 9 ? c.label.slice(0, 8) + "…" : c.label}<title>{c.label}</title></text></g>; })}
     </svg>
