@@ -178,3 +178,9 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 
 .ex-notes { margin: 0 0 10px; color: var(--fg2); font-size: 12.5px; } .ex-notes summary { cursor: pointer; padding: 5px 10px; border-radius: 10px; background: #fff; box-shadow: var(--ring); list-style: none; } .ex-notes summary::-webkit-details-marker { display: none; }
 .ex-notes[open] summary { border-radius: 10px 10px 0 0; } .ex-notes ul { margin: 0; padding: 8px 12px 8px 28px; background: #fff; box-shadow: var(--ring); border-radius: 0 0 10px 10px; } .ex-notes li { margin: 3px 0; }
+
+/* donut with an HTML legend (same type size as the rest of the page) */
+.ex-donut { display: flex; align-items: center; gap: 18px; } .ex-donut svg { flex: 0 0 176px; width: 176px; height: 176px; } .ex-donut { min-height: 220px; }
+.ex-legend { list-style: none; margin: 0; padding: 0; flex: 1; min-width: 0; } .ex-legend button { width: 100%; display: grid; grid-template-columns: 12px 1fr auto; gap: 8px; align-items: center; border: 0; background: none; padding: 4px 6px; border-radius: 8px; font: inherit; font-size: 12px; color: var(--fg); cursor: pointer; text-align: left; }
+.ex-legend button:hover { background: var(--hover); } .ex-legend i { width: 10px; height: 10px; border-radius: 3px; display: block; } .ex-legend b { font-weight: 600; color: var(--fg2); font-variant-numeric: tabular-nums; } .ex-legend .dimmed { opacity: .4; }
+.ex svg text.risk { font-size: 11px; }

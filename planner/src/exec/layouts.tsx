@@ -150,7 +150,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
       <Slicers {...lp} /><KpiRow lp={lp} />
       <div className="ex-charts">
         <section className="ex-card"><h4>Delivery status <span>click a slice</span></h4><Donut counts={counts} total={forStatus.length} selected={f.status} onPick={s => setF({ ...f, status: toggle(f.status, s) })} /></section>
-        <section className="ex-card"><h4>{lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => setDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <>By {dimLabel(dim).toLowerCase()}</>} <span>Epics, by status</span></h4>
+        <section className="ex-card"><h4>{lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => setDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <>By {dimLabel(dim).toLowerCase()}</>} <span>Epics by status · % at risk</span></h4>
           <StackedBars rows={dimRows} selected={f.dims[dim] ?? []} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "dim")} /></section>
         <section className="ex-card"><h4>Go-live by quarter <span>Epics</span></h4><Columns cols={qs} selected={f.quarter} selectedStatus={f.status} onPick={(l, s) => pick(l, s, "q")} /></section>
       </div>

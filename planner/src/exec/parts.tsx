@@ -99,33 +99,35 @@ export { SHOWN };
 
 /** Donut of the status counts; a click picks (or drops) that status. */
 export function Donut(p: { counts: Record<ExecStatus, number>; selected: ExecStatus[]; onPick(s: ExecStatus): void; total: number }) {
-  const R = 70, C = 2 * Math.PI * R; let off = 0;
+  const R = 62, C = 2 * Math.PI * R; let off = 0;
   const parts = SHOWN.filter(s => p.counts[s] > 0);
   return (
-    <svg viewBox="0 0 330 190" width="100%" role="img" aria-label="Epics by status">
-      <g transform="translate(95,95) rotate(-90)">{parts.map(s => { const len = p.counts[s] / (p.total || 1) * C, el = <circle key={s} className={"seg" + (p.selected.length && !p.selected.includes(s) ? " dimmed" : "")} r={R} fill="none" stroke={COLOR[s]} strokeWidth={24} strokeLinecap="round" strokeDasharray={`${Math.max(2, len - 3)} ${C - Math.max(2, len - 3)}`} strokeDashoffset={-off} onClick={() => p.onPick(s)}><title>{STATUS_NAME[s]}: {p.counts[s]}</title></circle>; off += len; return el; })}</g>
-      <text x="95" y="93" textAnchor="middle" className="big" style={{ pointerEvents: "none" }}>{p.total}</text><text x="95" y="111" textAnchor="middle" style={{ pointerEvents: "none" }}>Epics</text>
-      {SHOWN.map((s, k) => <g key={s} className={"seg" + (p.selected.length && !p.selected.includes(s) ? " dimmed" : "")} transform={`translate(200,${22 + k * 26})`} onClick={() => p.onPick(s)} role="button" tabIndex={0} onKeyDown={e => { if (e.key === "Enter") p.onPick(s); }} aria-pressed={p.selected.includes(s)}><rect width="14" height="14" rx="3" fill={COLOR[s]} /><text x="22" y="11">{STATUS_NAME[s]} · {p.counts[s]}</text></g>)}
-    </svg>
+    <div className="ex-donut">
+      <svg viewBox="0 0 170 170" role="img" aria-label="Epics by status">
+        <g transform="translate(85,85) rotate(-90)">{parts.map(s => { const len = p.counts[s] / (p.total || 1) * C, el = <circle key={s} className={"seg" + (p.selected.length && !p.selected.includes(s) ? " dimmed" : "")} r={R} fill="none" stroke={COLOR[s]} strokeWidth={20} strokeLinecap="round" strokeDasharray={`${Math.max(2, len - 3)} ${C - Math.max(2, len - 3)}`} strokeDashoffset={-off} onClick={() => p.onPick(s)}><title>{STATUS_NAME[s]}: {p.counts[s]}</title></circle>; off += len; return el; })}</g>
+        <text x="85" y="88" textAnchor="middle" className="big" style={{ pointerEvents: "none" }}>{p.total}</text><text x="85" y="106" textAnchor="middle" style={{ pointerEvents: "none" }}>Epics</text>
+      </svg>
+      <ul className="ex-legend" aria-label="Status legend">{SHOWN.map(s => <li key={s}><button type="button" className={p.selected.length && !p.selected.includes(s) ? "dimmed" : ""} aria-pressed={p.selected.includes(s)} onClick={() => p.onPick(s)}><i style={{ background: COLOR[s] }} /><span>{STATUS_NAME[s]}</span><b>{p.counts[s]}</b></button></li>)}</ul>
+    </div>
   );
 }
 
 /** Horizontal stacked bars, one per value, split by status; a click on a bar picks the value, a click on a segment also the status. */
 export function StackedBars(p: { rows: { label: string; counts: Record<ExecStatus, number> }[]; selected: string[]; selectedStatus: ExecStatus[]; onPick(label: string, status?: ExecStatus): void }) {
   const uid = React.useRef(Math.random().toString(36).slice(2, 7)).current;
-  const rows = p.rows, mx = Math.max(1, ...rows.map(r => SHOWN.reduce((a, s) => a + r.counts[s], 0))), LW = 130, W = 420 - LW - 100;
+  const rows = p.rows, LW = 148, W = 420 - LW - 78;                           // every bar is the same width: the segments show the share of each status, the number after it the size
   return (
-    <svg viewBox={`0 0 420 ${rows.length * 30 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
-      {rows.map((r, k) => { const y = k * 30 + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), width = Math.max(6, tot / mx * W), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
+    <svg viewBox={`0 0 420 ${rows.length * 28 + 6}`} width="100%" role="img" aria-label="Epics by status for each value">
+      {rows.map((r, k) => { const y = k * 28 + 3, tot = SHOWN.reduce((a, s) => a + r.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(r.label), risk = tot ? Math.round(r.counts.red / tot * 100) : 0; let x = LW;
         const parts = SHOWN.filter(s => r.counts[s]);
         return <g key={r.label} className={dim ? "dimmed" : ""}>
-          <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={width} height="22" rx="11" ry="11" /></clipPath>
-          <text x="0" y={y + 15} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 19 ? r.label.slice(0, 18) + "…" : r.label}<title>{r.label}</title></text>
-          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * width, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="22" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {STATUS_NAME[s]}: {r.counts[s]}</title></rect>
-            {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 22} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
-            {w >= 17 && <text className="inl" x={x + w / 2} y={y + 15} textAnchor="middle">{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
-          <text x={LW + width + 7} y={y + 15} style={{ fontWeight: 600 }}>{tot}</text>
-          <text x="418" y={y + 15} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}% at risk` : "–"}</text></g>; })}
+          <clipPath id={`${uid}b${k}`}><rect x={LW} y={y} width={W} height="20" rx="10" ry="10" /></clipPath>
+          <text x="0" y={y + 14} className="seg" onClick={() => p.onPick(r.label)}>{r.label.length > 24 ? r.label.slice(0, 23) + "…" : r.label}<title>{r.label}</title></text>
+          <g clipPath={`url(#${uid}b${k})`}>{parts.map((s, n) => { const w = r.counts[s] / tot * W, el = <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height="20" fill={COLOR[s]} onClick={() => p.onPick(r.label, s)}><title>{r.label} · {STATUS_NAME[s]}: {r.counts[s]}</title></rect>
+            {n < parts.length - 1 && <line x1={x + w} x2={x + w} y1={y} y2={y + 20} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
+            {w >= 16 && <text className="inl" x={x + w / 2} y={y + 14} textAnchor="middle">{r.counts[s]}</text>}</g>; x += w; return el; })}</g>
+          <text x={LW + W + 8} y={y + 14} style={{ fontWeight: 600 }}>{tot}</text>
+          <text x="418" y={y + 14} textAnchor="end" className={risk ? "risk" : ""}>{risk ? `${risk}%` : "–"}</text></g>; })}
     </svg>
   );
 }
@@ -138,13 +140,13 @@ export function Columns(p: { cols: { label: string; counts: Record<ExecStatus, n
     <svg viewBox={`0 0 ${W} ${H + 34}`} width="100%" role="img" aria-label="Epics by go-live quarter">
       {cols.map((c, k) => { const tot = SHOWN.reduce((a, s) => a + c.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(c.label), w = Math.min(56, Math.max(8, bw - 24)), x = k * bw + (bw - w) / 2, full = tot / mx * (H - 22), parts = SHOWN.filter(s => c.counts[s]); let y = H;
         return <g key={c.label} className={dim ? "dimmed" : ""}>
-          <clipPath id={`${uid}c${k}`}><rect x={x} y={H - full} width={w} height={Math.max(2, full)} rx="10" ry="10" /></clipPath>
+          <clipPath id={`${uid}c${k}`}><rect x={x} y={H - full} width={w} height={Math.max(2, full)} rx={Math.min(9, Math.max(1, full / 2))} ry={Math.min(9, Math.max(1, full / 2))} /></clipPath>
           <g clipPath={`url(#${uid}c${k})`}>{parts.map((s, n) => { const hh = c.counts[s] / mx * (H - 22); y -= hh;
             return <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={Math.max(1, hh)} fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {STATUS_NAME[s]}: {c.counts[s]}</title></rect>
               {n < parts.length - 1 && <line x1={x} x2={x + w} y1={y} y2={y} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
               {hh >= 16 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{c.counts[s]}</text>}</g>; })}</g>
           <text x={k * bw + bw / 2} y={H - full - 6} textAnchor="middle" style={{ fontWeight: 600 }}>{tot || ""}</text>
-          <text x={k * bw + bw / 2} y={H + 16} textAnchor="middle" className="seg" onClick={() => p.onPick(c.label)}>{c.label.length > 9 ? c.label.slice(0, 8) + "…" : c.label}<title>{c.label}</title></text></g>; })}
+          <text x={k * bw + bw / 2} y={H + 16} textAnchor="middle" className="seg" onClick={() => p.onPick(c.label)}>{c.label === "No go-live date" ? "No date" : c.label.length > 9 ? c.label.slice(0, 8) + "…" : c.label}<title>{c.label}</title></text></g>; })}
     </svg>
   );
 }

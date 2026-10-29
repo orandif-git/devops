@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>Done colour options</title><style>
+body{margin:0;padding:20px;background:#f4f6fb;font:13px "Segoe UI",system-ui,sans-serif;color:#0f172a}h2{font-size:15px;margin:0 0 4px}.sub{color:#64748b;margin-bottom:14px}.row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.card{background:#fff;border-radius:16px;padding:16px 18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}
+.tag{display:inline-block;margin-bottom:8px;padding:2px 9px;border-radius:99px;background:#fbeff3;color:#6b1634;font-weight:700;font-size:11px}ul{list-style:none;margin:8px 0 12px;padding:0}li{display:flex;align-items:center;gap:8px;padding:3px 0}li i{width:12px;height:12px;border-radius:3px;display:grid;place-items:center;color:#fff;font:700 9px/1 system-ui;font-style:normal}li b{margin-left:auto;color:#64748b}
+.bar{display:flex;height:22px;border-radius:11px;overflow:hidden;margin:6px 0}.bar b{display:grid;place-items:center;color:#fff;font-size:11px;border-right:2px solid #fff}.bar b:last-child{border:0}.note{color:#64748b;margin-top:8px;font-size:12px}
+</style><h2>Done in green: how to keep it apart from On track</h2><div class="sub">Same data, three ways. The last two keep Done recognisable without a second hue.</div>
+<div class="row" id="r"></div>
+<script>
+const S=[["On track","#22c55e",10],["Needs attention","#d97706",38],["At risk","#dc2626",26],["Not assessed","#94a3b8",31],["Not started","#64748b",1],["Done","DONE",12]];
+const V=[["A · Dark green + tick","#166534","Done is a deeper green and carries a ✓ in the legend, the tooltip and the segment. On track is the brighter green."],["B · Teal","#0f766e","Done is a green-leaning teal: clearly 'finished' and still different from the bright On track green."],["C · Green, striped","#16a34a","Done uses the same green with fine diagonal stripes, so it reads as 'complete' and never as 'in progress'."]];
+r.innerHTML=V.map(([t,c,n],k)=>{const col=x=>x==="DONE"?(k===2?"repeating-linear-gradient(45deg,#16a34a 0 4px,#4ade80 4px 8px)":c):x;
+ return `<div class="card"><span class="tag">${t}</span><ul>${S.map(([a,x,v])=>`<li><i style="background:${col(x)}">${a==="Done"&&k===0?"✓":""}</i>${a}<b>${v}</b></li>`).join("")}</ul><div class="bar">${S.filter(s=>s[0]!=="Not assessed").map(([a,x,v])=>`<b style="flex:${v};background:${col(x)}">${v}</b>`).join("")}</div><div class="note">${n}</div></div>`;}).join("");
+</script>
