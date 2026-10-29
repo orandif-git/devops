@@ -1,5 +1,6 @@
 import * as React from "react";
 import { IconClose, IconOpen } from "../../../src/shared/icons";
+import { BASIS, makePeriod, Period, PeriodBasis, PRESETS, PresetId } from "../core/execPeriod";
 import { dimLabel, ExecStatus, STATUS_NAME } from "../core/executive";
 import { Hist } from "../core/history";
 import { HistoryTimeline } from "../hub/HistoryTimeline";
@@ -40,6 +41,34 @@ export function Delta({ d, good, rebuilt }: { d?: number; good?: boolean; rebuil
 }
 
 /** A slicer: a button with a pop-up list of values and counts; several values can be chosen. */
+/** The period filter: one pill like the other slicers; a preset or a custom range, and what the period is compared with. */
+export function PeriodSlicer(p: { value?: Period; basis: PeriodBasis; fieldLabel?: string; onChange(v?: Period): void; hidden: number; /** open in the flow of the page (inside a scrolling rail) instead of floating */ inline?: boolean }) {
+  const [open, setOpen] = React.useState(false), ref = React.useRef<HTMLSpanElement>(null);
+  const [basis, setBasis] = React.useState<PeriodBasis>(p.value?.basis ?? p.basis), [undated, setUndated] = React.useState(p.value?.undated ?? false);
+  const [from, setFrom] = React.useState(p.value?.from ?? ""), [to, setTo] = React.useState(p.value?.to ?? "");
+  React.useEffect(() => { if (p.value) { setBasis(p.value.basis); setUndated(p.value.undated); setFrom(p.value.from); setTo(p.value.to); } }, [p.value?.preset, p.value?.from, p.value?.to, p.value?.basis, p.value?.undated]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (!open) return; const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); }; const k = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); }; document.addEventListener("mousedown", h); document.addEventListener("keydown", k); return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k); }; }, [open]);
+  const set = (preset: PresetId, b = basis, u = undated, custom?: { from: string; to: string }) => p.onChange(makePeriod(preset, b, u, new Date(), custom));
+  const bases = (Object.keys(BASIS) as PeriodBasis[]).filter(b => b !== "field" || p.fieldLabel);
+  return (
+    <span className="ex-slicer" ref={ref}>
+      <button className={"ex-chip" + (p.value ? " on" : "")} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <span className="k">Period</span>{p.value ? <b>{p.value.preset === "custom" ? "Custom" : PRESETS.find(x => x.id === p.value!.preset)?.label}</b> : <span className="all">All time</span>}<span aria-hidden="true">▾</span></button>
+      {open && <div className={"ex-pop ex-period" + (p.inline ? " inline" : "")} role="dialog" aria-label="Period">
+        <div className="ex-list">
+          <label><input type="radio" name="period" checked={!p.value} onChange={() => p.onChange(undefined)} /><span className="t">All time</span></label>
+          {PRESETS.filter(x => x.id !== "custom").map(x => <label key={x.id}><input type="radio" name="period" checked={p.value?.preset === x.id} onChange={() => set(x.id)} /><span className="t">{x.label}</span></label>)}
+          <label><input type="radio" name="period" checked={p.value?.preset === "custom"} onChange={() => set("custom", basis, undated, from && to && from <= to ? { from, to } : undefined)} /><span className="t">Custom range</span></label>
+          {p.value?.preset === "custom" && <div className="ex-range"><input type="date" aria-label="From" value={from} onChange={e => { setFrom(e.target.value); if (e.target.value && to && e.target.value <= to) set("custom", basis, undated, { from: e.target.value, to }); }} /><span>–</span><input type="date" aria-label="To" value={to} onChange={e => { setTo(e.target.value); if (from && e.target.value && from <= e.target.value) set("custom", basis, undated, { from, to: e.target.value }); }} /></div>}
+        </div>
+        <label className="ex-basis"><span>An Epic is in the period when it is</span>
+          <select aria-label="Period compared by" value={basis} onChange={e => { const b = e.target.value as PeriodBasis; setBasis(b); if (p.value) set(p.value.preset, b, undated, { from: p.value.from, to: p.value.to }); }}>{bases.map(b => <option key={b} value={b}>{b === "field" ? `${p.fieldLabel} in the period` : BASIS[b]}</option>)}</select></label>
+        <label className="ex-undated"><input type="checkbox" checked={undated} onChange={e => { setUndated(e.target.checked); if (p.value) set(p.value.preset, basis, e.target.checked, { from: p.value.from, to: p.value.to }); }} /> Include Epics without a date{p.value && p.hidden > 0 ? ` (${p.hidden})` : ""}</label>
+      </div>}
+    </span>
+  );
+}
+
 export function Slicer(p: { label: string; options: { value: string; count: number; color?: string }[]; selected: string[]; onChange(v: string[]): void; icon?: React.ReactNode }) {
   const [open, setOpen] = React.useState(false), [q, setQ] = React.useState("");
   const ref = React.useRef<HTMLSpanElement>(null);

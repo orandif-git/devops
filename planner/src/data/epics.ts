@@ -18,12 +18,12 @@ const text = (v: unknown): string => (v && typeof v === "object" ? String((v as 
 /** Epic fields kept in `extra`: the filter fields plus what the Executive Dashboard reads (categories, go-live date, progress fields). */
 export function extraFields(s: PlannerSettings): string[] {
   const x = s.executive;
-  const f = [...s.extraFilterFields, s.ganttLabelField, ...s.ganttGroupFields, ...x.categoryFields, x.goLiveField, x.tolSlipAmberField, x.tolSlipRedField, x.tolGapAmberField, x.tolGapRedField, x.declaredField, x.sizeField, x.blockerField, ...x.rules.map(q => q.field), ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
+  const f = [...s.extraFilterFields, s.ganttLabelField, ...s.ganttGroupFields, ...x.categoryFields, x.goLiveField, x.tolSlipAmberField, x.tolSlipRedField, x.tolGapAmberField, x.tolGapRedField, x.declaredField, x.periodField, x.sizeField, x.blockerField, ...x.rules.map(q => q.field), ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
   return Array.from(new Set(f.filter((v): v is string => !!v)));
 }
 
 export function fieldList(s: PlannerSettings): string[] {
-  const f = ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.AreaPath", "System.IterationPath", "System.ChangedDate", s.epicStartField, s.epicTargetField, ...s.sources.map(g => g.dataField), ...extraFields(s)];
+  const f = ["System.Id", "System.Title", "System.State", "System.WorkItemType", "System.AreaPath", "System.IterationPath", "System.ChangedDate", "System.CreatedDate", s.epicStartField, s.epicTargetField, ...s.sources.map(g => g.dataField), ...extraFields(s)];
   return Array.from(new Set(f.filter(Boolean)));
 }
 
@@ -35,7 +35,7 @@ const toEpic = (w: BatchItem, s: PlannerSettings): EpicRecord => {
   for (const f of extraFields(s)) extra[f] = text(g(f));
   const d = (k: string) => (k && g(k) ? String(g(k)).slice(0, 10) : undefined);
   return { id: w.id, title: text(g("System.Title")), state: text(g("System.State")), type: text(g("System.WorkItemType")), areaPath: text(g("System.AreaPath")), iterationPath: text(g("System.IterationPath")),
-    changed: text(g("System.ChangedDate")), start: d(s.epicStartField), target: d(s.epicTargetField), grids, extra };
+    changed: text(g("System.ChangedDate")), created: text(g("System.CreatedDate")) || undefined, start: d(s.epicStartField), target: d(s.epicTargetField), grids, extra };
 };
 
 async function batch(ids: number[], fields: string[]): Promise<BatchItem[]> {

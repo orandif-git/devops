@@ -190,3 +190,9 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 .ex-pill { color: color-mix(in srgb, var(--pc, #64748b) 72%, #000); }
 .ex-legend i { display: grid; place-items: center; color: #fff; font: 700 8px/1 system-ui; font-style: normal; }
 .ex-blk.done { background-image: none; }
+
+/* period filter */
+.ex-period { width: 300px; } .ex-period .ex-list label { cursor: pointer; } .ex-range { display: flex; gap: 6px; align-items: center; padding: 4px 4px 6px 26px; } .ex-range input { flex: 1; min-width: 0; height: 30px; border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; font: inherit; }
+.ex-basis { display: block; padding: 8px 4px 2px; color: var(--fg2); font-size: 12px; border-top: 1px solid var(--line); margin-top: 6px; } .ex-basis select { display: block; width: 100%; margin-top: 4px; height: 32px; border: 1px solid var(--line); border-radius: 8px; padding: 0 6px; font: inherit; color: var(--fg); background: #fff; }
+.ex-undated { display: flex; gap: 6px; align-items: center; padding: 8px 4px 2px; font-size: 12px; }
+.ex-pop.inline { position: static; width: auto; box-shadow: none; border: 0; padding: 4px 0 0; max-height: none; } .ex-rail .ex-slicer { display: block; } .ex-rail .ex-chip { width: 100%; }

@@ -18,6 +18,7 @@ import { ViewsMenu } from "../hub/ViewsMenu";
 import { ExtraCol, LP, MapLayout, ReportLayout, RoadmapLayout } from "./layouts";
 import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
 import { Drawer, motionOk } from "./parts";
+import { makePeriod, periodLabel, periodState } from "../core/execPeriod";
 import { useEpicHistory } from "../hub/HistoryTimeline";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
@@ -32,7 +33,8 @@ export function ExecDashboard(p: {
   const L = p.loaded, x = p.settings.executive;
   const day = (t?: number) => (t === undefined ? "–" : p.settings.dateFormat ? fmtDate(p.settings, new Date(t).toISOString().slice(0, 10)) : dayText(t));      // the standard look until the administrator chooses a format
   const [layout, setLayout] = React.useState<ExecLayout>(x.layout);
-  const [f, setF] = React.useState<XF>(emptyXF());
+  const defaultPeriod = React.useMemo(() => (x.periodDefault ? makePeriod(x.periodDefault, x.periodBasis, false, new Date()) : undefined), [x.periodDefault, x.periodBasis]);
+  const [f, setF] = React.useState<XF>(() => ({ ...emptyXF(), period: defaultPeriod }));
   const [savedId, setSavedId] = React.useState("");
   // which status the dashboard shows: the owner's RAG, the data, or the variance between them (the switch needs a declared status field and a mode that keeps the data)
   const canSwitch = !!x.declaredField && x.statusSource !== "rag", defaultView: "rag" | "data" = x.declaredField && x.statusSource !== "data" ? "rag" : "data";
@@ -72,8 +74,8 @@ export function ExecDashboard(p: {
   const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, dims: v.dims, text: v.text }); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, period: f.period, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, period: v.period, dims: v.dims, text: v.text }); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -98,7 +100,7 @@ export function ExecDashboard(p: {
       {p.error && <div className="err" role="alert">{p.error}</div>}
     </div>
   );
-  const chips = chipsOf(fx, change);
+  const chips = chipsOf(fx, change, x.periodField ? dimLabel(x.periodField) : undefined);
   return (
     <div className={"ex" + (phase ? " " + phase : "") + (p.full ? " ex-full" : "") + (density === "compact" ? " dense" : "")}>
       <div className="ex-bar">
@@ -113,7 +115,7 @@ export function ExecDashboard(p: {
           onApply={id => { const v = doc.views.find(y => y.id === id); if (v) apply(v.state); }} onSave={name => keep({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
           onUpdate={id => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })} onRename={(id, name) => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
           onDelete={id => keep({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })} onDefault={id => keep({ ...doc, defaultId: id })}
-          onReset={() => { setF(emptyXF()); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+          onReset={() => { setF({ ...emptyXF(), period: defaultPeriod }); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
         {p.onFull && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
         <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics`}>{p.busy ? "…" : <IconRefresh />}</button>
         </div>
@@ -123,9 +125,11 @@ export function ExecDashboard(p: {
       {p.error && <div className="err" role="alert">{p.error}</div>}
       {(() => {                                    // data notes: one short line, counted for the Epics shown (the filters apply), details on click
         const bad = x.declaredField ? items.filter(i => i.r.declaredText && !i.r.declared) : [], vals = Array.from(new Set(bad.map(i => i.r.declaredText!))), noDate = items.filter(i => i.r.goLive === undefined).length, noProg = items.filter(i => i.r.pct === undefined).length;
+        const dated = f.period ? all.filter(i => pass(i, f, "period") && periodState(f.period!, i.dt) === "undated").length : 0;
         const noMoves = historyOn && L.history && !all.some(i => i.sum.moves > 0);
         const notes: { short: string; long: React.ReactNode }[] = [];
         if (bad.length) notes.push({ short: `${bad.length} with a RAG value that is not Red, Amber or Green`, long: <>{bad.length} Epic(s) have a value in the declared status field that is not read as green, amber or red ({vals.slice(0, 6).join(", ")}{vals.length > 6 ? ", …" : ""}); their status comes from the data. In Settings › Executive Dashboard › Declared status, say which values mean what, or list the ones that mean “no RAG yet”.</> });
+        if (dated && !f.period!.undated) notes.push({ short: `${dated} not shown: no date for the period`, long: <>{dated} Epic(s) have no date to judge the period by (“{periodLabel(f.period!, x.periodField ? dimLabel(x.periodField) : undefined)}”), so they are left out. Tick “Include Epics without a date” in the Period filter to show them.</> });
         if (noDate) notes.push({ short: `${noDate} without a go-live date`, long: <>{noDate} Epic(s) have no go-live date in “{dimLabel(goLiveField)}”, so they cannot be assessed against a date.</> });
         if (noProg) notes.push({ short: `${noProg} without a progress value`, long: <>{noProg} Epic(s) have no progress value{x.progress.length ? "" : " (no progress source is set up yet: Settings › Executive Dashboard › Progress)"}; they are assessed on dates only.</> });
         if (noMoves) notes.push({ short: "no go-live changes recorded", long: <>No go-live date change is recorded in the field “{dimLabel(goLiveField)}” that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads “${dimLabel(p.settings.epicTargetField)}”` : ""}. Check Settings › Executive Dashboard › Go-live date field.</> });

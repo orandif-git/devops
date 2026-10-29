@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 const items = [
-  { id: 1, fields: { "System.Title": "Core upgrade", "System.State": "Active", "System.AreaPath": "P\\A", "System.WorkItemType": "Epic", "Custom.Start": "2026-02-01T00:00:00Z", "Custom.GoLive": "2027-06-30T00:00:00Z", "Custom.RAGStatus": "Red" } },
+  { id: 1, fields: { "System.CreatedDate": "2026-03-04T08:00:00Z", "System.Title": "Core upgrade", "System.State": "Active", "System.AreaPath": "P\\A", "System.WorkItemType": "Epic", "Custom.Start": "2026-02-01T00:00:00Z", "Custom.GoLive": "2027-06-30T00:00:00Z", "Custom.RAGStatus": "Red" } },
   { id: 2, fields: { "System.Title": "Mobile app", "System.State": "Active", "System.AreaPath": "P\\A", "System.WorkItemType": "Epic", "Custom.Start": "2026-02-01T00:00:00Z", "Custom.GoLive": "2026-09-30T00:00:00Z", "Custom.RAGStatus": "Green" } },   // past go-live but Green
   { id: 3, fields: { "System.Title": "Payments", "System.State": "Active", "System.AreaPath": "P\\A", "System.WorkItemType": "Epic", "Custom.Start": "2026-02-01T00:00:00Z", "Custom.GoLive": "2027-06-30T00:00:00Z", "Custom.RAGStatus": "Amber" } },
   { id: 4, fields: { "System.Title": "No RAG", "System.State": "Active", "System.AreaPath": "P\\A", "System.WorkItemType": "Epic", "Custom.Start": "2026-02-01T00:00:00Z", "Custom.GoLive": "2027-06-30T00:00:00Z" } },
@@ -20,6 +20,7 @@ describe("a RAG Status picklist field, end to end", () => {
     const s = normalizeSettings({ epicStartField: "Custom.Start", epicTargetField: "Custom.GoLive", executive: { enabled: true, declaredField: "Custom.RAGStatus", statusSource: "rag-check" } });
     const r = await loadEpics({ id: "P", name: "Proj" }, s, { force: true });
     expect(r.epics.map(e => e.extra["Custom.RAGStatus"])).toEqual(["Red", "Green", "Amber", ""]);
+    expect(r.epics[0].created).toBe("2026-03-04T08:00:00Z"); expect(r.epics[1].created).toBeUndefined();       // the created date is read for the period filter
     const x = buildExec({ epics: r.epics, gridDone: {}, bookings: [], avail: { records: [], hours: () => null, team: () => "" }, settings: s, today: new Date("2026-10-28T00:00:00Z") });
     const st = (id: number) => x.rows.find(q => q.epic.id === id)!;
     expect(st(1).status).toBe("red"); expect(st(2).status).toBe("green"); expect(st(3).status).toBe("amber");

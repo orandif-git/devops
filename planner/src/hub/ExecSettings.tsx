@@ -60,6 +60,14 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
       <div className="help">Everyone can switch layout on the dashboard; the last layout a person used is remembered for them in their saved views.</div>
       <div className="help" style={{ marginTop: 10 }}><b>Who can open the Executive Dashboard</b>: members of these teams and project administrators. Leave empty to use the same people as the Resource Planner’s Access teams (Settings › General). This is a display rule, not access control: Azure DevOps still trims the Epics each person can read.</div>
       <Chips all={p.teams} value={x.accessTeams} onChange={v => setX({ accessTeams: v })} />
+      <div className="help" style={{ marginTop: 10 }}><b>Period filter</b>: a “Period” pill in the filters narrows the dashboard to a stretch of time. “All time” stays the default unless you choose a period here.</div>
+      <div className="row">
+        <label className="field" style={{ width: 260 }}><span>An Epic is in the period when it is (default)</span>
+          <select value={x.periodBasis} onChange={e => setX({ periodBasis: e.target.value as Exec["periodBasis"] })}><option value="active">Active in the period (start to go-live overlaps it)</option><option value="golive">Go-live in the period</option><option value="created">Created in the period</option><option value="field" disabled={!x.periodField}>Your date field in the period</option></select></label>
+        <FieldPick label="Your own date field (optional, for the “your date field” choice)" value={x.periodField} fields={p.fields} accept={f => isDateType(f.type)} placeholder="Custom.BusinessDate" onChange={v => setX({ periodField: v, periodBasis: !v && x.periodBasis === "field" ? "active" : x.periodBasis })} />
+        <label className="field" style={{ width: 220 }}><span>The dashboard opens with</span>
+          <select value={x.periodDefault} onChange={e => setX({ periodDefault: e.target.value as Exec["periodDefault"] })}><option value="">All time</option><option value="thisQuarter">This quarter</option><option value="nextQuarter">Next quarter</option><option value="thisYear">This year</option><option value="last12">Last 12 months</option><option value="next6">Next 6 months</option></select></label>
+      </div>
       </section>
       <section className="set-sec">
         <h4><span className="num">2</span> Epics, grouping and dates</h4>

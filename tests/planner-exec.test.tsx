@@ -224,6 +224,20 @@ describe("Executive dashboard page", () => {
     act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...(loaded as object), snapshots: two } as never} busy={false} error="" onReload={() => undefined} />, h2); });
     expect(h2.querySelector(".ex-delta .vs")!.textContent).toBe("vs last week"); expect(h2.querySelector(".ex-delta")!.getAttribute("title")).toContain("rebuilt from the work item history");
   });
+  it("narrows everything to a period, names it in a chip, and says how many Epics have no date", () => {
+    const h = mount(); const all = rows(h);
+    const pill = Array.from(h.querySelectorAll(".ex-slicers .ex-chip")).find(b => b.textContent!.includes("Period"))!; expect(pill.textContent).toContain("All time");
+    act(() => { Simulate.click(pill); });
+    const radio = (label: string) => Array.from(h.querySelectorAll(".ex-period label")).find(l => l.textContent!.includes(label))!.querySelector("input")!;
+    act(() => { Simulate.change(radio("This year"), { target: { checked: true } } as never); });
+    expect(h.querySelector(".ex-chips")!.textContent).toContain("Period: This year · active");
+    expect(rows(h)).toBeLessThanOrEqual(all);
+    act(() => { Simulate.change(radio("Custom range"), { target: { checked: true } } as never); });
+    const dates = h.querySelectorAll(".ex-range input"); act(() => { Simulate.change(dates[0], { target: { value: "2031-01-01" } } as never); }); act(() => { Simulate.change(dates[1], { target: { value: "2031-12-31" } } as never); });
+    expect(rows(h)).toBe(0); expect(h.querySelector(".ex-chips")!.textContent).toContain("1 Jan 2031 – 31 Dec 2031");               // nothing is active that far out
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-chips button")).find(b => b.getAttribute("aria-label")?.includes("Period"))!); });
+    expect(rows(h)).toBe(all); expect(h.querySelector(".ex-chips")?.textContent ?? "").not.toContain("Period:");
+  });
   it("lists every Epic, filters by a status card and by search, and opens the details panel", () => {
     const h = mount({ ...settings, executive: { ...settings.executive, resources: true } });
     expect(h.querySelector(".ex-kpis")!.textContent).toContain("Portfolio");

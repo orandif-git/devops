@@ -3,8 +3,9 @@ import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { PlannerSettings } from "../core/types";
 import { MOVED, signed } from "../core/history";
 import { deltaOf, health, series, Snapshot } from "../core/snapshots";
+import { periodState } from "../core/execPeriod";
 import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
-import { COLOR, Columns, Delta, Donut, Num, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
+import { COLOR, Columns, Delta, Donut, Num, PeriodSlicer, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
 export interface LP {
@@ -30,6 +31,8 @@ export function optionsOf(lp: LP, skip: Skip, key: (i: Item) => string, order?: 
 const MOVED_ORDER = [MOVED.recent, MOVED.later, MOVED.earlier, MOVED.often, MOVED.same, MOVED.none] as string[];
 /** The "go-live changes" words with the count each would give; an Epic can carry several. */
 export function declOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "decl")); return DECL_ORDER.map(value => ({ value, count: base.filter(i => i.decl === value).length })); }
+/** How many Epics the period leaves out only because they have no date to judge by. */
+export const periodHidden = (lp: LP) => (lp.f.period ? lp.all.filter(i => pass(i, lp.f, "period") && periodState(lp.f.period!, i.dt) === "undated").length : 0);
 export function movedOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "moved")); return MOVED_ORDER.map(value => ({ value, count: base.filter(i => i.moved.includes(value)).length })).filter(o => o.count > 0 || lp.f.moved.includes(o.value)); }
 
 /** All the slicers as pop-up lists (Report and Roadmap layouts). */
@@ -43,6 +46,7 @@ export function Slicers(lp: LP) {
       {lp.fields.map(d => <Slicer key={d} label={dimLabel(d)} options={optionsOf(lp, { dim: d }, i => i.r.dims[d])} selected={f.dims[d] ?? []} onChange={v => setF({ ...f, dims: { ...f.dims, [d]: v } })} />)}
       {lp.settings.executive.resources && <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />}
       <Slicer label="Go-live" options={optionsOf(lp, "quarter", i => i.quarter, sortQuarters)} selected={f.quarter} onChange={v => setF({ ...f, quarter: v })} />
+      <PeriodSlicer value={f.period} basis={lp.settings.executive.periodBasis} fieldLabel={lp.settings.executive.periodField ? dimLabel(lp.settings.executive.periodField) : undefined} hidden={periodHidden(lp)} onChange={v => setF({ ...f, period: v })} />
       {lp.historyOn && <Slicer label="Go-live changes" options={movedOptions(lp)} selected={f.moved} onChange={v => setF({ ...f, moved: v })} />}
       {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Slicer label="RAG check" options={declOptions(lp)} selected={f.decl} onChange={v => setF({ ...f, decl: v })} />}
     </div>
@@ -183,6 +187,7 @@ export function MapLayout({ lp }: { lp: LP }) {
   return (
     <div className="ex-maplayout">
       <aside className="ex-rail" aria-label="Filters">
+        <div className="ex-railgrp"><h5>Period</h5><PeriodSlicer inline value={f.period} basis={lp.settings.executive.periodBasis} fieldLabel={lp.settings.executive.periodField ? dimLabel(lp.settings.executive.periodField) : undefined} hidden={periodHidden(lp)} onChange={v => setF({ ...f, period: v })} /></div>
         {rail("Status", SHOWN.map(s => ({ value: STATUS_NAME[s], count: lp.all.filter(i => pass(i, f, "status") && i.status === s).length, color: COLOR[s] })), f.status.map(s => STATUS_NAME[s]), v => setF({ ...f, status: SHOWN.filter(s => v.includes(STATUS_NAME[s])) }))}
         {rail("State", optionsOf(lp, "state", i => i.state), f.state, v => setF({ ...f, state: v }))}
         {lp.fields.map(d => rail(dimLabel(d), optionsOf(lp, { dim: d }, i => i.r.dims[d]), f.dims[d] ?? [], v => setF({ ...f, dims: { ...f.dims, [d]: v } })))}

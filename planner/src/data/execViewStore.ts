@@ -1,10 +1,11 @@
+import { normalizePeriod, Period } from "../core/execPeriod";
 import { dataManager } from "../../../src/shared/ado";
 import { shortHash } from "../../../src/shared/ids";
 import { ExecLayout } from "../core/types";
 import { ExecStatus } from "../core/executive";
 
 /** What a person sees on the Executive Dashboard: the layout and the filters (private to them when saved). */
-export interface ExecViewState { layout: ExecLayout; density: "comfortable" | "compact"; status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; view: "rag" | "data" | "var" | ""; dims: Record<string, string[]>; text: string; savedId: string }
+export interface ExecViewState { layout: ExecLayout; density: "comfortable" | "compact"; status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; period?: Period; view: "rag" | "data" | "var" | ""; dims: Record<string, string[]>; text: string; savedId: string }
 export interface ExecView { id: string; name: string; state: ExecViewState }
 export interface ExecViewDoc { views: ExecView[]; defaultId?: string }
 
@@ -16,7 +17,7 @@ const STATUSES = ["green", "amber", "red", "idle", "unknown", "done"];
 
 export function normalizeExecView(raw: unknown, layout: ExecLayout): ExecViewState {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, x = (r.dims && typeof r.dims === "object" ? r.dims : {}) as Record<string, unknown>;
-  return { density: r.density === "compact" ? "compact" : "comfortable", layout: (["report", "map", "roadmap"].includes(String(r.layout)) ? r.layout : layout) as ExecLayout, status: strs(r.status).filter(s => STATUSES.includes(s)) as ExecStatus[], state: strs(r.state), team: strs(r.team), quarter: strs(r.quarter), moved: strs(r.moved), decl: strs(r.decl), cell: strs(r.cell), view: (["rag", "data", "var"].includes(String(r.view)) ? r.view : "") as ExecViewState["view"],
+  return { density: r.density === "compact" ? "compact" : "comfortable", layout: (["report", "map", "roadmap"].includes(String(r.layout)) ? r.layout : layout) as ExecLayout, status: strs(r.status).filter(s => STATUSES.includes(s)) as ExecStatus[], state: strs(r.state), team: strs(r.team), quarter: strs(r.quarter), moved: strs(r.moved), decl: strs(r.decl), cell: strs(r.cell), period: normalizePeriod(r.period, new Date()), view: (["rag", "data", "var"].includes(String(r.view)) ? r.view : "") as ExecViewState["view"],
     dims: Object.fromEntries(Object.entries(x).map(([k, v]) => [k, strs(v)]).filter(([, v]) => (v as string[]).length)), text: typeof r.text === "string" ? r.text : "", savedId: typeof r.savedId === "string" ? r.savedId : "" };
 }
 export function normalizeExecDoc(raw: unknown, layout: ExecLayout): ExecViewDoc {
