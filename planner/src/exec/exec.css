@@ -171,3 +171,7 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 
 /* seamless bars and columns */
 .ex svg text.inl { fill: #fff; font-weight: 700; font-size: 11px; pointer-events: none; } .ex svg text.risk { fill: var(--st-red, #dc2626); font-weight: 700; }
+
+/* the closed detail panel must not leak its shadow into the page edge (a narrow strip at the right in full screen) */
+.ex-drawer:not(.open) { visibility: hidden; box-shadow: none; pointer-events: none; transition: transform .32s cubic-bezier(.2,.7,.2,1), box-shadow .2s, visibility 0s .32s; }
+.ex-drawer.open { visibility: visible; }
