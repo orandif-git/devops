@@ -190,8 +190,8 @@ export interface ExecSettings {
   formulas: ExecFormula[];
 }
 
-export type ChartType = "auto" | "bars" | "columns" | "pie" | "table";
-export const CHART_TYPES: ChartType[] = ["auto", "bars", "columns", "pie", "table"];
+export type ChartType = "auto" | "bars" | "table";
+export const CHART_TYPES: ChartType[] = ["auto", "bars", "table"];
 export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], chartTypes: {}, goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],

@@ -542,17 +542,17 @@ describe("Delivery pipeline on the dashboard", () => {
 
 describe("By-field card", () => {
   const loaded = { epics, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: "", load: { ms: 10 } } as never;
-  const mount = (st = settings) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
+  const mount = (st = settings, data = loaded) => { const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={data} busy={false} error="" onReload={() => undefined} />, h); }); return h; };
   const sw = (h: HTMLElement, name: string) => Array.from(h.querySelectorAll(".ex-bfsw button")).find(b => b.textContent === name)!;
-  it("opens with Auto (columns for 3 values) and the switch changes the chart", () => {
-    const h = mount(); expect(h.querySelector(".ex-bfh")!.textContent).toContain("Auto → columns"); expect(h.querySelector(".ex-vcols")).not.toBeNull();
-    act(() => { Simulate.click(sw(h, "Bars")); }); expect(h.querySelector(".ex-vcols")).toBeNull(); expect(h.querySelector(".ex-byfield svg")).not.toBeNull();
-    act(() => { Simulate.click(sw(h, "Table")); }); expect(h.querySelector(".ex-vtable")!.textContent).toContain("Regulatory"); expect(h.querySelector(".ex-vtable")!.textContent).toContain("% at risk");
-    act(() => { Simulate.click(sw(h, "Pie")); }); expect(h.querySelector(".ex-pie")!.textContent).toContain("Share"); expect(h.querySelectorAll(".ex-pie path").length).toBe(3);
+  const many = Array.from({ length: 14 }, (_, k) => ({ ...epics[k % epics.length], id: 500 + k, extra: { ...epics[k % epics.length].extra, "Custom.Type": "Value " + k } }));
+  it("offers only Auto, Bars and Table; Auto is bars for few values and the table for many", () => {
+    const h = mount(); expect(Array.from(h.querySelectorAll(".ex-bfsw button")).map(b => b.textContent)).toEqual(["Auto", "Bars", "Table"]); expect(h.querySelector(".ex-bfh")!.textContent).toContain("Auto → bars"); expect(h.querySelector(".ex-byfield svg")).not.toBeNull();
+    const m = mount(settings, { ...(loaded as object), epics: many } as never); expect(m.querySelector(".ex-bfh")!.textContent).toContain("Auto → table"); expect(m.querySelector(".ex-vtable")).not.toBeNull();
+    act(() => { Simulate.click(sw(h, "Table")); }); expect(h.querySelector(".ex-vtable")!.textContent).toContain("% at risk"); act(() => { Simulate.click(sw(h, "Bars")); }); expect(h.querySelector(".ex-vtable")).toBeNull();
   });
-  it("a click on a column, table row or pie row filters the Epics by that value", () => {
+  it("a click on a bar or table row filters the Epics by that value", () => {
     const h = mount(), all = h.querySelectorAll("tr.ex-row").length;
-    act(() => { Simulate.click(h.querySelector(".ex-vcol")!); }); expect(h.querySelector(".ex-chips")!.textContent).toContain("Regulatory"); expect(h.querySelectorAll("tr.ex-row").length).toBeLessThan(all);
+    act(() => { Simulate.click(h.querySelector(".ex-byfield text.seg")!); }); expect(h.querySelector(".ex-chips")!.textContent).toMatch(/Regulatory|Security|Software upgrade/); expect(h.querySelectorAll("tr.ex-row").length).toBeLessThan(all);
     act(() => { Simulate.click(h.querySelector(".ex-chips button")!); }); expect(h.querySelectorAll("tr.ex-row").length).toBe(all);
     act(() => { Simulate.click(sw(h, "Table")); }); act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable tbody tr")).find(r => r.textContent!.startsWith("Security"))!); });
     expect(h.querySelector(".ex-chips")!.textContent).toContain("Security");
@@ -564,19 +564,13 @@ describe("By-field card", () => {
     act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable th")).find(t => t.textContent!.startsWith("Epics"))!); }); expect(first()).not.toBe(big);
     act(() => { Simulate.change(h.querySelector(".ex-vtable input")!, { target: { value: "sec" } } as never); }); expect(h.querySelectorAll(".ex-vtable tbody tr").length).toBe(1);
   });
-  it("table rows are keyboard focusable and open the filter with Enter", () => {
+  it("table rows are keyboard focusable and filter with Enter", () => {
     const h = mount(); act(() => { Simulate.click(sw(h, "Table")); }); const r = h.querySelector(".ex-vtable tbody tr")!; expect(r.getAttribute("tabindex")).toBe("0");
     act(() => { Simulate.keyDown(r, { key: "Enter" }); }); expect(h.querySelector(".ex-chips")).not.toBeNull();
   });
-  it("hides Pie for a field with more than 12 values, even when it was chosen for it", () => {
-    const many = Array.from({ length: 14 }, (_, k) => ({ ...epics[k % epics.length], id: 500 + k, extra: { ...epics[k % epics.length].extra, "Custom.Type": "Value " + k } }));
-    const h = document.createElement("div"); document.body.appendChild(h);
-    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })} loaded={{ ...(loaded as object), epics: many } as never} busy={false} error="" onReload={() => undefined} />, h); });
-    expect(Array.from(h.querySelectorAll(".ex-bfsw button")).map(b => b.textContent)).toEqual(["Auto", "Bars", "Columns", "Table"]); expect(h.querySelector(".ex-pie")).toBeNull(); expect(h.querySelector(".ex-vtable")).not.toBeNull();
-    expect(Array.from(mount().querySelectorAll(".ex-bfsw button")).map(b => b.textContent)).toContain("Pie");
-  });
-  it("a chart type set for the field in the settings is where it opens", () => {
-    const h = mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })); expect(h.querySelector(".ex-pie")).not.toBeNull();
+  it("a chart type set for the field in the settings is where it opens; a removed type (pie, columns) falls back to Auto", () => {
+    expect(mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "table" } } })).querySelector(".ex-vtable")).not.toBeNull();
+    const h = mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })); expect(h.querySelector(".ex-vtable")).toBeNull(); expect(h.querySelector(".ex-bfh")!.textContent).toContain("Auto → bars");
   });
 });
 
