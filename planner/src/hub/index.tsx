@@ -18,6 +18,8 @@ import { SettingsTab } from "./SettingsTab";
 import { validateSettings } from "../core/settings";
 import { diagnose, diagText } from "../core/diagnostics";
 import { PlannerSettings } from "../core/types";
+import { setFieldLabels } from "../core/executive";
+import { listTypeFields } from "../data/fields";
 import { loadSettings, saveSettings, SettingsConflictError } from "../data/settingsStore";
 import { Access, checkAccess, NO_ACCESS } from "../data/access";
 import { readLink, setHostFullScreen } from "../data/share";
@@ -101,6 +103,8 @@ function App(p: { projectId: string; projectName: string }) {
   const [link, setLink] = React.useState<{ pv?: string; full: boolean }>();   // a view shared by link
   React.useEffect(() => { readLink().then(setLink); }, []);
   const goFull = React.useCallback((on: boolean) => { setFull(on); void setHostFullScreen(on); }, []);
+  const [, setLb] = React.useState(0);
+  React.useEffect(() => { listTypeFields(p.projectName, cur?.workItemType ?? "Epic").then(f => { setFieldLabels(f); setLb(n => n + 1); }).catch(() => undefined); }, [p.projectName, cur?.workItemType]);   // the fields' display names, for the Epic Gantt grouping and the Epic dialog
   React.useEffect(() => { loadSettings(p.projectId).then(r => { setSaved(r.settings); setCur(r.settings); etag.current = r.etag; if (!validateSettings(r.settings).length) setTab("command"); checkAccess(p.projectId, r.settings.accessTeams).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const valid = !!saved && !validateSettings(saved).length;

@@ -9,7 +9,11 @@ export const STATUS_ORDER: Record<ExecStatus, number> = { red: 0, amber: 1, gree
 export const NO_VALUE = "(none)";
 /** The fields that classify Epics: the chosen category fields, or the area path when none are chosen. */
 export const dimFields = (s: PlannerSettings) => (s.executive.categoryFields.length ? s.executive.categoryFields : ["System.AreaPath"]);
-export const dimLabel = (f: string) => (f === "System.AreaPath" ? "Area" : (f.split(".").pop() ?? f).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " "));
+const LABELS = new Map<string, string>();
+/** Remember the display names of the Epic fields (as the process names them), so the dashboard shows “Business Value” rather than a name worked out from the reference name. */
+export const setFieldLabels = (fields: { referenceName: string; name: string }[]) => { LABELS.clear(); for (const f of fields) if (f.name) LABELS.set(f.referenceName.toLowerCase(), f.name); };
+const derived = (f: string) => (f.split(".").pop() ?? f).replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/_/g, " ");
+export const dimLabel = (f: string) => (f === "System.AreaPath" ? "Area" : LABELS.get(f.toLowerCase()) ?? derived(f));
 const areaOf = (e: EpicRecord) => e.areaPath.split("\\").slice(1).join(" › ") || e.areaPath;
 
 export interface ExecEpic {

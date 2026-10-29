@@ -18,3 +18,13 @@ describe("planner date and month formats", () => {
     expect(normalizeSettings({ dateFormat: "DD/MM/YYYY", monthFormat: "<script>" })).toMatchObject({ dateFormat: "DD/MM/YYYY", monthFormat: "" });
   });
 });
+
+import { dimLabel, setFieldLabels } from "../planner/src/core/executive";
+describe("field display names", () => {
+  it("shows the field's own label when it is known, else a readable name from the reference name", () => {
+    expect(dimLabel("Custom.ProjType")).toBe("Proj Type");
+    setFieldLabels([{ referenceName: "Custom.ProjType", name: "Project Type" }]);
+    expect(dimLabel("custom.projtype")).toBe("Project Type"); expect(dimLabel("System.AreaPath")).toBe("Area"); expect(dimLabel("Custom.Other")).toBe("Other");
+    setFieldLabels([]);
+  });
+});

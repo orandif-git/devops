@@ -10,6 +10,8 @@ import { LoadProgress } from "../data/epics";
 import { Loaded, loadAll } from "../data/loadAll";
 import { listSavedQueries, SavedQuery } from "../data/queries";
 import { loadSettings } from "../data/settingsStore";
+import { listTypeFields } from "../data/fields";
+import { setFieldLabels } from "../core/executive";
 import { Access, checkAccess, execAccessTeams, NO_EXEC_ACCESS } from "../data/access";
 import { ExecPage } from "./ExecPage";
 import { readLink, setHostFullScreen } from "../data/share";
@@ -31,6 +33,8 @@ function App(p: { projectId: string; projectName: string }) {
   const goFull = React.useCallback((on: boolean) => { setFull(on); void setHostFullScreen(on); }, []);
 
   React.useEffect(() => { loadSettings(p.projectId).then(r => { setSettings(r.settings); checkAccess(p.projectId, execAccessTeams(r.settings)).then(setAccess); }).catch(e => setMsg("Could not load the settings: " + e.message)); }, [p.projectId]);
+  const [, setLabelsAt] = React.useState(0);
+  React.useEffect(() => { if (settings) listTypeFields(p.projectName, settings.workItemType).then(f => { setFieldLabels(f); setLabelsAt(n => n + 1); }).catch(() => undefined); }, [p.projectName, settings?.workItemType]);   // the fields' display names, for the filters and charts
   React.useEffect(() => { listSavedQueries(p.projectName).then(setQueries).catch(() => undefined); }, [p.projectName]);
   const on = !!settings?.executive.enabled, valid = !!settings && !validateSettings(settings).length;
   const reload = React.useCallback(async (force: boolean, qid = queryId) => {
