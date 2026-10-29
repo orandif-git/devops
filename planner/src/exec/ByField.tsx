@@ -1,6 +1,6 @@
 import * as React from "react";
 import { dimLabel, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
-import { autoChart, looksOrdered, naturalSort, orderedSort, PIE_MAX } from "../core/byField";
+import { autoChart, looksOrdered, orderedSort, PIE_MAX, pieAllowed } from "../core/byField";
 import { ChartType } from "../core/types";
 import { byStatus, Item, pass, SHOWN, toggle } from "./model";
 import { COLOR, StackedBars } from "./parts";
@@ -32,7 +32,7 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
   const rows = Array.from(groups, ([v, a]) => rowOf(v, a)).filter(r => SHOWN.some(s => r.counts[s]));
   const bySize = [...rows].sort((a, b) => b.n - a.n || a.label.localeCompare(b.label));
   const inOrder = ordered ? [...rows].sort((a, b) => (a.label === NO_VALUE ? 1 : 0) - (b.label === NO_VALUE ? 1 : 0) || orderedSort(a.label, b.label)) : bySize;
-  const nv = rows.length, auto = autoChart(nv, ordered), mode: ChartType = f.chart[dim] ?? lp.settings.executive.chartTypes[dim] ?? "auto", use = mode === "auto" ? auto : mode;
+  const nv = rows.length, auto = autoChart(nv, ordered), pieOk = pieAllowed(allValues.length), chosen: ChartType = f.chart[dim] ?? lp.settings.executive.chartTypes[dim] ?? "auto", mode: ChartType = chosen === "pie" && !pieOk ? "auto" : chosen, use = mode === "auto" ? auto : mode;
   const sel = f.dims[dim] ?? [];
   const pickValue = (label: string, s?: ExecStatus) => { if (label.startsWith("Other (")) return; setF({ ...f, dims: { ...f.dims, [dim]: toggle(sel, label) }, status: s ? toggle(f.status, s) : f.status }); };
   const dimmed = (l: string) => sel.length > 0 && !sel.includes(l);
@@ -83,7 +83,7 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
         {lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => onDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <b>By {dimLabel(dim).toLowerCase()}</b>}
         <span className="m">{nv} {nv === 1 ? "value" : "values"} · % at risk</span><span className="sp" />
         {mode === "auto" && <span className="m">Auto → {auto}</span>}
-        <div className="ex-bfsw" role="group" aria-label="Chart type">{SWITCH.map(([m, l]) => <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>{l}</button>)}</div></div>
+        <div className="ex-bfsw" role="group" aria-label="Chart type">{SWITCH.filter(([m]) => m !== "pie" || pieOk).map(([m, l]) => <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>{l}</button>)}</div></div>
       <div className="ex-bfb" ref={bodyRef}>{body}</div>
     </section>
   );

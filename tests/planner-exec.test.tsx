@@ -568,6 +568,13 @@ describe("By-field card", () => {
     const h = mount(); act(() => { Simulate.click(sw(h, "Table")); }); const r = h.querySelector(".ex-vtable tbody tr")!; expect(r.getAttribute("tabindex")).toBe("0");
     act(() => { Simulate.keyDown(r, { key: "Enter" }); }); expect(h.querySelector(".ex-chips")).not.toBeNull();
   });
+  it("hides Pie for a field with more than 12 values, even when it was chosen for it", () => {
+    const many = Array.from({ length: 14 }, (_, k) => ({ ...epics[k % epics.length], id: 500 + k, extra: { ...epics[k % epics.length].extra, "Custom.Type": "Value " + k } }));
+    const h = document.createElement("div"); document.body.appendChild(h);
+    act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })} loaded={{ ...(loaded as object), epics: many } as never} busy={false} error="" onReload={() => undefined} />, h); });
+    expect(Array.from(h.querySelectorAll(".ex-bfsw button")).map(b => b.textContent)).toEqual(["Auto", "Bars", "Columns", "Table"]); expect(h.querySelector(".ex-pie")).toBeNull(); expect(h.querySelector(".ex-vtable")).not.toBeNull();
+    expect(Array.from(mount().querySelectorAll(".ex-bfsw button")).map(b => b.textContent)).toContain("Pie");
+  });
   it("a chart type set for the field in the settings is where it opens", () => {
     const h = mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })); expect(h.querySelector(".ex-pie")).not.toBeNull();
   });

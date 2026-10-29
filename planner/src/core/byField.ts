@@ -20,3 +20,7 @@ export const orderedSort = (a: string, b: string) => { const ra = RANK.indexOf(a
 
 /** The pie keeps the biggest values and puts the rest in one "Other" slice. */
 export const PIE_MAX = 8;
+
+/** A pie is only offered for a field with up to this many values; above it the slices become too small to read. */
+export const PIE_VALUES_MAX = 12;
+export const pieAllowed = (values: number) => values <= PIE_VALUES_MAX;
