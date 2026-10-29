@@ -47,7 +47,7 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
   if (use === "bars") {
     const base = ordered ? inOrder : bySize, list = showAll ? base : withOther(base, 8, n => `Other (${n} types)`);
     body = <>
-      <StackedBars w={wide ? 840 : 420} rowH={Math.max(28, Math.min(44, Math.floor((BODY_H - 4) / Math.max(1, list.length))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
+      <StackedBars w={wide ? 840 : 420} rowH={Math.max(26, Math.min(44, Math.floor((BODY_H - (base.length > 8 ? 36 : 4)) * 0.92 / Math.max(1, list.length))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
       {base.length > 8 && <button type="button" className="ex-more" onClick={() => setShowAll(!showAll)}>{showAll ? "Show the top 8" : `Show all ${base.length}`}</button>}</>;
   } else if (use === "columns") {
     const list = (ordered ? inOrder : bySize).slice(0, 12), mx = Math.max(1, ...list.map(r => r.n));
