@@ -564,7 +564,21 @@ describe("By-field card", () => {
     act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-vtable th")).find(t => t.textContent!.startsWith("Epics"))!); }); expect(first()).not.toBe(big);
     act(() => { Simulate.change(h.querySelector(".ex-vtable input")!, { target: { value: "sec" } } as never); }); expect(h.querySelectorAll(".ex-vtable tbody tr").length).toBe(1);
   });
+  it("table rows are keyboard focusable and open the filter with Enter", () => {
+    const h = mount(); act(() => { Simulate.click(sw(h, "Table")); }); const r = h.querySelector(".ex-vtable tbody tr")!; expect(r.getAttribute("tabindex")).toBe("0");
+    act(() => { Simulate.keyDown(r, { key: "Enter" }); }); expect(h.querySelector(".ex-chips")).not.toBeNull();
+  });
   it("a chart type set for the field in the settings is where it opens", () => {
     const h = mount(normalizeSettings({ ...settings, executive: { ...settings.executive, chartTypes: { "Custom.Type": "pie" } } })); expect(h.querySelector(".ex-pie")).not.toBeNull();
+  });
+});
+
+describe("Delivery pipeline gaps", () => {
+  const loaded = { epics, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: "", load: { ms: 10 } } as never;
+  const st = normalizeSettings({ ...settings, executive: { ...settings.executive, stages: { source: "field", field: "Custom.Type", stages: [{ name: "Plan", pct: 20, from: 0, to: 50 }, { name: "Build", pct: 60, from: 50, to: 100 }], map: { Regulatory: "Build", "Software upgrade": "Plan", Security: "(ignore)" } } } });
+  it("the Epics that are in no stage can be listed with a click on the count", () => {
+    const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); });
+    const g = h.querySelector(".ex-gap")!; expect(g.textContent).toContain("ignored"); const all = h.querySelectorAll("tr.ex-row").length;
+    act(() => { Simulate.click(g); }); expect(h.querySelector(".ex-chips")!.textContent).toContain("Stage: Ignored"); const n = h.querySelectorAll("tr.ex-row").length; expect(n).toBeGreaterThan(0); expect(n).toBeLessThan(all);
   });
 });

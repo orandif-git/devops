@@ -1,6 +1,6 @@
 import * as React from "react";
 import { stagesOn } from "../core/stages";
-import { byStatus, pass, SHOWN, toggle } from "./model";
+import { byStatus, pass, SHOWN, STAGE_GAP, toggle } from "./model";
 import { COLOR } from "./parts";
 import { STATUS_NAME } from "../core/executive";
 import { LP } from "./layouts";
@@ -14,12 +14,12 @@ export function PipelineCard({ lp }: { lp: LP }) {
     return { d, a, c, avg: days.length ? Math.round(days.reduce((x, y) => x + y, 0) / days.length) : undefined, stuck: st.stuckRule ? a.filter(i => i.r.stageDays !== undefined && i.r.stageDays > st.stuckDays).length : 0, behind: st.lagRule ? a.filter(i => (i.r.stageLag ?? 0) >= st.lagAmber).length : 0 };
   }), [base, st]);
   if (!on) return <section className="ex-card ex-pipeline"><h4>Delivery pipeline <span>not set up yet</span></h4><div className="muted ex-pempty">Choose the stages and map the field or state to them in Settings › Executive Dashboard › Delivery stages and progress. The pipeline, the progress of every Epic and the stage checks then use them.</div></section>;
-  const inP = base.filter(i => i.stage).length, ign = base.filter(i => i.r.stageKind === "ignore").length, unm = base.filter(i => i.r.stageKind === "unmapped").length, none = base.filter(i => i.r.stageKind === "none").length;
+  const f = lp.f, inP = base.filter(i => i.stage).length, ign = base.filter(i => i.r.stageKind === "ignore").length, unm = base.filter(i => i.r.stageKind === "unmapped").length, none = base.filter(i => i.r.stageKind === "none").length;
   const worst = [...cols].filter(c => c.a.length && (c.stuck || c.behind)).sort((a, b) => (b.stuck + b.behind) / b.a.length - (a.stuck + a.behind) / a.a.length)[0];
-  const f = lp.f, anyDays = cols.some(c => c.avg !== undefined);
+  const anyDays = cols.some(c => c.avg !== undefined);
   return (
     <section className="ex-card ex-pipeline" aria-label="Delivery pipeline">
-      <h4>Delivery pipeline <span>{inP} Epics in a stage{ign ? ` · ${ign} ignored` : ""}{unm ? ` · ${unm} unmapped` : ""}{none ? ` · ${none} without a stage` : ""}</span></h4>
+      <h4>Delivery pipeline <span>{inP} Epics in a stage{([[ign, STAGE_GAP.ignore, "ignored"], [unm, STAGE_GAP.unmapped, "not mapped"], [none, STAGE_GAP.none, "without a stage"]] as [number, string, string][]).filter(g => g[0] > 0).map(g => <React.Fragment key={g[1]}> · <button type="button" className={"ex-gap" + (f.stage.includes(g[1]) ? " on" : "")} aria-pressed={f.stage.includes(g[1])} title={`Show only the Epics that are ${g[2]}`} onClick={() => lp.setF({ ...f, stage: toggle(f.stage, g[1]) })}>{g[0]} {g[2]}</button></React.Fragment>)}</span></h4>
       {worst ? <div className="ex-bn" role="status">⚠ <b>{worst.d.name}</b> is where work is piling up: {worst.a.length} Epics{worst.avg !== undefined ? `, ${worst.avg} days on average` : ""}{worst.stuck ? <>, <b>{worst.stuck}</b> stuck over {st.stuckDays} days</> : null}{worst.behind ? <>{worst.stuck ? " and " : ", "}<b>{worst.behind}</b> behind for the stage</> : null}.</div>
         : <div className="ex-bn ok" role="status">No stage has Epics stuck or behind.</div>}
       <div className="ex-pipe" style={{ gridTemplateColumns: `repeat(${Math.max(1, cols.length)}, minmax(0, 1fr))` }}>

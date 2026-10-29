@@ -167,13 +167,13 @@ export function Columns(p: { cols: { label: string; counts: Record<ExecStatus, n
   const cols = p.cols, H = 170, W = 420, bw = W / Math.max(1, cols.length), mx = Math.max(1, ...cols.map(c => SHOWN.reduce((a, s) => a + c.counts[s], 0)));
   return (
     <svg viewBox={`0 0 ${W} ${H + 34}`} width="100%" role="img" aria-label="Epics by go-live quarter">
-      {cols.map((c, k) => { const tot = SHOWN.reduce((a, s) => a + c.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(c.label), w = Math.min(56, Math.max(8, bw - 24)), x = k * bw + (bw - w) / 2, full = tot / mx * (H - 22), parts = SHOWN.filter(s => c.counts[s]); let y = H;
+      {cols.map((c, k) => { const tot = SHOWN.reduce((a, s) => a + c.counts[s], 0), dim = p.selected.length > 0 && !p.selected.includes(c.label), w = Math.min(56, Math.max(10, bw - 10)), x = k * bw + (bw - w) / 2, full = tot / mx * (H - 22), parts = SHOWN.filter(s => c.counts[s]); let y = H;
         return <g key={c.label} className={dim ? "dimmed" : ""}>
           <clipPath id={`${uid}c${k}`}><rect x={x} y={H - full} width={w} height={Math.max(2, full)} rx={Math.min(9, Math.max(1, full / 2))} ry={Math.min(9, Math.max(1, full / 2))} /></clipPath>
           <g clipPath={`url(#${uid}c${k})`}>{parts.map((s, n) => { const hh = c.counts[s] / mx * (H - 22); y -= hh;
             return <g key={s}><rect className={"seg" + (p.selectedStatus.length && !p.selectedStatus.includes(s) ? " dimmed" : "")} x={x} y={y} width={w} height={Math.max(1, hh)} fill={COLOR[s]} onClick={() => p.onPick(c.label, s)}><title>{c.label} · {s === "done" ? "✓ " : ""}{STATUS_NAME[s]}: {c.counts[s]}</title></rect>
               {n < parts.length - 1 && <line x1={x} x2={x + w} y1={y} y2={y} stroke="#fff" strokeWidth="2" pointerEvents="none" />}
-              {hh >= 16 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{s === "done" ? "✓ " : ""}{c.counts[s]}</text>}</g>; })}</g>
+              {hh >= 16 && w >= 22 && <text className="inl" x={x + w / 2} y={y + hh / 2 + 4} textAnchor="middle">{s === "done" && w >= 34 ? "✓ " : ""}{c.counts[s]}</text>}</g>; })}</g>
           <text x={k * bw + bw / 2} y={H - full - 6} textAnchor="middle" style={{ fontWeight: 600 }}>{tot || ""}</text>
           <text x={k * bw + bw / 2} y={H + 16} textAnchor="middle" className="seg" onClick={() => p.onPick(c.label)}>{c.label === "No go-live date" ? "No date" : c.label.length > 9 ? c.label.slice(0, 8) + "…" : c.label}<title>{c.label}</title></text></g>; })}
     </svg>

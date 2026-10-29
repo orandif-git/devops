@@ -21,6 +21,8 @@ const risk = (r: Row) => (r.risk ? `${r.risk}%` : "–");
 /** The By-field card: Epics by status for the values of a category field, as bars, columns, a pie or a sortable table. "Auto" picks by the number of values. */
 export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: string): void }) {
   const { f, setF } = lp;
+  const bodyRef = React.useRef<HTMLDivElement>(null), [wide, setWide] = React.useState(true);
+  React.useEffect(() => { const el = bodyRef.current; if (!el || typeof ResizeObserver === "undefined") return; const ro = new ResizeObserver(() => setWide(el.clientWidth >= 560)); ro.observe(el); return () => ro.disconnect(); }, []);
   const [showAll, setShowAll] = React.useState(false), [q, setQ] = React.useState(""), [sort, setSort] = React.useState<{ k: string; up: boolean }>({ k: "n", up: false });
   React.useEffect(() => { setShowAll(false); setQ(""); setSort({ k: "n", up: false }); }, [dim]);
   const forDim = lp.all.filter(i => pass(i, f, { dim }));
@@ -45,7 +47,7 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
   if (use === "bars") {
     const base = ordered ? inOrder : bySize, list = showAll ? base : withOther(base, 8, n => `Other (${n} types)`);
     body = <>
-      <StackedBars w={840} rowH={Math.max(28, Math.min(44, Math.floor((BODY_H - 4) / Math.max(1, list.length))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
+      <StackedBars w={wide ? 840 : 420} rowH={Math.max(28, Math.min(44, Math.floor((BODY_H - 4) / Math.max(1, list.length))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
       {base.length > 8 && <button type="button" className="ex-more" onClick={() => setShowAll(!showAll)}>{showAll ? "Show the top 8" : `Show all ${base.length}`}</button>}</>;
   } else if (use === "columns") {
     const list = (ordered ? inOrder : bySize).slice(0, 12), mx = Math.max(1, ...list.map(r => r.n));
@@ -71,9 +73,9 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
     const list = rows.filter(r => r.label.toLowerCase().includes(q.toLowerCase())).sort((a, b) => { const g = (r: Row) => (sort.k === "label" ? r.label : sort.k === "risk" ? r.risk : sort.k === "avg" ? r.avg ?? -1 : sort.k === "n" ? r.n : r.counts[sort.k as ExecStatus]); const x = g(a), y = g(b); return (typeof x === "string" ? x.localeCompare(y as string) : (x as number) - (y as number)) * (sort.up ? 1 : -1); });
     const H: [string, string][] = [["label", dimLabel(dim)], ["n", "Epics"], ["", "Status mix"], ["green", STATUS_NAME.green], ["amber", STATUS_NAME.amber], ["red", STATUS_NAME.red], ["idle", STATUS_NAME.idle], ["done", STATUS_NAME.done], ["risk", "% at risk"], ["avg", "Avg progress"]];
     body = <div className="ex-vtable"><div className="tools"><input aria-label={`Search ${nv} values`} placeholder={`Search ${nv} values`} value={q} onChange={e => setQ(e.target.value)} /><span>{list.length} shown · click a header to sort, a row to filter</span></div>
-      <div className="scr"><table><thead><tr>{H.map(([k, l]) => <th key={l} className={sort.k === k && k ? "s" + (sort.up ? " up" : "") : ""} onClick={() => k && setSort({ k, up: sort.k === k ? !sort.up : false })}>{l}</th>)}</tr></thead>
-        <tbody>{list.map(r => <tr key={r.label} className={dimmed(r.label) ? "dim" : ""} onClick={() => pickValue(r.label)}><td>{r.label}</td><td><b>{r.n}</b></td><td><Mix r={r} /></td>
-          {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <td key={s} className={r.counts[s] ? "" : "z"}>{r.counts[s] || "–"}</td>)}<td className={r.risk >= 30 ? "hi" : ""}>{risk(r)}</td><td>{r.avg === undefined ? "–" : `${r.avg}%`}</td></tr>)}</tbody></table></div></div>;
+      <div className={"scrw" + (list.length > 8 ? " more" : "")}><div className="scr"><table><thead><tr>{H.map(([k, l]) => <th key={l} className={sort.k === k && k ? "s" + (sort.up ? " up" : "") : ""} onClick={() => k && setSort({ k, up: sort.k === k ? !sort.up : false })}>{l}</th>)}</tr></thead>
+        <tbody>{list.map(r => <tr key={r.label} className={dimmed(r.label) ? "dim" : ""} tabIndex={0} aria-label={`${r.label}: ${r.n} Epics`} onClick={() => pickValue(r.label)} onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pickValue(r.label); } }}><td>{r.label}</td><td><b>{r.n}</b></td><td><Mix r={r} /></td>
+          {(["green", "amber", "red", "idle", "done"] as ExecStatus[]).map(s => <td key={s} className={r.counts[s] ? "" : "z"}>{r.counts[s] || "–"}</td>)}<td className={r.risk >= 30 ? "hi" : ""}>{risk(r)}</td><td>{r.avg === undefined ? "–" : `${r.avg}%`}</td></tr>)}</tbody></table></div></div></div>;
   }
   return (
     <section className="ex-card ex-byfield" aria-label="Epics by field value">
@@ -81,8 +83,9 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
         {lp.fields.length > 1 ? <select aria-label="Chart by" value={dim} onChange={e => onDim(e.target.value)}>{lp.fields.map(d => <option key={d} value={d}>By {dimLabel(d).toLowerCase()}</option>)}</select> : <b>By {dimLabel(dim).toLowerCase()}</b>}
         <span className="m">{nv} {nv === 1 ? "value" : "values"} · % at risk</span><span className="sp" />
         {mode === "auto" && <span className="m">Auto → {auto}</span>}
+        {use === "pie" && nv > 12 && <span className="m warn" role="status">Pie suits up to 8 values: Table or Bars show all {nv}</span>}
         <div className="ex-bfsw" role="group" aria-label="Chart type">{SWITCH.map(([m, l]) => <button key={m} type="button" className={mode === m ? "on" : ""} aria-pressed={mode === m} onClick={() => setMode(m)}>{l}</button>)}</div></div>
-      <div className="ex-bfb">{body}</div>
+      <div className="ex-bfb" ref={bodyRef}>{body}</div>
     </section>
   );
 }

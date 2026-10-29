@@ -17,12 +17,15 @@ export interface Item {
   dt: Dates;
   /** the delivery stage ("" when none) */
   stage: string;
+  /** why an Epic is in no stage: "Ignored", "Not mapped" or "No stage" (empty when it is in a stage or stages are not used) */
+  stageGap: string;
   /** the history of the go-live date (when it was read), what it says, and the words it can be filtered by */
   hist?: Hist; sum: Summary; moved: string[];
   /** lower-case text the search looks in: id, title, state, area, categories, reasons, people, dates, team */
   text: string;
 }
 
+export const STAGE_GAP = { ignore: "Ignored", unmapped: "Not mapped", none: "No stage" };
 export const DECL_NONE = "No RAG";
 export const DECL_ORDER = ["Check this", "Looks fine", DECL_NONE];
 const DECL: Record<string, string> = { optimistic: "Check this", cautious: "Looks fine", same: "Looks fine" };
@@ -46,7 +49,7 @@ export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings, toda
     const hist = hmap?.[r.epic.id], sum = summarize(hist, today, s.history.windowDays), moved = movedTags(sum);
     const e = s.executive.resources ? by.get(r.epic.id) : undefined, team = e ? Array.from(e.teams).sort((a, b) => b[1] - a[1])[0][0] : NO_VALUE;
     const text = [r.epic.id, r.epic.title, r.epic.state, r.epic.areaPath, ...Object.values(r.dims), ...r.reasons, STATUS_NAME[r.status], team, quarterOf(r.goLive), iso(r.goLive), fmtDate(s, iso(r.goLive)), iso(r.forecast), ...(e ? Array.from(e.people) : []), ...(hist ? moved : [])].join(" | ").toLowerCase();
-    return { r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, stage: r.stage ?? "", dt: { start: r.start, goLive: r.goLive, created: parseDay(r.epic.created), field: s.executive.periodField ? parseDay(r.epic.extra[s.executive.periodField]) : undefined }, cell: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? r.declared + "|" + r.dataStatus : "", gap: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.dataStatus] - ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.declared] : 0, decl: DECL[r.compare ?? ""] ?? (s.executive.declaredField ? DECL_NONE : ""), text, hist, sum, moved };
+    return { r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, stage: r.stage ?? "", stageGap: r.stageKind === "ignore" ? STAGE_GAP.ignore : r.stageKind === "unmapped" ? STAGE_GAP.unmapped : r.stageKind === "none" ? STAGE_GAP.none : "", dt: { start: r.start, goLive: r.goLive, created: parseDay(r.epic.created), field: s.executive.periodField ? parseDay(r.epic.extra[s.executive.periodField]) : undefined }, cell: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? r.declared + "|" + r.dataStatus : "", gap: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.dataStatus] - ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.declared] : 0, decl: DECL[r.compare ?? ""] ?? (s.executive.declaredField ? DECL_NONE : ""), text, hist, sum, moved };
   });
 }
 
@@ -63,7 +66,7 @@ export function pass(i: Item, f: XF, skip?: Skip): boolean {
   if (k !== "team" && f.team.length && !f.team.includes(i.team)) return false;
   if (k !== "quarter" && f.quarter.length && !f.quarter.includes(i.quarter)) return false;
   if (k !== "moved" && f.moved.length && !i.moved.some(t => f.moved.includes(t))) return false;
-  if (k !== "stage" && f.stage.length && !f.stage.includes(i.stage)) return false;
+  if (k !== "stage" && f.stage.length && !f.stage.includes(i.stage) && !f.stage.includes(i.stageGap)) return false;
   if (k !== "period" && f.period) { const st = periodState(f.period, i.dt); if (st === "out" || (st === "undated" && !f.period.undated)) return false; }
   if (k !== "cell" && f.cell.length && !f.cell.includes(i.cell)) return false;
   if (k !== "decl" && f.decl.length && !f.decl.includes(i.decl)) return false;
