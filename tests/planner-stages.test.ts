@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evenStages, expectedIdx, IGNORE, resolveStage, stageProgress, stageSince, stagesOn, defaultStages } from "../planner/src/core/stages";
+import { evenStages, expectedIdx, IGNORE, looksLikeRag, parseStageNames, resolveStage, SDLC_STAGES, stageProgress, stageSince, stagesOn, defaultStages, suggestMap, suggestStage, withStageNames } from "../planner/src/core/stages";
 import { addRevisions } from "../planner/src/core/asof";
 import { buildExec } from "../planner/src/core/executive";
 import { normalizeSettings } from "../planner/src/core/settings";
@@ -67,4 +67,22 @@ describe("stage settings", () => {
     const s = normalizeSettings({ executive: { stages: { stages: [{ name: "A", pct: 150, from: -5, to: 50 }, { name: "A", pct: 10, from: 0, to: 10 }, { name: "B", pct: 60, from: 50, to: 100 }], map: { x: "A", y: "Gone", z: IGNORE }, lagAmber: 99, stuckDays: 0 } } }).executive.stages;
     expect(s.stages.map(x => x.name)).toEqual(["A", "B"]); expect(s.stages[0]).toMatchObject({ pct: 100, from: 0 }); expect(s.map).toEqual({ x: "A", z: IGNORE }); expect(s.lagAmber).toBe(10); expect(s.stuckDays).toBe(1);
   });
+});
+
+describe("stage setup helpers", () => {
+  it("parse a comma list into unique stage names", () => { expect(parseStageNames(" Design, Development;SIT ,, design , UAT\nDeployment ")).toEqual(["Design", "Development", "SIT", "UAT", "Deployment"]); expect(parseStageNames("")).toEqual([]); });
+  it("keep the numbers and the mapping of a stage that keeps its name, and follow a rename", () => {
+    const s = { ...defaultStages(), stages: evenStages(["A", "B", "C"]), map: { x: "B", y: "C", z: IGNORE } };
+    const n = withStageNames({ ...s, stages: s.stages.map(d => (d.name === "B" ? { ...d, pct: 77 } : d)) }, ["A", "B", "D"]);
+    expect(n.stages.map(d => d.name)).toEqual(["A", "B", "D"]); expect(n.stages[1].pct).toBe(77); expect(n.map).toEqual({ x: "B", z: IGNORE });       // C is gone, so its values are no longer mapped
+    const r = withStageNames(s, ["P", "Q", "R"]); expect(r.map).toEqual({ x: "Q", y: "R", z: IGNORE });                                              // a full rename keeps the mapping by position
+  });
+  it("suggest a stage for a value by name and common words", () => {
+    const st = SDLC_STAGES;
+    expect(suggestStage("UAT", st)).toBe("UAT"); expect(suggestStage("Doing", st)).toBe("Development"); expect(suggestStage("In Progress", st)).toBe("Development"); expect(suggestStage("Delivery Committed", st)).toBe("UAT");
+    expect(suggestStage("Not Started", st)).toBe("Design"); expect(suggestStage("System Integration Testing", st)).toBe("SIT"); expect(suggestStage("Go-Live", st)).toBe("Deployment");
+    expect(suggestStage("Closed", st)).toBe(IGNORE); expect(suggestStage("On Hold", st)).toBe(IGNORE); expect(suggestStage("Mystery", st)).toBeUndefined();
+    expect(suggestMap(["Doing", "Mystery", "Closed"], st, { Closed: "Deployment" })).toEqual({ Doing: "Development", Closed: "Deployment" });          // an existing choice is kept
+  });
+  it("tell a RAG field from a phase field", () => { expect(looksLikeRag(["Red", "Amber", "Green"])).toBe(true); expect(looksLikeRag(["Red", "Amber", "Green", "Not Started"])).toBe(true); expect(looksLikeRag(["Design", "Red"])).toBe(false); expect(looksLikeRag([])).toBe(false); });
 });

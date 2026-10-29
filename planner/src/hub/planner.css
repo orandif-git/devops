@@ -200,3 +200,4 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .gantt-wrap .tl-row { transition: background .15s; } .gantt-wrap .tl-row:hover { background: color-mix(in srgb, #8a1f45 4%, transparent); }
 .subtab { transition: color .2s, background .25s, box-shadow .25s; } .modal { animation-duration: .22s; }
 @media (prefers-reduced-motion: reduce) { .tile.gs, .gantt-wrap .tl-row, .subtab { transition: none; } }
+.stage-tbl { border-collapse: collapse; margin: 6px 0; } .stage-tbl th { text-align: left; font-size: 12px; color: #667085; font-weight: 600; padding: 4px 18px 4px 0; } .stage-tbl td { padding: 3px 18px 3px 0; } .stage-tbl select { min-width: 200px; }

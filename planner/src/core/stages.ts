@@ -67,3 +67,43 @@ export function stageSince(tl: Timelines, s: StageSettings): Record<number, numb
   }
   return out;
 }
+
+/** The usual software delivery phases, offered as a quick start. */
+export const SDLC_STAGES = ["Design", "Development", "SIT", "UAT", "Deployment"];
+/** "Design, Development; SIT" -> the stage names: trimmed, no empty or repeated names. */
+export function parseStageNames(text: string): string[] {
+  const seen = new Set<string>(), out: string[] = [];
+  for (const n of text.split(/[,;\n]/).map(x => x.trim()).filter(Boolean)) { const k = key(n); if (!seen.has(k)) { seen.add(k); out.push(n); } }
+  return out;
+}
+/** The stage list for new names: a stage that keeps its name keeps its numbers; new ones get an even share; with the same number of names a rename keeps the numbers and the mapping. */
+export function withStageNames(s: StageSettings, names: string[]): StageSettings {
+  const even = evenStages(names), old = s.stages;
+  const stages = names.map((n, i) => { const o = old.find(d => key(d.name) === key(n)) ?? (old.length === names.length && !names.some(x => old.some(d => key(d.name) === key(x))) ? old[i] : undefined); return o ? { ...o, name: n } : even[i]; });
+  const rename = old.length === names.length && !names.some(x => old.some(d => key(d.name) === key(x)));
+  const map: Record<string, string> = {};
+  for (const [v, m] of Object.entries(s.map)) { const t = m === IGNORE ? IGNORE : rename ? names[old.findIndex(d => key(d.name) === key(m))] : names.find(n => key(n) === key(m)); if (t) map[v] = t; }
+  return { ...s, stages, map };
+}
+
+const PHASES: { value: RegExp; stage: RegExp }[] = [
+  { value: /design|analy|plan|requirement|scop|initiat|discover|propos|backlog|not started|^new$|to do|draft/, stage: /design|analy|plan|requirement|scop|initiat|discover|propos|backlog/ },
+  { value: /develop|build|doing|active|in progress|coding|implement/, stage: /develop|build|implement|coding|progress/ },
+  { value: /\bsit\b|system|integration|test|\bqa\b|quality/, stage: /\bsit\b|system|integration|test|\bqa\b|quality/ },
+  { value: /uat|accept|committed|pre.?prod|staging/, stage: /uat|accept|pre.?prod|staging/ },
+  { value: /deploy|release|live|production|go.?live|rollout|handover/, stage: /deploy|release|live|production|rollout|handover/ },
+];
+/** The stage a value of the field or state most likely belongs to ("(ignore)" for closed, on hold and the like); undefined when there is no good guess. */
+export function suggestStage(value: string, stages: string[]): string | undefined {
+  const v = key(value); if (!v) return undefined;
+  const exact = stages.find(n => key(n) === v) ?? stages.find(n => v.includes(key(n)) || key(n).includes(v)); if (exact) return exact;
+  if (/closed|done|complete|resolved|cancel|removed|on hold|^hold|blocked/.test(v)) return IGNORE;
+  for (const p of PHASES) if (p.value.test(v)) { const t = stages.find(n => p.stage.test(key(n))); if (t) return t; }
+  return undefined;
+}
+/** Suggestions for every value that is not mapped yet (existing choices are kept). */
+export function suggestMap(values: string[], stages: string[], map: Record<string, string>): Record<string, string> {
+  const out = { ...map }; for (const v of values) if (!(v in out)) { const t = suggestStage(v, stages); if (t) out[v] = t; } return out;
+}
+/** Do these values look like a red / amber / green status rather than delivery phases? */
+export const looksLikeRag = (values: string[]) => { const v = values.map(key).filter(Boolean); return v.length > 0 && v.some(x => ["red", "amber", "green"].includes(x)) && v.every(x => ["red", "amber", "green", "yellow", "blue", "grey", "gray", "not started", "none", "complete", "completed"].includes(x)); };
