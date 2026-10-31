@@ -11,8 +11,6 @@ import { periodHidden } from "../layouts";
 import type { LP } from "../layouts";
 import { filterGroups, MorePanel } from "./filters";
 import { Inspector } from "./Inspector";
-import { useStageDateHistory } from "./stageDateUi";
-import { stageDatesOn } from "../../core/stages";
 import { EpicsPage, InsightsPage, OverviewPage, PipelinePage, Tab } from "./pages";
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [{ id: "overview", label: "Overview", icon: <IconReport /> }, { id: "pipeline", label: "Pipeline", icon: <IconRoadmap /> }, { id: "epics", label: "Epics", icon: <IconMap /> }, { id: "insights", label: "Insights", icon: <IconReport /> }];
@@ -31,7 +29,7 @@ export interface ModernProps {
   onView(v: "rag" | "data" | "var"): void;
   chosen?: Item; onClose(): void; onDetails(id: number): void; onOpenEpic(id: number): void; hist?: Hist; histState?: "ok" | "loading" | "error" | "none"; histError?: string;
   onReset(): void; historyError?: string;
-  /** the history of the stage date fields was read for all Epics (so the panel need not read it) */ dateHistAllRead?: boolean;
+  /** the history of the stage date fields of the Epic in the panel */ dateHist?: Record<string, Hist>; dateHistState?: "ok" | "loading" | "error" | "none"; dateHistError?: string;
 }
 
 /** The modern design of the Executive Dashboard: a toolbar and a filter bar on top, four pages (Overview, Pipeline, Epics, Insights) and an Epic panel on the right. It reads the same data and has the same filters as the classic design. */
@@ -44,7 +42,6 @@ export function ModernDashboard(p: ModernProps) {
   const go = (t: Tab, status?: import("../../core/executive").ExecStatus[]) => { setTab(t); if (status) setF({ ...f, status }); mainRef.current?.scrollTo?.(0, 0); };
   React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape" && p.chosen && !more) p.onClose(); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [p.chosen, more]);   // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => { if (lp.canSwitch && lp.view === "var") p.onView("rag"); }, [lp.view, lp.canSwitch]);   // the variance view belongs to the classic design: the modern one has the owner’s RAG and the data
-  const dh = useStageDateHistory(p.chosen?.id, lp.settings.executive.stages, p.chosen?.dateHist, !!p.dateHistAllRead, stageDatesOn(lp.settings.executive.stages) && lp.settings.executive.stages.dates.track);
   const [title, sub] = TITLES[tab];
   return (
     <div className={"ex exm" + (p.full ? " ex-full" : "")}>
@@ -73,7 +70,7 @@ export function ModernDashboard(p: ModernProps) {
           {p.notes}{p.historyError && <div className="err" role="alert">The go-live history could not be read: {p.historyError}</div>}
           {tab === "overview" ? <OverviewPage lp={lp} go={go} /> : tab === "pipeline" ? <PipelinePage lp={lp} /> : tab === "epics" ? <EpicsPage lp={lp} sel={p.chosen?.id} /> : <InsightsPage lp={lp} />}
         </main>
-        <Inspector item={p.chosen} lp={lp} project={p.project} onClose={p.onClose} onDetails={p.onDetails} onOpenEpic={p.onOpenEpic} hist={p.hist} histState={p.histState} histError={p.histError} dateHist={dh.hist} dateHistState={dh.state} dateHistError={dh.error} />
+        <Inspector item={p.chosen} lp={lp} project={p.project} onClose={p.onClose} onDetails={p.onDetails} onOpenEpic={p.onOpenEpic} hist={p.hist} histState={p.histState} histError={p.histError} dateHist={p.dateHist} dateHistState={p.dateHistState} dateHistError={p.dateHistError} />
       </div>
     </div>
   );

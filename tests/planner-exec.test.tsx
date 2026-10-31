@@ -655,6 +655,14 @@ describe("Stage dates in the modern design", () => {
     expect(p).toContain("How long each stage took"); expect(p).toContain("Stage dates"); expect(p).toContain("= SIT start"); expect(p).toContain("77 d"); expect(p).toContain("edited 1×");
     expect(p).toContain("Stage date history"); expect(p).toContain("SIT start:"); expect(p).toContain("Sara"); expect(p).toMatch(/recorded \d+ d late/);
   });
+  it("the classic Epic panel shows the same stage dates, durations, flags and history", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = document.createElement("div"); document.body.appendChild(h);
+    const classic = normalizeSettings({ ...sdSettings, executive: { ...sdSettings.executive, designs: { classic: true, modern: false } } });
+    await act(async () => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={classic} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    expect(h.querySelector(".exm")).toBeNull(); act(() => { Simulate.click(Array.from(h.querySelectorAll("tr.ex-row")).find(r => r.textContent!.includes("Epic 1"))!); });
+    const d = h.querySelector(".ex-drawer.open")!.textContent!; expect(d).toContain("How long each stage took"); expect(d).toContain("= SIT start"); expect(d).toContain("77 d"); expect(d).toContain("edited 1×"); expect(d).toContain("Stage date history"); expect(d).toContain("Sara"); expect(d).toMatch(/Stage\s*SIT · \d+ days/);
+    act(() => { Simulate.click(Array.from(h.querySelectorAll("tr.ex-row")).find(r => r.textContent!.includes("Epic 2"))!); }); expect(h.querySelector(".ex-drawer.open")!.textContent).toContain("SIT start date is missing");
+  });
   it("lists the Epics whose stage dates do not fit in the data notes and under the Stage dates filter", async () => {
     const h = await mountSD(); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with a problem in the stage dates"); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with stage dates changed");
     act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("Stage dates");

@@ -24,6 +24,7 @@ import { makePeriod, periodLabel, periodState } from "../core/execPeriod";
 import { useEpicHistory } from "../hub/HistoryTimeline";
 import { openWorkItem } from "../data/open";
 import { ModernDashboard } from "./modern/ModernDashboard";
+import { useStageDateHistory } from "./modern/stageDateUi";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
 const strip = (f: XF): XF => ({ ...f, saved: undefined, savedName: undefined });
@@ -80,6 +81,8 @@ export function ExecDashboard(p: {
 
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
+  const dateAllRead = historyOn && stageDatesOn(x.stages) && stageDateFields(x.stages).every(f => !!L?.history?.[f]);
+  const dh = useStageDateHistory(chosen?.id, x.stages, chosen?.dateHist, dateAllRead, stageDatesOn(x.stages) && x.stages.dates.track);      // the history of the stage dates of the Epic whose panel is open
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
   const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, stageTypical: typical, showDelivery, onDelivery: setShowDelivery };
 
@@ -149,7 +152,7 @@ export function ExecDashboard(p: {
       <ModernDashboard lp={lp} L={L} project={p.project.name} busy={p.busy} error={p.error} full={p.full} onFull={p.onFull} onReload={p.onReload} searchRef={searchRef}
         views={viewsMenu} queryControls={queryControls} designSwitch={designSwitchNode("exm-ds")} notes={notesNode} statusNote={statusNoteNode} onView={id => { setView(id); setF({ ...f, cell: [] }); }}
         chosen={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} onOpenEpic={id => { void openWorkItem(p.project.name, id); }} hist={eh.hist} histState={eh.state} histError={eh.error}
-        onReset={() => { setF(emptyXF()); setSavedId(""); }} historyError={L.historyError} dateHistAllRead={historyOn && stageDatesOn(x.stages) && stageDateFields(x.stages).every(f => !!L.history?.[f])} />
+        onReset={() => { setF(emptyXF()); setSavedId(""); }} historyError={L.historyError} dateHist={dh.hist} dateHistState={dh.state} dateHistError={dh.error} />
       {dialogNode}
     </>
   );
@@ -173,7 +176,7 @@ export function ExecDashboard(p: {
       {notesNode}
       {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
-      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} res={x.resources} hist={eh.hist} histState={eh.state} histError={eh.error} />
+      <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} res={x.resources} hist={eh.hist} histState={eh.state} histError={eh.error} stageDates={stageDatesOn(x.stages) ? { st: x.stages, typical, dateHist: dh.hist, state: dh.state, error: dh.error } : undefined} />
       {dialogNode}
     </div>
   );

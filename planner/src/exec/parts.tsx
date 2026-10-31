@@ -5,6 +5,9 @@ import { dimLabel, ExecStatus, STATUS_NAME } from "../core/executive";
 import { Hist } from "../core/history";
 import { HistoryTimeline } from "../hub/HistoryTimeline";
 import { Item, SHOWN } from "./model";
+import type { StageSettings } from "../core/stages";
+import type { DateHistState } from "./modern/stageDateUi";
+import { StageDateHistory, StageDatesSection } from "./StageDatesView";
 
 export const COLOR: Record<ExecStatus, string> = { green: "#1fae5a", amber: "#d97706", red: "#dc2626", unknown: "#94a3b8", idle: "#64748b", done: "#166534" };
 export const SYM: Record<ExecStatus, string> = { green: "●", amber: "▲", red: "!", unknown: "?", idle: "○", done: "✓" };
@@ -90,7 +93,7 @@ export function Slicer(p: { label: string; options: { value: string; count: numb
 }
 
 /** The side panel with the detail of one Epic. */
-export function Drawer(p: { item?: Item; onClose(): void; onDetails(id: number): void; day(t?: number): string; dims: string[]; res?: boolean; hist?: Hist; histState?: "ok" | "loading" | "error" | "none"; histError?: string }) {
+export function Drawer(p: { stageDates?: { st: StageSettings; typical?: Record<string, number>; dateHist?: Record<string, Hist>; state?: DateHistState; error?: string }; item?: Item; onClose(): void; onDetails(id: number): void; day(t?: number): string; dims: string[]; res?: boolean; hist?: Hist; histState?: "ok" | "loading" | "error" | "none"; histError?: string }) {
   const i = p.item;
   React.useEffect(() => { if (!i) return; const k = (e: KeyboardEvent) => { if (e.key === "Escape") p.onClose(); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [i]);   // eslint-disable-line react-hooks/exhaustive-deps
   const r = i?.r;
@@ -109,10 +112,12 @@ export function Drawer(p: { item?: Item; onClose(): void; onDetails(id: number):
           {r.declaredText && <><dt>Declared status</dt><dd>{r.declaredText}{r.compare && r.compare !== "same" ? ` · owner is more ${r.compare === "optimistic" ? "optimistic" : "cautious"} than the data` : r.compare === "same" ? " · matches the data" : ""}</dd></>}
           {r.dataStatus !== i.status && <><dt>Status from the data</dt><dd>{STATUS_NAME[r.dataStatus]}</dd></>}
           {r.limits.from.length > 0 && <><dt>Limits used</dt><dd>{r.limits.from.join("; ")}</dd></>}
+          {r.stage && <><dt>Stage</dt><dd>{r.stage}{r.stageDays !== undefined ? ` · ${r.stageDays} days` : ""}</dd></>}
           <dt>Start</dt><dd>{p.day(r.start)}</dd><dt>Go-live</dt><dd>{p.day(r.goLive)}</dd>
           <dt>Confidence</dt><dd>{r.conf === null ? "–" : r.conf + " %"}</dd>
           {r.over.length > 0 && <><dt>Over capacity</dt><dd>{r.over.join(", ")}</dd></>}
         </dl>
+        {p.stageDates && r.stageDates && <><StageDatesSection item={i} st={p.stageDates.st} day={p.day} typical={p.stageDates.typical} dateHist={p.stageDates.dateHist} state={p.stageDates.state} error={p.stageDates.error} /><StageDateHistory item={i} st={p.stageDates.st} day={p.day} dateHist={p.stageDates.dateHist} state={p.stageDates.state} error={p.stageDates.error} /></>}
         <HistoryTimeline hist={p.hist} state={p.histState ?? "loading"} error={p.histError} day={p.day} />
         <button className="btn primary" onClick={() => p.onDetails(i.id)}><IconOpen /> Open the Epic details</button>
       </>}
