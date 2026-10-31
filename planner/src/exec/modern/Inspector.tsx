@@ -16,8 +16,10 @@ export function Inspector(p: { item?: Item; lp: LP; project: string; onClose(): 
   const i = p.item, lp = p.lp, st = lp.settings.executive.stages, r = i?.r, sd = r?.stageDates;
   const names = st.stages.map(s => s.name), cur = r?.stageIdx, expected = cur !== undefined && (r?.stageLag ?? 0) > 0 ? cur + (r?.stageLag ?? 0) : undefined;
   const dates = stageDatesOn(st) && !!sd, delivered = i && lp.deliveredAt ? lp.deliveredAt[i.id] : undefined;
+  const ref = React.useRef<HTMLElement>(null);
+  React.useEffect(() => { ref.current?.scrollTo?.(0, 0); }, [i?.id]);   // each Epic opens at its top
   return (
-    <aside className={"exm-insp" + (i ? " on" : "")} aria-label="Epic details" aria-hidden={!i}>
+    <aside ref={ref} className={"exm-insp" + (i ? " on" : "")} aria-label="Epic details" aria-hidden={!i}>
       {i && r && <div className="in">
         <div className="ih"><span>#{i.id} · {i.state}</span><button type="button" className="ibt" aria-label="Close details" title="Close (Esc)" onClick={p.onClose}><IconClose /></button></div>
         <span className="exm-spill" style={{ ["--pc" as string]: COLOR[i.status] }}><Sw s={i.status} size={16} />{STATUS_NAME[i.status]}</span>

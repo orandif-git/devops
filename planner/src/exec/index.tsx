@@ -61,6 +61,6 @@ async function main() {
   await init(true);
   const project = await getProject();
   ReactDOM.render(<App projectId={project.id} projectName={project.name} />, document.getElementById("root"));
-  SDK.resize();
+  // no SDK.resize(): it fixes the frame to its size at load, which left an empty strip beside the page and kept the drawer away from the visible area; a hub page fills the frame by itself
 }
 main();
