@@ -31,6 +31,11 @@ export interface Item {
 }
 
 export const SDATE = { changed: "Dates changed", problems: "Date problems" };
+/** The “Stage dates” choices with the count each would give: Epics whose dates were changed and Epics whose dates need a look (only the parts that are switched on). */
+export function sdateOptions(lp: { all: Item[]; f: XF; settings: PlannerSettings }) {
+  const base = lp.all.filter(i => pass(i, lp.f, "sdate")), d = lp.settings.executive.stages.dates;
+  return [...(d.track ? [{ value: SDATE.changed, count: base.filter(i => i.dateEdits > 0).length }] : []), ...(d.consistency ? [{ value: SDATE.problems, count: base.filter(i => i.dateIssues > 0).length }] : [])];
+}
 export const STAGE_GAP = { ignore: "Ignored", unmapped: "Not mapped", none: "No stage" };
 export const DECL_NONE = "No RAG";
 export const DECL_ORDER = ["Check this", "Looks fine", DECL_NONE];

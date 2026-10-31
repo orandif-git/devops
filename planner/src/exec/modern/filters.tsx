@@ -1,9 +1,9 @@
 import * as React from "react";
 import { dimLabel, ExecStatus, STATUS_NAME } from "../../core/executive";
 import { stageDatesOn, stagesOn } from "../../core/stages";
-import { periodHidden, declOptions, movedOptions, optionsOf, sdateOptions } from "../layouts";
+import { periodHidden, declOptions, movedOptions, optionsOf } from "../layouts";
 import type { LP } from "../layouts";
-import { SHOWN, pass, sortQuarters } from "../model";
+import { sdateOptions, SHOWN, pass, sortQuarters } from "../model";
 import { COLOR } from "../parts";
 
 export interface FilterGroup { key: string; label: string; options: { value: string; count: number; color?: string }[]; selected: string[]; onChange(v: string[]): void; pinned: boolean }

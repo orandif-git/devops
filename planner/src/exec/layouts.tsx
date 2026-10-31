@@ -6,9 +6,10 @@ import { deltaOf, health, series, Snapshot } from "../core/snapshots";
 import { DeliveryCard } from "./Delivery";
 import { PipelineCard } from "./Pipeline";
 import { ByFieldCard } from "./ByField";
+import { StageDatesCard } from "./StageDatesCard";
 import { periodState } from "../core/execPeriod";
 import { stageDatesOn } from "../core/stages";
-import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SDATE, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
+import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, sdateOptions, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Delta, Donut, Num, PeriodSlicer, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
@@ -40,11 +41,6 @@ const MOVED_ORDER = [MOVED.recent, MOVED.later, MOVED.earlier, MOVED.often, MOVE
 export function declOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "decl")); return DECL_ORDER.map(value => ({ value, count: base.filter(i => i.decl === value).length })); }
 /** How many Epics the period leaves out only because they have no date to judge by. */
 export const periodHidden = (lp: LP) => (lp.f.period ? lp.all.filter(i => pass(i, lp.f, "period") && periodState(lp.f.period!, i.dt) === "undated").length : 0);
-/** The “Stage dates” choices with the count each would give: Epics whose dates were changed and Epics whose dates do not fit (only the parts that are switched on). */
-export function sdateOptions(lp: LP) {
-  const base = lp.all.filter(i => pass(i, lp.f, "sdate")), d = lp.settings.executive.stages.dates;
-  return [...(d.track ? [{ value: SDATE.changed, count: base.filter(i => i.dateEdits > 0).length }] : []), ...(d.consistency ? [{ value: SDATE.problems, count: base.filter(i => i.dateIssues > 0).length }] : [])];
-}
 export function movedOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "moved")); return MOVED_ORDER.map(value => ({ value, count: base.filter(i => i.moved.includes(value)).length })).filter(o => o.count > 0 || lp.f.moved.includes(o.value)); }
 
 /** All the slicers as pop-up lists (Report and Roadmap layouts). */
@@ -175,6 +171,7 @@ export function ReportLayout({ lp }: { lp: LP }) {
           <PipelineCard lp={lp} />
         </div>
       </div>
+      <StageDatesCard lp={lp} className="ex-card" />
       <DeliveryCard lp={lp} />
       <section className="ex-card"><h4>Epics <span>{items.length} of {lp.all.length}</span></h4><ItemsTable key={lp.view} lp={lp} items={items} /></section>
     </div>
