@@ -78,7 +78,7 @@ export function ProgressTab(p: { projectId: string; progress: ProgressSettings; 
         <div className="help">If you cannot change the layout, add the group yourself: {MANUAL}</div>
       </div>
       <div className="card">
-        <div className="row">
+        <div className="row popts">
           <label className="field" style={{ width: 200 }}><span>Work item type</span><select aria-label="Work item type" value={s.workItemType} onChange={e => set({ workItemType: e.target.value })}>{Array.from(new Set([s.workItemType, ...types])).map(t => <option key={t} value={t}>{t}</option>)}</select></label>
           <label className="field" style={{ width: 240 }}><span>Group name (the heading people see)</span><input aria-label="Group name" value={s.groupLabel} onChange={e => set({ groupLabel: e.target.value })} /></label>
           <label className="field" style={{ flex: 1 }}><span>States that mean delivered (comma separated)</span><input aria-label="Delivered states" key={s.doneStates.join("|")} defaultValue={s.doneStates.join(", ")} onBlur={e => set({ doneStates: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} /></label>

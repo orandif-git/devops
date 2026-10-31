@@ -6,3 +6,5 @@
 /* the stage and date editor (shared with the Executive Dashboard settings) */
 .ptab .stage-tbl { border-collapse: collapse; margin: 6px 0; } .ptab .stage-tbl th { text-align: left; font-size: 12px; color: #666; font-weight: 600; padding: 4px 18px 4px 0; } .ptab .stage-tbl td { padding: 3px 18px 3px 0; vertical-align: top; } .ptab .stage-tbl select { min-width: 200px; }
 .ptab .lk { border: 0; background: none; color: #7a1a3c; cursor: pointer; padding: 0; text-decoration: underline; font: inherit; } .ptab .rule-eg { margin: 0 0 8px 22px; }
+.hub .ptab .popts { gap: 16px; align-items: flex-end; } .hub .ptab .popts label.field { margin: 0; } .hub .ptab .popts label.field > span { margin-bottom: 3px; }
+.hub .ptab .popts label.field > input, .hub .ptab .popts label.field > select { height: 28px; box-sizing: border-box; }
