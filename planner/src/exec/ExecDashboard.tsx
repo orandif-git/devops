@@ -120,7 +120,7 @@ export function ExecDashboard(p: {
     {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
   </>;
   const chooseDesign = (d: ExecDesign) => { setDesignPick(d); keep({ ...doc, design: d }); };
-  const designSwitchNode = (cls: string) => (bothDesigns ? <div className={cls} role="tablist" aria-label="Design" title="Choose the design of the dashboard (kept for you)">{(["classic", "modern"] as const).map(d => <button key={d} role="tab" type="button" aria-selected={design === d} className={design === d ? "on" : ""} onClick={() => chooseDesign(d)}>{d === "classic" ? "Classic" : "Modern"}</button>)}</div> : null);
+  const designSwitchNode = (cls: string) => (bothDesigns ? <div className={cls} role="tablist" aria-label="Design" title="Choose the design of the dashboard (kept for you)" style={{ ["--i" as string]: design === "modern" ? 1 : 0 }}>{(["classic", "modern"] as const).map(d => <button key={d} role="tab" type="button" aria-selected={design === d} className={design === d ? "on" : ""} onClick={() => chooseDesign(d)}>{d === "classic" ? "Classic" : "Modern"}</button>)}</div> : null);
   const notesNode = (() => {                                    // data notes: one short line, counted for the Epics shown (the filters apply), details on click
       const bad = x.declaredField ? items.filter(i => i.r.declaredText && !i.r.declared) : [], vals = Array.from(new Set(bad.map(i => i.r.declaredText!))), noDate = items.filter(i => i.r.goLive === undefined).length, noProg = items.filter(i => i.r.pct === undefined).length;
       const dated = f.period ? all.filter(i => pass(i, f, "period") && periodState(f.period!, i.dt) === "undated").length : 0;
@@ -153,7 +153,7 @@ export function ExecDashboard(p: {
         <label className="ex-search"><IconSearch /><input ref={searchRef} type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /><span className="kbd" aria-hidden="true">/</span></label>
         {queryControls}
         <div className="ex-actions">
-        {designSwitchNode("ex-seg")}{viewsMenu}
+        {designSwitchNode("ex-seg two")}{viewsMenu}
         {p.onFull && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
         <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics`}>{p.busy ? "…" : <IconRefresh />}</button>
         </div>

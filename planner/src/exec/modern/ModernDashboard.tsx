@@ -40,6 +40,7 @@ export function ModernDashboard(p: ModernProps) {
   const x = lp.settings.executive, chips = chipsOf(f, setF, x.periodField ? dimLabel(x.periodField) : undefined), mainRef = React.useRef<HTMLElement>(null);
   const go = (t: Tab, status?: import("../../core/executive").ExecStatus[]) => { setTab(t); if (status) setF({ ...f, status }); mainRef.current?.scrollTo?.(0, 0); };
   React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape" && p.chosen && !more) p.onClose(); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [p.chosen, more]);   // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (lp.canSwitch && lp.view === "var") p.onView("rag"); }, [lp.view, lp.canSwitch]);   // the variance view belongs to the classic design: the modern one has the owner’s RAG and the data
   const [title, sub] = TITLES[tab];
   return (
     <div className={"ex exm" + (p.full ? " ex-full" : "")}>
@@ -55,9 +56,9 @@ export function ModernDashboard(p: ModernProps) {
       <div className="exm-fb" role="group" aria-label="Filters"><span className="lab">Filters</span>
         {pinned.map(g => <Slicer key={g.key} label={g.label} options={g.options} selected={g.selected} onChange={g.onChange} />)}
         <span className="mw"><button type="button" data-more-btn className={"exm-pb" + (more || restOn ? " on" : "")} aria-expanded={more} onClick={() => setMore(!more)}>More filters{restOn > 0 && <span className="bdg">{restOn}</span>}</button>
-          {more && <MorePanel groups={rest} extra={p.queryControls} onClose={() => setMore(false)} />}</span>
-        <i className="vr" /><PeriodSlicer value={f.period} basis={x.periodBasis} fieldLabel={x.periodField ? dimLabel(x.periodField) : undefined} hidden={periodHidden(lp)} onChange={v => setF({ ...f, period: v })} /><div className="sp" />
-        {lp.canSwitch && <><span className="lab" title="Which status the dashboard shows">Status from</span><div className="exm-per" role="tablist" aria-label="Status view">{([["rag", "Owner’s RAG"], ["data", "Data"], ["var", "Variance"]] as const).map(([id, l]) => <button key={id} role="tab" type="button" aria-selected={lp.view === id} className={lp.view === id ? "on" : ""} onClick={() => p.onView(id)}>{l}</button>)}</div></>}
+          {more && <MorePanel groups={rest} onClose={() => setMore(false)} />}</span>
+        <i className="vr" />{p.queryControls}<PeriodSlicer value={f.period} basis={x.periodBasis} fieldLabel={x.periodField ? dimLabel(x.periodField) : undefined} hidden={periodHidden(lp)} onChange={v => setF({ ...f, period: v })} /><div className="sp" />
+        {lp.canSwitch && <><span className="lab" title="Which status the dashboard shows">Status from</span><div className="exm-per" role="tablist" aria-label="Status view">{([["rag", "Owner’s RAG"], ["data", "Data"]] as const).map(([id, l]) => <button key={id} role="tab" type="button" aria-selected={lp.view === id} className={lp.view === id ? "on" : ""} onClick={() => p.onView(id)}>{l}</button>)}</div></>}
       </div>
       <div className="exm-body">
         <main className={"exm-main" + (p.chosen ? " ins" : "")} ref={mainRef}>

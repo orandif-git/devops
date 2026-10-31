@@ -217,8 +217,8 @@ describe("Executive dashboard page", () => {
     const one = [{ week: "2026-10-26", at: "2026-10-28T08:00:00Z", total: 8, progress: 50, late: 1, due30: 1, hold: 0, green: 2, amber: 1, red: 3, idle: 1, unknown: 0, done: 1 }];
     const h = document.createElement("div"); document.body.appendChild(h);
     act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={settings} loaded={{ ...(loaded as object), snapshots: one } as never} busy={false} error="" onReload={() => undefined} />, h); });
-    expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("trend starts next week");
-    expect(h.querySelector(".ex-kpi:not(.hero) .ex-delta")!.textContent).toContain("trend starts next week");
+    expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("trend appears next week");
+    expect(h.querySelector(".ex-kpi:not(.hero) .ex-delta")!.textContent).toContain("trend appears next week");
     type(h, "basel"); expect(h.querySelector(".ex-kpi.hero")!.textContent).toContain("trend: whole portfolio");       // filtered: say why there is no trend
     const two = [{ ...one[0], week: "2026-10-19", rebuilt: true }, ...one];
     const h2 = document.createElement("div"); document.body.appendChild(h2);
@@ -623,6 +623,15 @@ describe("Designs: classic and modern", () => {
     const pinned = Array.from(h.querySelectorAll(".exm-fb .ex-chip")).map(b => b.textContent); expect(pinned.join("|")).toContain("Status"); expect(h.querySelector(".exm-more")).toBeNull();
     act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("State"); expect(panel.textContent).toContain("Go-live");
     act(() => { Simulate.click(Array.from(panel.querySelectorAll("button.c")).find(b => b.textContent!.startsWith("Active"))!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("Active"); expect(h.querySelector("[data-more-btn] .bdg")!.textContent).toBe("1");
+  });
+  it("the modern design has the Epics from filter in the filter bar and no Variance view; the classic design switch has two equal buttons", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined };
+    const st = normalizeSettings({ ...settings, executive: { ...settings.executive, declaredField: "Custom.RAG", statusSource: "rag-check", designs: { classic: true, modern: true, default: "modern" } } });
+    const h = document.createElement("div"); document.body.appendChild(h);
+    await act(async () => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} queries={[{ id: "q1", name: "All", path: "Shared/All" } as never]} queryId="" onQuery={() => undefined} />, h); });
+    expect(h.querySelector('.exm-fb select[aria-label="Epics from"]')).not.toBeNull();
+    expect(Array.from(h.querySelectorAll('.exm-fb [aria-label="Status view"] button')).map(b => b.textContent)).toEqual(["Owner’s RAG", "Data"]);
+    await act(async () => { Simulate.click(design(h, "Classic")); }); expect(h.querySelector('.ex-seg.two[aria-label="Design"]')).not.toBeNull(); expect(h.querySelectorAll('.ex-seg.two[aria-label="Design"] button').length).toBe(2);
   });
   it("shows the pipeline and insights pages", async () => {
     store.doc = { views: [], defaultId: undefined, design: undefined }; const h = await mountA(withDesigns({ classic: false, modern: true }));

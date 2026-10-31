@@ -66,7 +66,7 @@ const Kpi = (p: { label: React.ReactNode; value: number | string; detail: React.
 function KpiRow({ lp }: { lp: LP }) {
   const base = lp.all.filter(i => pass(i, lp.f, "status")), c = byStatus(base), snaps = lp.snaps ?? [];
   const whole = isEmpty({ ...lp.f, status: [] }), trend = snaps.length > 0 && lp.all.length > 0 && whole, wait = snaps.length < 2 && lp.all.length > 0 && whole, rebuilt = snaps.some(x => x.rebuilt);
-  const hint = wait ? <span className="ex-delta flat" title="The change since last week appears once there are two weeks to compare"><span className="vs">trend starts next week</span></span> : !whole && lp.all.length > 0 ? <span className="ex-delta flat" title="Trends are kept for the whole portfolio; clear the filters to see them"><span className="vs">trend: whole portfolio</span></span> : undefined;
+  const hint = wait ? <span className="ex-delta flat" title="The change since last week appears once there are two weeks to compare"><span className="vs">trend appears next week</span></span> : !whole && lp.all.length > 0 ? <span className="ex-delta flat" title="Trends are kept for the whole portfolio; clear the filters to see them"><span className="vs">trend: whole portfolio</span></span> : undefined;
   const score = health(c), act = base.length - c.idle;
   const R = 44, C = Math.PI * R, prevScore = snaps.length > 1 ? health(snaps[snaps.length - 2]) : undefined;
   return (

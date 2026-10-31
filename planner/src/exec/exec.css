@@ -240,3 +240,6 @@ tr.ex-row td { transition: background .15s; } tr.ex-row:hover td:first-child { b
 .ex-gap { border: 0; background: none; padding: 0; font: inherit; color: #7a1a3c; cursor: pointer; text-decoration: underline dotted; } .ex-gap.on { font-weight: 700; text-decoration: underline; }
 @media (max-width: 900px) { .ex-pipe { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important; } .ex-pcol .pk > div { min-width: 0; } .ex-bfh .sp { display: none; } }
 @media (max-width: 1100px) { .ex-byfield .ex-bfb { height: auto; max-height: none; overflow: visible; } .ex-vtable { height: auto; } }
+
+/* the two-button design switch of the classic toolbar: two equal columns, the sliding mark half the width */
+.ex-seg.two { grid-template-columns: repeat(2, 1fr); } .ex-seg.two::before { width: calc((100% - 6px) / 2); }
