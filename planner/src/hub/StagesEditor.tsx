@@ -3,7 +3,7 @@ import { PlannerSettings } from "../core/types";
 import { IGNORE, looksLikeRag, parseStageNames, SDLC_STAGES, StageDateDef, StageDateSettings, StageSettings, stagesOn, suggestMap, withStageNames } from "../core/stages";
 import { isCategoryType, isDateType } from "../core/fieldTypes";
 import { FieldInfo, listFieldValues, listStates } from "../data/fields";
-import { FieldPick } from "./SettingsTab";
+import { FieldPick } from "./FieldPick";
 
 const SRC: [StageSettings["source"], string][] = [["field", "A field"], ["state", "The state"], ["both", "Field, then the state"]];
 const pct = (v: string) => Math.max(0, Math.min(100, Number(v) || 0));

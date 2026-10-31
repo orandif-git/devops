@@ -1,0 +1,8 @@
+.ptab .swrow { display: flex; gap: 8px; align-items: center; margin: 2px 0 6px; }
+.ptab .pstat { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin: 8px 0; } .ptab .pstat > div { background: var(--bg-2, #f4f4f6); padding: 8px 10px; border-radius: 4px; } .ptab .pstat span { display: block; font-size: 11.5px; color: #666; } .ptab .pstat b { display: block; font-weight: 600; margin: 2px 0; } .ptab .pstat b.ok { color: #166534; } .ptab .pstat small { color: #666; font-size: 12px; }
+.ptab .pdlg { border: 1px solid #cfcfd4; border-radius: 6px; padding: 12px 14px; margin: 10px 0; background: #fff; box-shadow: 0 6px 20px rgba(0,0,0,.08); max-width: 640px; } .ptab .pdlg h4 { margin: 0 0 6px; } .ptab .pdlg p { margin: 0 0 8px; }
+.ptab .pwarn { background: #fff7e6; border: 1px solid #fde1a8; border-radius: 4px; padding: 7px 10px; margin: 6px 0; }
+.ptab .ok { color: #166534; }
+/* the stage and date editor (shared with the Executive Dashboard settings) */
+.ptab .stage-tbl { border-collapse: collapse; margin: 6px 0; } .ptab .stage-tbl th { text-align: left; font-size: 12px; color: #666; font-weight: 600; padding: 4px 18px 4px 0; } .ptab .stage-tbl td { padding: 3px 18px 3px 0; vertical-align: top; } .ptab .stage-tbl select { min-width: 200px; }
+.ptab .lk { border: 0; background: none; color: #7a1a3c; cursor: pointer; padding: 0; text-decoration: underline; font: inherit; } .ptab .rule-eg { margin: 0 0 8px 22px; }

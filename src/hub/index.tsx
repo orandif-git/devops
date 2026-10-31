@@ -13,6 +13,8 @@ import { CascadesTab } from "./CascadesTab";
 import { GridsTab } from "./GridsTab";
 import { MappingsTab } from "./MappingsTab";
 import { ReadOnlyTab } from "./ReadOnlyTab";
+import { ProgressTab } from "./ProgressTab";
+import { defaultProgress } from "../core/progress";
 import { RulesTab } from "./RulesTab";
 import { Ctx } from "./ui";
 import { writtenFields } from "../core/written";
@@ -196,7 +198,7 @@ function Hub(props: { projectId: string; projectName: string }) {
           );
         })()}
         <div className="tabs" role="tablist">
-          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["controls", `Controls${(config.controls ?? []).some(r => r.enabled) ? ` (${(config.controls ?? []).filter(r => r.enabled).length} on)` : ""}`], ["backup", "Backup & restore"], ["audit", "Audit log"], ["security", "Security"], ["diagnostics", "Diagnostics"], ["json", "JSON"]] as [Tab, string][])
+          {([["grids", `Grids (${Object.keys(config.grids).length})`], ["calcs", `Calculations (${(config.calculations ?? []).length})`], ["capacity", "Capacity"], ["rules", `Rules (${config.rules.length})`], ["cascades", `Dependent dropdowns (${config.cascades.length})`], ["mappings", `Mappings (${Object.keys(config.lookups ?? {}).length})`], ["readonly", `Read-only fields (${writtenFields(config).length})`], ["controls", `Controls${(config.controls ?? []).some(r => r.enabled) ? ` (${(config.controls ?? []).filter(r => r.enabled).length} on)` : ""}`], ["progress", `Delivery progress${config.progress?.enabled ? " (on)" : ""}`], ["backup", "Backup & restore"], ["audit", "Audit log"], ["security", "Security"], ["diagnostics", "Diagnostics"], ["json", "JSON"]] as [Tab, string][])
             .map(([t, l]) => {
               const m = /^(.*?)\s*\((.+)\)$/.exec(l);             // "Grids (2)" → name + small count badge
               return <button key={t} role="tab" aria-selected={tab === t} className={"tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{m ? m[1] : l}{m && <span className="tc">{m[2]}</span>}</button>;
@@ -211,6 +213,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         {tab === "readonly" && <ReadOnlyTab config={config} />}
         {tab === "capacity" && <CapacityTab projectId={props.projectId} />}
         {tab === "controls" && <CommentOnlyTab value={config.controls} onChange={controls => setConfig({ ...config, controls })} />}
+        {tab === "progress" && <ProgressTab projectId={props.projectId} progress={config.progress ?? defaultProgress()} onChange={progress => setConfig({ ...config, progress })} />}
         {tab === "backup" && <BackupTab projectId={props.projectId} projectName={props.projectName} dirty={dirty} onRestored={() => setAttempt(a => a + 1)} />}
         {tab === "security" && <SecurityTab />}
         {tab === "diagnostics" && <DiagnosticsTab />}

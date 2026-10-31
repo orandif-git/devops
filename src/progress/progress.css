@@ -1,0 +1,13 @@
+/* The Delivery progress control: flat, one line, under the group heading that Azure DevOps draws. Light appearance only. */
+body { margin: 0; background: transparent; font: 13px/1.4 "Segoe UI", -apple-system, system-ui, sans-serif; color: #1b1b1b; }
+.dp { padding: 2px 0 6px; } .dp-row { display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; } .dp-steps { display: flex; align-items: center; flex-wrap: nowrap; }
+.dp-st { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #616161; position: relative; white-space: nowrap; cursor: default; }
+.dp-st i { width: 18px; height: 18px; border-radius: 50%; background: #e5e5ea; color: #fff; font: 700 10px "Segoe UI", system-ui, sans-serif; font-style: normal; display: grid; place-items: center; flex: none; }
+.dp-ln { width: 26px; height: 3px; background: #e5e5ea; margin: 0 8px; flex: none; border-radius: 2px; } .dp-ln.on { background: #7a1a3c; } .dp-ln.sk { background: repeating-linear-gradient(90deg, #d1d1d6 0 4px, transparent 4px 8px); }
+.dp-st.done i { background: #7a1a3c; } .dp-st.cur { color: #1b1b1b; font-weight: 600; } .dp-st.cur i { background: #7a1a3c; box-shadow: 0 0 0 3px rgba(122,26,60,.2); }
+.dp-st.skip i { background: #fff; border: 2px dashed #b8b8c0; color: #999; } .dp-st.rework i { background: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.22); } .dp-st.bad i { box-shadow: 0 0 0 2px rgba(220,38,38,.3); }
+.dp-sp { flex: 1; } .dp-chips { display: flex; align-items: center; gap: 8px; margin-left: 12px; }
+.dp-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; } .dp-chip.t { background: #f3eef0; color: #7a1a3c; } .dp-chip.w { background: #fef3c7; color: #92400e; } .dp-chip.r { background: #fee2e2; color: #b91c1c; } .dp-chip.g { background: #dcfce7; color: #166534; }
+.dp-tip { display: none; position: absolute; z-index: 20; top: 24px; left: 0; width: 190px; background: #1b1b1b; color: #fff; border-radius: 6px; padding: 8px 10px; font-size: 12px; font-weight: 400; white-space: normal; box-shadow: 0 8px 24px rgba(0,0,0,.3); } .dp-tip b { display: block; font-weight: 600; margin-bottom: 2px; } .dp-tip span { display: block; color: #d2d2d6; }
+.dp-st:hover .dp-tip, .dp-st:focus .dp-tip { display: block; }
+.dp-note { margin-top: 6px; font-size: 12px; color: #616161; } .dp-flags { margin-top: 6px; display: grid; gap: 4px; } .dp-flag { display: flex; gap: 8px; border-radius: 4px; padding: 5px 9px; font-size: 12.5px; background: #fff7e6; border: 1px solid #fde1a8; } .dp-flag.r { background: #fef2f2; border-color: #fecaca; }

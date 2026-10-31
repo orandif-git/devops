@@ -61,6 +61,10 @@
 - Heatmap, resource timeline, Epic Gantt, three dashboard widgets (utilization, over capacity, team map), Diagnostics tab, keyboard-accessible tabs, Marketplace page. Read-only (`vso.work`, `vso.project`). Pilot checklist: `docs/planner-pilot-checklist.md`.
 
 ## 2.2.0 (next)
+**Delivery progress (new, off by default)**
+- A compact, read-only stepper of the delivery stages with their dates, as the first group of the Epic form (hover a step for start, end and duration; "N d in <stage>"; "✓ Delivered"; a ⚠ chip when the dates do not fit). It is drawn by a new work item form control and never makes the work item unsaved.
+- New **Delivery progress** tab in the settings: one switch adds or removes the whole group in the Epic layout through the process API, so when it is off nothing is shown (no heading, no message). The confirmation names the shared process and every project that uses it. Stage and date mapping is set once there, the same "Starts when / Ends when" setup as the Executive Dashboard. Works on inherited processes only; the manual layout-editor steps are shown for anything else.
+- Needs the new scope `vso.work_full` (process layout edit): an administrator must re-authorize the extension after updating. The process layout calls have not been verified against a live organization yet, so check the switch in a test project first.
 **Resource Capacity**
 - Automatic grids such as Resource Capacity show read-only cells as plain text (nothing cut off, numbers right-aligned under their headings, people shown by name with the full address on hover).
 - Rows with hours on other Epics get a ▸ expander: it opens the list of those Epics right under the row (id chip, title, hours lined up under "Hours (other Epics)", each Epic's share of the person's available hours, and a total), with Expand all / Collapse all; the filter also finds Epics by title and a click opens the Epic. Read-only; exports stay flat rows.

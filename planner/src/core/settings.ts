@@ -50,7 +50,7 @@ export function normDesigns(raw: unknown): DesignSettings {
   const want = r.default === "modern" ? "modern" : "classic";
   return { classic, modern, default: want === "modern" && modern ? "modern" : want === "classic" && classic ? "classic" : modern && !classic ? "modern" : "classic" };
 }
-function normStages(raw: unknown): ExecSettings["stages"] {
+export function normStages(raw: unknown): ExecSettings["stages"] {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultStages();
   const n = (v: unknown, fb: number, lo: number, hi: number) => (typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : fb);
   const seen = new Set<string>();

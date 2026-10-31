@@ -44,7 +44,8 @@
   },
   "scopes": [
     "vso.work_write",
-    "vso.project"
+    "vso.project",
+    "vso.work_full"
   ],
   "files": [
     {
@@ -178,6 +179,19 @@
             }
           }
         ]
+      }
+    },
+    {
+      "id": "delivery-progress",
+      "type": "ms.vss-work-web.work-item-form-control",
+      "description": "A compact, read-only stepper of the delivery stages (Design, Development, SIT, UAT, Deployment) with the dates of each stage. Set up under Project settings \u2192 Grid & Rules \u2192 Delivery progress.",
+      "targets": [
+        "ms.vss-work-web.work-item-form"
+      ],
+      "properties": {
+        "name": "Delivery progress",
+        "uri": "dist/progress/index.html",
+        "height": 46
       }
     },
     {

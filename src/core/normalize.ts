@@ -1,3 +1,4 @@
+import { normProgress } from "./progress";
 import { DEFAULT_STATUSES } from "./review";
 import { GridConfig, ProjectConfig, ReviewConfig } from "./types";
 import { readControls } from "./commentOnly";
@@ -36,5 +37,6 @@ export function normalizeProject(c: ProjectConfig): ProjectConfig {
   const controls = readControls(c);
   if (controls !== undefined) out.controls = controls;
   delete out.commentOnly;                                   // converted into a rule
+  if (c.progress !== undefined) out.progress = normProgress(c.progress);
   return out;
 }

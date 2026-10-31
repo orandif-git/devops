@@ -1,3 +1,4 @@
+import type { ProgressSettings } from "./progress";
 export type ColumnType = "string" | "number" | "boolean" | "date" | "dropdown" | "identity" | "calculated";
 export type StatusColor = "green" | "yellow" | "orange" | "red" | "blue" | "gray";
 
@@ -321,6 +322,8 @@ export interface LookupTable {
 
 export interface ProjectConfig {
   version: 1;
+  /** the Delivery progress control on the work item form (stages and dates, and whether it is on) */
+  progress?: ProgressSettings;
   /** shared mappings referenced by grid columns (ColumnDef.lookup.table) */
   lookups: Record<string, LookupTable>;
   rules: Rule[];
