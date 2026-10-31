@@ -1,7 +1,7 @@
 import * as React from "react";
 import { IconClose, IconDown, IconPlus, IconSearch, IconTrash, IconUp } from "./icons";
 import { isCategoryType, isDateType, isNumberType } from "../core/fieldTypes";
-import { validateExec } from "../core/settings";
+import { normDesigns, validateExec } from "../core/settings";
 import { CHART_TYPES, ChartType, ExecSettings as Exec, GridSource, PlannerSettings, ProgressSource, TeamRef, ThresholdRule } from "../core/types";
 import { FieldInfo } from "../data/fields";
 import { sampleGrid } from "../data/sample";
@@ -57,9 +57,15 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
       <section className="set-sec">
         <h4><span className="num">1</span> Dashboard</h4>
         <div className="why">Turn the board on, choose the layout it opens in and who can open it.</div>
+      <div className="help"><b>Dashboard design</b>. Classic is the current dashboard and stays as it is. Modern is a newer desktop design with a toolbar, a filter bar, Overview / Pipeline / Epics / Insights pages and an Epic panel. Turn on one or both: with both on, each person chooses in the dashboard (remembered per person) and the one below is where they start; with only one on, everyone gets that one.</div>
+      <div className="row" style={{ alignItems: "center" }}>
+        <label style={{ marginRight: 16 }}><input type="checkbox" checked={x.designs.classic} disabled={x.designs.classic && !x.designs.modern} onChange={e => setX({ designs: normDesigns({ ...x.designs, classic: e.target.checked }) })} /> Classic design</label>
+        <label style={{ marginRight: 16 }}><input type="checkbox" checked={x.designs.modern} disabled={x.designs.modern && !x.designs.classic} onChange={e => setX({ designs: normDesigns({ ...x.designs, modern: e.target.checked }) })} /> Modern design</label>
+        {x.designs.classic && x.designs.modern && <label className="field" style={{ width: 220 }}><span>People start with</span><select aria-label="Design people start with" value={x.designs.default} onChange={e => setX({ designs: { ...x.designs, default: e.target.value as "classic" | "modern" } })}><option value="classic">Classic</option><option value="modern">Modern</option></select></label>}
+      </div>
       <label className="field" style={{ width: 240 }}><span>Layout the dashboard opens in</span>
         <select value={x.layout} onChange={ev => setX({ layout: ev.target.value as Exec["layout"] })}><option value="report">Report (charts and table)</option><option value="map">Portfolio map</option><option value="roadmap">Roadmap</option></select></label>
-      <div className="help">Everyone can switch layout on the dashboard; the last layout a person used is remembered for them in their saved views.</div>
+      <div className="help">Everyone can switch layout on the dashboard; the last layout a person used is remembered for them in their saved views. Report, Portfolio map and Roadmap belong to the Classic design; the Modern design has its own pages (Overview, Pipeline, Epics, Insights).</div>
       <div className="help" style={{ marginTop: 10 }}><b>Who can open the Executive Dashboard</b>: members of these teams and project administrators. Leave empty to use the same people as the Resource Planner’s Access teams (Settings › General). This is a display rule, not access control: Azure DevOps still trims the Epics each person can read.</div>
       <Chips all={p.teams} value={x.accessTeams} onChange={v => setX({ accessTeams: v })} />
       <div className="help" style={{ marginTop: 10 }}><b>Period filter</b>: a “Period” pill in the filters narrows the dashboard to a stretch of time. “All time” stays the default unless you choose a period here.</div>

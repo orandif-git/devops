@@ -5,10 +5,11 @@ import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
 vi.mock("../src/shared/ado", () => ({ downloadFile: () => undefined, getProject: () => Promise.resolve({ id: "P", name: "Proj" }) }));
 vi.mock("../planner/src/data/related", () => ({ loadRelated: () => Promise.resolve({ parent: undefined, children: [], related: [] }) }));
-const store = vi.hoisted(() => ({ doc: { views: [] as unknown[], defaultId: undefined as string | undefined } }));
+const store = vi.hoisted(() => ({ doc: { views: [] as unknown[], defaultId: undefined as string | undefined, design: undefined as string | undefined } }));
 vi.mock("../planner/src/data/execViewStore", async () => { const real = await vi.importActual<typeof import("../planner/src/data/execViewStore")>("../planner/src/data/execViewStore").catch(() => ({} as never)); return { ...real, loadExecViews: async () => JSON.parse(JSON.stringify(store.doc)), saveExecViews: async (_p: string, d: typeof store.doc) => { store.doc = JSON.parse(JSON.stringify(d)); } }; });
 vi.mock("../planner/src/data/share", () => ({ linkFor: async (t: string) => "https://host/hub?pv=" + t + "&full=1", readLink: async () => ({ full: false }), setHostFullScreen: async () => undefined }));
-vi.mock("../planner/src/data/open", () => ({ openWorkItem: () => undefined }));
+const opened = vi.hoisted(() => vi.fn());
+vi.mock("../planner/src/data/open", () => ({ openWorkItem: opened }));
 vi.mock("../src/shared/capacityStore", () => ({ listTeams: () => Promise.resolve([]) }));
 vi.mock("../planner/src/rest", () => ({ restGet: () => Promise.resolve({ value: [] }), restPost: () => Promise.resolve({ value: [] }) }));
 import { buildExec } from "../planner/src/core/executive";
@@ -581,5 +582,51 @@ describe("Delivery pipeline gaps", () => {
     const h = document.createElement("div"); document.body.appendChild(h); act(() => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); });
     const g = h.querySelector(".ex-gap")!; expect(g.textContent).toContain("ignored"); const all = h.querySelectorAll("tr.ex-row").length;
     act(() => { Simulate.click(g); }); expect(h.querySelector(".ex-chips")!.textContent).toContain("Stage: Ignored"); const n = h.querySelectorAll("tr.ex-row").length; expect(n).toBeGreaterThan(0); expect(n).toBeLessThan(all);
+  });
+});
+
+describe("Designs: classic and modern", () => {
+  const loaded = { epics, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: new Date().toISOString(), load: { ms: 10 } } as never;
+  const withDesigns = (d: Record<string, unknown>) => normalizeSettings({ ...settings, executive: { ...settings.executive, designs: d } });
+  const mountA = async (st: typeof settings) => { const h = document.createElement("div"); document.body.appendChild(h); await act(async () => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={st} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); }); return h; };
+  const tab = (h: HTMLElement, n: string) => Array.from(h.querySelectorAll(".exm-tb [role=tab]")).find(b => b.textContent === n)! as HTMLElement;
+  const design = (h: HTMLElement, n: string) => Array.from(h.querySelectorAll('[aria-label="Design"] button')).find(b => b.textContent === n)! as HTMLElement;
+  it("keeps the classic design for everyone unless the administrator turns the modern one on", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = await mountA(settings);
+    expect(h.querySelector(".ex-bar")).not.toBeNull(); expect(h.querySelector(".exm")).toBeNull(); expect(h.querySelector('[aria-label="Design"]')).toBeNull();
+  });
+  it("with only the modern design on, everyone gets it and there is nothing to switch", async () => {
+    store.doc = { views: [], defaultId: undefined, design: "classic" }; const h = await mountA(withDesigns({ classic: false, modern: true }));
+    expect(h.querySelector(".exm")).not.toBeNull(); expect(h.querySelector(".ex-bar")).toBeNull(); expect(h.querySelector('[aria-label="Design"]')).toBeNull();     // a stored personal choice does not override the administrator
+    expect(Array.from(h.querySelectorAll(".exm-tb [role=tab]")).map(b => b.textContent)).toEqual(["Overview", "Pipeline", "Epics", "Insights"]);
+  });
+  it("with both on, people start where the administrator says, can switch, and the choice is kept for them", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; let h = await mountA(withDesigns({ classic: true, modern: true, default: "classic" }));
+    expect(h.querySelector(".ex-bar")).not.toBeNull(); expect(design(h, "Classic").getAttribute("aria-selected")).toBe("true");
+    await act(async () => { Simulate.click(design(h, "Modern")); }); expect(h.querySelector(".exm")).not.toBeNull(); expect(store.doc.design).toBe("modern");
+    await act(async () => { Simulate.click(design(h, "Classic")); }); expect(h.querySelector(".ex-bar")).not.toBeNull(); expect(store.doc.design).toBe("classic");
+    store.doc = { views: [], defaultId: undefined, design: "modern" }; h = await mountA(withDesigns({ classic: true, modern: true, default: "classic" })); expect(h.querySelector(".exm")).not.toBeNull();      // a returning person gets their choice
+    store.doc = { views: [], defaultId: undefined, design: undefined }; h = await mountA(withDesigns({ classic: true, modern: true, default: "modern" })); expect(h.querySelector(".exm")).not.toBeNull();
+  });
+  it("the modern design shows the same Epics: status cards filter, the table opens the Epic panel, and Open Epic opens the work item", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = await mountA(withDesigns({ classic: false, modern: true }));
+    expect(h.querySelector(".exm-card.hero")!.textContent).toContain("Portfolio health"); expect(h.querySelectorAll(".exm-sc").length).toBe(5);
+    act(() => { Simulate.click(h.querySelector(".exm-sc")!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("On track");
+    act(() => { Simulate.click(h.querySelector(".exm-chips button")!); });
+    act(() => { Simulate.click(tab(h, "Epics")); }); const rows = h.querySelectorAll(".exm-t tr.rw").length; expect(rows).toBe(8);
+    act(() => { Simulate.click(h.querySelector(".exm-t tr.rw")!); }); const insp = h.querySelector(".exm-insp.on")!; expect(insp.textContent).toContain("Open Epic"); expect(insp.textContent).not.toContain("Open in Azure DevOps");
+    act(() => { Simulate.click(Array.from(insp.querySelectorAll("button")).find(b => b.textContent!.includes("Open Epic"))!); }); expect(opened).toHaveBeenCalledWith("Proj", expect.any(Number));
+    act(() => { Simulate.click(insp.querySelector('button[aria-label="Close details"]')!); }); expect(h.querySelector(".exm-insp.on")).toBeNull();
+  });
+  it("the modern design has the same filters: pinned ones in the bar, the rest under More filters", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = await mountA(withDesigns({ classic: false, modern: true }));
+    const pinned = Array.from(h.querySelectorAll(".exm-fb .ex-chip")).map(b => b.textContent); expect(pinned.join("|")).toContain("Status"); expect(h.querySelector(".exm-more")).toBeNull();
+    act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("State"); expect(panel.textContent).toContain("Go-live");
+    act(() => { Simulate.click(Array.from(panel.querySelectorAll("button.c")).find(b => b.textContent!.startsWith("Active"))!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("Active"); expect(h.querySelector("[data-more-btn] .bdg")!.textContent).toBe("1");
+  });
+  it("shows the pipeline and insights pages", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = await mountA(withDesigns({ classic: false, modern: true }));
+    act(() => { Simulate.click(tab(h, "Pipeline")); }); expect(h.querySelector(".ex-pipeline")).not.toBeNull();
+    act(() => { Simulate.click(tab(h, "Insights")); }); expect(h.querySelector(".ex-byfield")).not.toBeNull();
   });
 });

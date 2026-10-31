@@ -132,6 +132,8 @@ export interface ExecSettings {
   enabled: boolean;
   /** Epic fields that classify an Epic (for example Project type, Regulatory); each can be filtered and asked about */
   categoryFields: string[];
+  /** which looks of the Executive Dashboard are on: the Classic one (always the default for existing setups) and the Modern one; with both on, each person can choose */
+  designs: DesignSettings;
   /** the chart each category field opens with in the By-field card (Auto picks from the number of values) */
   chartTypes: Record<string, ChartType>;
   /** the go-live date field (empty = the Epic target-date field) */
@@ -190,10 +192,13 @@ export interface ExecSettings {
   formulas: ExecFormula[];
 }
 
+export type ExecDesign = "classic" | "modern";
+export interface DesignSettings { classic: boolean; modern: boolean; /** the one people start with (and the one used when only one is on) */ default: ExecDesign }
+export const defaultDesigns = (): DesignSettings => ({ classic: true, modern: false, default: "classic" });
 export type ChartType = "auto" | "bars" | "table";
 export const CHART_TYPES: ChartType[] = ["auto", "bars", "table"];
 export const defaultExec = (): ExecSettings => ({
-  enabled: false, layout: "report", categoryFields: [], chartTypes: {}, goLiveField: "", progress: [],
+  enabled: false, layout: "report", categoryFields: [], designs: defaultDesigns(), chartTypes: {}, goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
   advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
   tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], ragNone: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], periodBasis: "active", periodField: "", periodDefault: "", stages: defaultStages(), delivery: { enabled: true, source: "history", dateField: "", graceDays: 0, severeDays: 30, predictDays: 14, quarters: 6, recent: 4, show: ["rate", "late", "delivered", "predict", "chart", "delays"] }, resources: false,

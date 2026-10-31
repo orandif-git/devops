@@ -6,7 +6,7 @@ import { fmtDate } from "../core/dates";
 import { buildExec, dayText, dimFields, dimLabel, withSource } from "../core/executive";
 import { catalog, calcKey, formatCell, runQuery } from "../core/execQuery";
 import { monthsOfPeriod } from "../core/period";
-import { ExecLayout, PlannerSettings } from "../core/types";
+import { ExecDesign, ExecLayout, PlannerSettings } from "../core/types";
 import { decodeJson, encodeJson, newViewId } from "../core/views";
 import { LoadProgress } from "../data/epics";
 import { Loaded } from "../data/loadAll";
@@ -20,6 +20,8 @@ import { buildItems, chipsOf, emptyXF, isEmpty, Item, pass, XF } from "./model";
 import { Drawer, motionOk } from "./parts";
 import { makePeriod, periodLabel, periodState } from "../core/execPeriod";
 import { useEpicHistory } from "../hub/HistoryTimeline";
+import { openWorkItem } from "../data/open";
+import { ModernDashboard } from "./modern/ModernDashboard";
 
 const LAYOUTS: { id: ExecLayout; label: string; icon: React.ReactNode }[] = [{ id: "report", label: "Report", icon: <IconReport /> }, { id: "map", label: "Portfolio map", icon: <IconMap /> }, { id: "roadmap", label: "Roadmap", icon: <IconRoadmap /> }];
 const strip = (f: XF): XF => ({ ...f, saved: undefined, savedName: undefined });
@@ -43,6 +45,10 @@ export function ExecDashboard(p: {
   const view: "rag" | "data" | "var" = canSwitch ? (viewPick || defaultView) : defaultView;
   const density = "compact" as const;                // one compact spacing for everyone
   const searchRef = React.useRef<HTMLInputElement>(null);
+  // which design: the administrator turns on Classic, Modern or both; with both on, each person chooses and it is remembered for them
+  const dz = x.designs, bothDesigns = dz.classic && dz.modern;
+  const [designPick, setDesignPick] = React.useState<ExecDesign | "">("");
+  const design: ExecDesign = bothDesigns ? (designPick || dz.default) : dz.modern ? "modern" : "classic";
   const [sel, setSel] = React.useState<number>();
   const [dialog, setDialog] = React.useState<number>();
   const fields = dimFields(p.settings);
@@ -81,11 +87,11 @@ export function ExecDashboard(p: {
   React.useEffect(() => {
     if (started.current) return; started.current = true;
     const shared = p.link?.pv ? decodeJson(p.link.pv) : undefined;
-    loadExecViews(p.project.id, x.layout).then(d => { setDoc(d); const d0 = d.views.find(v => v.id === d.defaultId); if (!shared && d0) apply(d0.state); }).catch(e => setViewErr("Could not read your saved views: " + (e as Error).message));
+    loadExecViews(p.project.id, x.layout).then(d => { setDoc(d); if (d.design) setDesignPick(d.design); const d0 = d.views.find(v => v.id === d.defaultId); if (!shared && d0) apply(d0.state); }).catch(e => setViewErr("Could not read your saved views: " + (e as Error).message));
     if (shared) apply(shared);
     if (p.link?.full) p.onFull?.(true);
   }, []);   // eslint-disable-line react-hooks/exhaustive-deps
-  const keep = (next: ExecViewDoc) => { const prev = doc; setDoc(next); setViewErr(""); saveExecViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
+  const keep = (n0: ExecViewDoc) => { const next: ExecViewDoc = { ...n0, ...(designPick && n0.design === undefined ? { design: designPick } : {}) }; const prev = doc; setDoc(next); setViewErr(""); saveExecViews(p.project.id, next).catch(e => { setDoc(prev); setViewErr("Could not save: " + (e as Error).message); }); };
   const sub = (v: ExecView) => LAYOUTS.find(l => l.id === v.state.layout)?.label;
   React.useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "/" && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement?.tagName ?? ""))) { e.preventDefault(); searchRef.current?.focus(); } if (e.key === "Escape" && !sel && p.full) p.onFull?.(false); }; document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k); }, [sel, p.full]);   // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -102,6 +108,42 @@ export function ExecDashboard(p: {
     </div>
   );
   const chips = chipsOf(fx, change, x.periodField ? dimLabel(x.periodField) : undefined);
+  const viewsMenu = (
+    <ViewsMenu views={doc.views.map(v => ({ id: v.id, name: v.name, sub: sub(v) }))} defaultId={doc.defaultId} error={viewErr}
+      onApply={id => { const v = doc.views.find(y => y.id === id); if (v) apply(v.state); }} onSave={name => keep({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
+      onUpdate={id => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })} onRename={(id, name) => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
+      onDelete={id => keep({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })} onDefault={id => keep({ ...doc, defaultId: id })}
+      onReset={() => { setF({ ...emptyXF(), chart: f.chart, period: defaultPeriod }); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+  );
+  const queryControls = <>
+    {saved.length > 0 && <label className="ex-chip sel"><span className="k">Saved filter</span><select aria-label="Saved filter" value={savedId} onChange={e => setSavedId(e.target.value)}><option value="">None</option>{saved.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}</select></label>}
+    {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
+  </>;
+  const chooseDesign = (d: ExecDesign) => { setDesignPick(d); keep({ ...doc, design: d }); };
+  const designSwitchNode = (cls: string) => (bothDesigns ? <div className={cls} role="tablist" aria-label="Design" title="Choose the design of the dashboard (kept for you)">{(["classic", "modern"] as const).map(d => <button key={d} role="tab" type="button" aria-selected={design === d} className={design === d ? "on" : ""} onClick={() => chooseDesign(d)}>{d === "classic" ? "Classic" : "Modern"}</button>)}</div> : null);
+  const notesNode = (() => {                                    // data notes: one short line, counted for the Epics shown (the filters apply), details on click
+      const bad = x.declaredField ? items.filter(i => i.r.declaredText && !i.r.declared) : [], vals = Array.from(new Set(bad.map(i => i.r.declaredText!))), noDate = items.filter(i => i.r.goLive === undefined).length, noProg = items.filter(i => i.r.pct === undefined).length;
+      const dated = f.period ? all.filter(i => pass(i, f, "period") && periodState(f.period!, i.dt) === "undated").length : 0;
+      const noMoves = historyOn && L.history && !all.some(i => i.sum.moves > 0);
+      const notes: { short: string; long: React.ReactNode }[] = [];
+      if (bad.length) notes.push({ short: `${bad.length} with a RAG value that is not Red, Amber or Green`, long: <>{bad.length} Epic(s) have a value in the declared status field that is not read as green, amber or red ({vals.slice(0, 6).join(", ")}{vals.length > 6 ? ", …" : ""}); their status comes from the data. In Settings › Executive Dashboard › Declared status, say which values mean what, or list the ones that mean “no RAG yet”.</> });
+      if (dated && !f.period!.undated) notes.push({ short: `${dated} not shown: no date for the period`, long: <>{dated} Epic(s) have no date to judge the period by (“{periodLabel(f.period!, x.periodField ? dimLabel(x.periodField) : undefined)}”), so they are left out. Tick “Include Epics without a date” in the Period filter to show them.</> });
+      if (noDate) notes.push({ short: `${noDate} without a go-live date`, long: <>{noDate} Epic(s) have no go-live date in “{dimLabel(goLiveField)}”, so they cannot be assessed against a date.</> });
+      if (noProg) notes.push({ short: `${noProg} without a progress value`, long: <>{noProg} Epic(s) have no progress value{x.progress.length ? "" : " (no progress source is set up yet: Settings › Executive Dashboard › Progress)"}; they are assessed on dates only.</> });
+      if (noMoves) notes.push({ short: "no go-live changes recorded", long: <>No go-live date change is recorded in the field “{dimLabel(goLiveField)}” that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads “${dimLabel(p.settings.epicTargetField)}”` : ""}. Check Settings › Executive Dashboard › Go-live date field.</> });
+      return notes.length ? <details className="ex-notes"><summary><span aria-hidden="true">ⓘ</span> Data notes for the {items.length} Epics shown: {notes.map(n => n.short).join(" · ")}</summary><ul>{notes.map((n, k) => <li key={k}>{n.long}</li>)}</ul></details> : null;
+    })();
+  const dialogNode = dialog !== undefined && L.epics.find(e => e.id === dialog) ? <EpicDialog history={{ field: goLiveField, hist: all.find(i => i.id === dialog)?.hist, allRead: historyOn }} settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} /> : null;
+  const statusNoteNode = canSwitch ? <div className="ex-note" role="status"><span className="tag">{view === "rag" ? "Showing: Owner’s RAG" : view === "data" ? "Showing: Data" : "Showing: Variance"}</span> {view === "rag" ? `The status is what owners entered; ${all.filter(i => !i.r.declared && i.r.dataStatus !== "done" && i.r.dataStatus !== "idle").length} Epics have no RAG, so they show the data status. “Data check” says where the data disagrees.` : view === "data" ? "The status is worked out from dates and progress. The owner’s RAG is shown beside it." : "Owner’s RAG against the data. The Portfolio map and Roadmap show the data status here; on the map a coloured edge is the owner’s RAG."}</div> : null;
+  if (design === "modern") return (
+    <>
+      <ModernDashboard lp={lp} L={L} project={p.project.name} busy={p.busy} error={p.error} full={p.full} onFull={p.onFull} onReload={p.onReload} searchRef={searchRef}
+        views={viewsMenu} queryControls={queryControls} designSwitch={designSwitchNode("exm-ds")} notes={notesNode} statusNote={statusNoteNode} onView={id => { setView(id); setF({ ...f, cell: [] }); }}
+        chosen={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} onOpenEpic={id => { void openWorkItem(p.project.name, id); }} hist={eh.hist} histState={eh.state} histError={eh.error}
+        onReset={() => { setF(emptyXF()); setSavedId(""); }} historyError={L.historyError} />
+      {dialogNode}
+    </>
+  );
   return (
     <div className={"ex" + (phase ? " " + phase : "") + (p.full ? " ex-full" : "") + (density === "compact" ? " dense" : "")}>
       <div className="ex-bar">
@@ -109,37 +151,21 @@ export function ExecDashboard(p: {
         <div className="ex-seg" role="tablist" aria-label="Layout" style={{ ["--i" as string]: LAYOUTS.findIndex(l => l.id === layout) }}>{LAYOUTS.map(l => <button key={l.id} role="tab" aria-selected={layout === l.id} className={layout === l.id ? "on" : ""} onClick={() => setLayout(l.id)}>{l.icon} {l.label}</button>)}</div>
         {canSwitch && <div className="ex-seg" role="tablist" aria-label="Status view" title="Which status the dashboard shows" style={{ ["--i" as string]: ["rag", "data", "var"].indexOf(view) }}>{([["rag", "Owner’s RAG"], ["data", "Data"], ["var", "Variance"]] as const).map(([id, l]) => <button key={id} role="tab" aria-selected={view === id} className={view === id ? "on" : ""} onClick={() => { setView(id); setF({ ...f, cell: [] }); }}>{l}</button>)}</div>}
         <label className="ex-search"><IconSearch /><input ref={searchRef} type="search" aria-label="Search the Epics" placeholder="Search anything: title, id, state, category, people, reason, date…" value={f.text} onChange={e => setF({ ...f, text: e.target.value })} /><span className="kbd" aria-hidden="true">/</span></label>
-        {saved.length > 0 && <label className="ex-chip sel"><span className="k">Saved filter</span><select aria-label="Saved filter" value={savedId} onChange={e => setSavedId(e.target.value)}><option value="">None</option>{saved.map(q => <option key={q.id} value={q.id}>{q.name}</option>)}</select></label>}
-        {p.queries && p.onQuery && <label className="ex-chip sel"><span className="k">Epics from</span><select aria-label="Epics from" value={p.queryId ?? ""} onChange={e => p.onQuery!(e.target.value)}><option value="">All {p.settings.workItemType}s</option>{p.queries.map(q => <option key={q.id} value={q.id}>Query: {q.path}</option>)}</select></label>}
+        {queryControls}
         <div className="ex-actions">
-        <ViewsMenu views={doc.views.map(v => ({ id: v.id, name: v.name, sub: sub(v) }))} defaultId={doc.defaultId} error={viewErr}
-          onApply={id => { const v = doc.views.find(y => y.id === id); if (v) apply(v.state); }} onSave={name => keep({ ...doc, views: [...doc.views, { id: newViewId(), name, state: snapshot() }] })}
-          onUpdate={id => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, state: snapshot() } : v)) })} onRename={(id, name) => keep({ ...doc, views: doc.views.map(v => (v.id === id ? { ...v, name } : v)) })}
-          onDelete={id => keep({ views: doc.views.filter(v => v.id !== id), defaultId: doc.defaultId === id ? undefined : doc.defaultId })} onDefault={id => keep({ ...doc, defaultId: id })}
-          onReset={() => { setF({ ...emptyXF(), chart: f.chart, period: defaultPeriod }); setSavedId(""); setLayout(x.layout); }} onLink={() => linkFor(encodeJson(snapshot()))} />
+        {designSwitchNode("ex-seg")}{viewsMenu}
         {p.onFull && <button className="pill icon" aria-pressed={!!p.full} title={p.full ? "Exit full screen (Esc)" : "Full screen"} aria-label={p.full ? "Exit full screen" : "Full screen"} onClick={() => p.onFull!(!p.full)}>{p.full ? <IconExitFullScreen /> : <IconFullScreen />}</button>}
         <button className="pill icon" disabled={p.busy} onClick={() => p.onReload(false)} aria-label="Refresh" title={`Refresh · ${L.epics.length} Epics`}>{p.busy ? "…" : <IconRefresh />}</button>
         </div>
       </div>
       {(chips.length > 0 || !isEmpty(fx)) && <div className="ex-chips">{chips.map((c, i) => <span key={i} className="ex-fchip">{c.label}<button aria-label={`Remove filter ${c.label}`} onClick={c.clear}>×</button></span>)}{chips.length > 1 && <button className="lk" onClick={() => { setF(emptyXF()); setSavedId(""); }}>Clear all</button>}<span className="muted">{items.length} of {all.length} Epics</span></div>}
-      {canSwitch && <div className="ex-note" role="status"><span className="tag">{view === "rag" ? "Showing: Owner’s RAG" : view === "data" ? "Showing: Data" : "Showing: Variance"}</span> {view === "rag" ? `The status is what owners entered; ${all.filter(i => !i.r.declared && i.r.dataStatus !== "done" && i.r.dataStatus !== "idle").length} Epics have no RAG, so they show the data status. “Data check” says where the data disagrees.` : view === "data" ? "The status is worked out from dates and progress. The owner’s RAG is shown beside it." : "Owner’s RAG against the data. The Portfolio map and Roadmap show the data status here; on the map a coloured edge is the owner’s RAG."}</div>}
+      {statusNoteNode}
       {p.error && <div className="err" role="alert">{p.error}</div>}
-      {(() => {                                    // data notes: one short line, counted for the Epics shown (the filters apply), details on click
-        const bad = x.declaredField ? items.filter(i => i.r.declaredText && !i.r.declared) : [], vals = Array.from(new Set(bad.map(i => i.r.declaredText!))), noDate = items.filter(i => i.r.goLive === undefined).length, noProg = items.filter(i => i.r.pct === undefined).length;
-        const dated = f.period ? all.filter(i => pass(i, f, "period") && periodState(f.period!, i.dt) === "undated").length : 0;
-        const noMoves = historyOn && L.history && !all.some(i => i.sum.moves > 0);
-        const notes: { short: string; long: React.ReactNode }[] = [];
-        if (bad.length) notes.push({ short: `${bad.length} with a RAG value that is not Red, Amber or Green`, long: <>{bad.length} Epic(s) have a value in the declared status field that is not read as green, amber or red ({vals.slice(0, 6).join(", ")}{vals.length > 6 ? ", …" : ""}); their status comes from the data. In Settings › Executive Dashboard › Declared status, say which values mean what, or list the ones that mean “no RAG yet”.</> });
-        if (dated && !f.period!.undated) notes.push({ short: `${dated} not shown: no date for the period`, long: <>{dated} Epic(s) have no date to judge the period by (“{periodLabel(f.period!, x.periodField ? dimLabel(x.periodField) : undefined)}”), so they are left out. Tick “Include Epics without a date” in the Period filter to show them.</> });
-        if (noDate) notes.push({ short: `${noDate} without a go-live date`, long: <>{noDate} Epic(s) have no go-live date in “{dimLabel(goLiveField)}”, so they cannot be assessed against a date.</> });
-        if (noProg) notes.push({ short: `${noProg} without a progress value`, long: <>{noProg} Epic(s) have no progress value{x.progress.length ? "" : " (no progress source is set up yet: Settings › Executive Dashboard › Progress)"}; they are assessed on dates only.</> });
-        if (noMoves) notes.push({ short: "no go-live changes recorded", long: <>No go-live date change is recorded in the field “{dimLabel(goLiveField)}” that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads “${dimLabel(p.settings.epicTargetField)}”` : ""}. Check Settings › Executive Dashboard › Go-live date field.</> });
-        return notes.length ? <details className="ex-notes"><summary><span aria-hidden="true">ⓘ</span> Data notes for the {items.length} Epics shown: {notes.map(n => n.short).join(" · ")}</summary><ul>{notes.map((n, k) => <li key={k}>{n.long}</li>)}</ul></details> : null;
-      })()}
+      {notesNode}
       {L.historyError && <div className="err" role="alert">The go-live history could not be read: {L.historyError}</div>}
       {layout === "report" ? <ReportLayout lp={lp} /> : layout === "map" ? <MapLayout lp={lp} /> : <RoadmapLayout lp={lp} />}
       <Drawer item={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} day={day} dims={fields} res={x.resources} hist={eh.hist} histState={eh.state} histError={eh.error} />
-      {dialog !== undefined && L.epics.find(e => e.id === dialog) && <EpicDialog history={{ field: goLiveField, hist: all.find(i => i.id === dialog)?.hist, allRead: historyOn }} settings={p.settings} epic={L.epics.find(e => e.id === dialog)!} project={p.project.name} bookings={L.bookings} months={monthsOfPeriod({ kind: "year" })} onClose={() => setDialog(undefined)} />}
+      {dialogNode}
     </div>
   );
 }

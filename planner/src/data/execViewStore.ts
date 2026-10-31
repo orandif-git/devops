@@ -1,13 +1,13 @@
 import { normalizePeriod, Period } from "../core/execPeriod";
 import { dataManager } from "../../../src/shared/ado";
 import { shortHash } from "../../../src/shared/ids";
-import { CHART_TYPES, ChartType, ExecLayout } from "../core/types";
+import { CHART_TYPES, ChartType, ExecDesign, ExecLayout } from "../core/types";
 import { ExecStatus } from "../core/executive";
 
 /** What a person sees on the Executive Dashboard: the layout and the filters (private to them when saved). */
 export interface ExecViewState { layout: ExecLayout; density: "comfortable" | "compact"; status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; stage: string[]; /** the chart chosen for each field in the By-field card */ chart: Record<string, ChartType>; period?: Period; /** the delivery performance card is open */ delivery: boolean; view: "rag" | "data" | "var" | ""; dims: Record<string, string[]>; text: string; savedId: string }
 export interface ExecView { id: string; name: string; state: ExecViewState }
-export interface ExecViewDoc { views: ExecView[]; defaultId?: string }
+export interface ExecViewDoc { views: ExecView[]; defaultId?: string; /** the design this person chose (when the administrator allows both) */ design?: ExecDesign }
 
 const COLLECTION = "rp-views", OPTS = { scopeType: "User" } as const;
 const docId = (projectId: string) => `ev-${shortHash(projectId)}`;
@@ -25,11 +25,11 @@ export function normalizeExecDoc(raw: unknown, layout: ExecLayout): ExecViewDoc 
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const views = (Array.isArray(r.views) ? r.views : []).filter(v => v && typeof v === "object").map((v, i) => { const o = v as Record<string, unknown>; return { id: typeof o.id === "string" && o.id ? o.id : `v${i + 1}`, name: (typeof o.name === "string" ? o.name.trim() : "") || `View ${i + 1}`, state: normalizeExecView(o.state, layout) }; });
   const d = typeof r.defaultId === "string" ? r.defaultId : "";
-  return { views, defaultId: views.some(v => v.id === d) ? d : undefined };
+  return { views, defaultId: views.some(v => v.id === d) ? d : undefined, ...(r.design === "classic" || r.design === "modern" ? { design: r.design } : {}) };
 }
 export async function loadExecViews(projectId: string, layout: ExecLayout): Promise<ExecViewDoc> {
   try { return normalizeExecDoc(await (await dataManager()).getDocument(COLLECTION, docId(projectId), OPTS), layout); } catch (e) { if (is404(e)) return { views: [] }; throw e; }
 }
 export async function saveExecViews(projectId: string, doc: ExecViewDoc): Promise<void> {
-  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "exec-views", projectId, views: doc.views, defaultId: doc.defaultId ?? "" }, OPTS);
+  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "exec-views", projectId, views: doc.views, defaultId: doc.defaultId ?? "", design: doc.design ?? "" }, OPTS);
 }

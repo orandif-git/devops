@@ -47,7 +47,7 @@ describe("Delivery stages editor", () => {
     const v = normalizeSettings({ ...defaultSettings(), executive: { enabled: true, stages: { source: "field", field: "Custom.RAGStatus" } } });
     const h = document.createElement("div"); document.body.appendChild(h);
     await act(async () => { ReactDOM.render(<StagesEditor s={v} fields={[]} project="P" onChange={() => undefined} />, h); });
-    await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    for (let k = 0; k < 30 && !h.querySelector("[role=alert]"); k++) await act(async () => { await new Promise(r => setTimeout(r, 20)); });
     expect(h.querySelector("[role=alert]")!.textContent).toContain("look like a RAG status");
   });
 });
