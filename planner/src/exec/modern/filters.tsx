@@ -1,9 +1,9 @@
 import * as React from "react";
 import { dimLabel, ExecStatus, STATUS_NAME } from "../../core/executive";
 import { stageDatesOn, stagesOn } from "../../core/stages";
-import { periodHidden, declOptions, movedOptions, optionsOf } from "../layouts";
+import { periodHidden, declOptions, movedOptions, optionsOf, sdateOptions } from "../layouts";
 import type { LP } from "../layouts";
-import { SDATE, SHOWN, pass, sortQuarters } from "../model";
+import { SHOWN, pass, sortQuarters } from "../model";
 import { COLOR } from "../parts";
 
 export interface FilterGroup { key: string; label: string; options: { value: string; count: number; color?: string }[]; selected: string[]; onChange(v: string[]): void; pinned: boolean }
@@ -15,11 +15,7 @@ export function filterGroups(lp: LP): FilterGroup[] {
     options: SHOWN.map(s => ({ value: STATUS_NAME[s], count: lp.all.filter(i => pass(i, f, "status") && i.status === s).length, color: COLOR[s] })) });
   if (stagesOn(x.stages)) g.push({ key: "stage", label: "Stage", pinned: true, selected: f.stage, onChange: v => setF({ ...f, stage: v }), options: optionsOf(lp, "stage", i => i.stage || i.stageGap, v => [...x.stages.stages.map(s => s.name), ...v.filter(y => y && !x.stages.stages.some(s => s.name === y))]).filter(o => o.value) });
   lp.fields.forEach((d, k) => g.push({ key: "dim:" + d, label: dimLabel(d), pinned: k === 0, selected: f.dims[d] ?? [], onChange: v => setF({ ...f, dims: { ...f.dims, [d]: v } }), options: optionsOf(lp, { dim: d }, i => i.r.dims[d]) }));
-  if (stageDatesOn(x.stages)) {
-    const base = lp.all.filter(i => pass(i, f, "sdate")), d = x.stages.dates;
-    g.push({ key: "sdate", label: "Stage dates", pinned: false, selected: f.sdate, onChange: v => setF({ ...f, sdate: v }),
-      options: [...(d.track ? [{ value: SDATE.changed, count: base.filter(i => i.dateEdits > 0).length }] : []), ...(d.consistency ? [{ value: SDATE.problems, count: base.filter(i => i.dateIssues > 0).length }] : [])] });
-  }
+  if (stageDatesOn(x.stages)) g.push({ key: "sdate", label: "Stage dates", pinned: false, selected: f.sdate, onChange: v => setF({ ...f, sdate: v }), options: sdateOptions(lp) });
   g.push({ key: "state", label: "State", pinned: false, selected: f.state, onChange: v => setF({ ...f, state: v }), options: optionsOf(lp, "state", i => i.state) });
   if (x.resources) g.push({ key: "team", label: "Team", pinned: false, selected: f.team, onChange: v => setF({ ...f, team: v }), options: optionsOf(lp, "team", i => i.team) });
   g.push({ key: "quarter", label: "Go-live", pinned: false, selected: f.quarter, onChange: v => setF({ ...f, quarter: v }), options: optionsOf(lp, "quarter", i => i.quarter, sortQuarters) });

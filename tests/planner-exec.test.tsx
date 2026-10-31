@@ -663,6 +663,21 @@ describe("Stage dates in the modern design", () => {
     const d = h.querySelector(".ex-drawer.open")!.textContent!; expect(d).toContain("How long each stage took"); expect(d).toContain("= SIT start"); expect(d).toContain("77 d"); expect(d).toContain("edited 1×"); expect(d).toContain("Stage date history"); expect(d).toContain("Sara"); expect(d).toMatch(/Stage\s*SIT · \d+ days/);
     act(() => { Simulate.click(Array.from(h.querySelectorAll("tr.ex-row")).find(r => r.textContent!.includes("Epic 2"))!); }); expect(h.querySelector(".ex-drawer.open")!.textContent).toContain("SIT start date is missing");
   });
+  it("the classic design has the Stage dates filter and shows the stage on the roadmap", async () => {
+    store.doc = { views: [], defaultId: undefined, design: undefined }; const h = document.createElement("div"); document.body.appendChild(h);
+    const classic = normalizeSettings({ ...sdSettings, executive: { ...sdSettings.executive, designs: { classic: true, modern: false } } });
+    await act(async () => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={classic} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); });
+    const pill = Array.from(h.querySelectorAll(".ex-slicers .ex-chip")).find(b => b.textContent!.includes("Stage dates"))!; expect(pill).toBeTruthy();
+    act(() => { Simulate.click(pill); }); const box = Array.from(h.querySelectorAll(".ex-pop label")).find(l => l.textContent!.startsWith("Date problems"))!; expect(box.textContent).toContain("1");
+    act(() => { Simulate.change(box.querySelector("input")!, { target: { checked: true } } as never); }); expect(h.querySelector(".ex-chips")!.textContent).toContain("Stage dates: date problems"); expect(h.querySelectorAll("tr.ex-row").length).toBe(1);
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-chips button")).find(b => b.getAttribute("aria-label")?.includes("Stage dates"))!); });
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".ex-seg button")).find(b => b.textContent!.includes("Roadmap"))!); });
+    act(() => { Simulate.click(h.querySelector(".ex-road .lane.cat .nm")!); }); expect(h.querySelector(".ex-road")!.textContent).toMatch(/Active · (SIT|UAT)/);
+  });
+  it("the modern timeline carries the stage in each dot and explains the numbers", async () => {
+    const h = await mountSD(); const dots = Array.from(h.querySelectorAll(".exm-tl .dot")); expect(dots.length).toBeGreaterThan(0); expect(dots.every(d => /^[1-5]$/.test(d.textContent!))).toBe(true);
+    expect(dots[0].getAttribute("aria-label")).toMatch(/stage (SIT|UAT)/); expect(h.querySelector(".exm-tl")!.textContent).toContain("1 Design · 2 Development · 3 SIT · 4 UAT · 5 Deployment");
+  });
   it("lists the Epics whose stage dates do not fit in the data notes and under the Stage dates filter", async () => {
     const h = await mountSD(); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with a problem in the stage dates"); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with stage dates changed");
     act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("Stage dates");

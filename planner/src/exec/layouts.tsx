@@ -7,7 +7,8 @@ import { DeliveryCard } from "./Delivery";
 import { PipelineCard } from "./Pipeline";
 import { ByFieldCard } from "./ByField";
 import { periodState } from "../core/execPeriod";
-import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
+import { stageDatesOn } from "../core/stages";
+import { byStatus, DECL_ORDER, countBy, isEmpty, Item, pass, quarterOf, SDATE, SHOWN, Skip, sortQuarters, toggle, XF } from "./model";
 import { COLOR, Columns, Delta, Donut, Num, PeriodSlicer, ProgressBar, Slicer, Spark, StackedBars, StatusPill, Sw, pct } from "./parts";
 
 export interface ExtraCol { key: string; label: string; get(i: Item): string }
@@ -39,6 +40,11 @@ const MOVED_ORDER = [MOVED.recent, MOVED.later, MOVED.earlier, MOVED.often, MOVE
 export function declOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "decl")); return DECL_ORDER.map(value => ({ value, count: base.filter(i => i.decl === value).length })); }
 /** How many Epics the period leaves out only because they have no date to judge by. */
 export const periodHidden = (lp: LP) => (lp.f.period ? lp.all.filter(i => pass(i, lp.f, "period") && periodState(lp.f.period!, i.dt) === "undated").length : 0);
+/** The “Stage dates” choices with the count each would give: Epics whose dates were changed and Epics whose dates do not fit (only the parts that are switched on). */
+export function sdateOptions(lp: LP) {
+  const base = lp.all.filter(i => pass(i, lp.f, "sdate")), d = lp.settings.executive.stages.dates;
+  return [...(d.track ? [{ value: SDATE.changed, count: base.filter(i => i.dateEdits > 0).length }] : []), ...(d.consistency ? [{ value: SDATE.problems, count: base.filter(i => i.dateIssues > 0).length }] : [])];
+}
 export function movedOptions(lp: LP) { const base = lp.all.filter(i => pass(i, lp.f, "moved")); return MOVED_ORDER.map(value => ({ value, count: base.filter(i => i.moved.includes(value)).length })).filter(o => o.count > 0 || lp.f.moved.includes(o.value)); }
 
 /** All the slicers as pop-up lists (Report and Roadmap layouts). */
@@ -53,6 +59,7 @@ export function Slicers(lp: LP) {
       {lp.settings.executive.resources && <Slicer label="Team" options={optionsOf(lp, "team", i => i.team)} selected={f.team} onChange={v => setF({ ...f, team: v })} />}
       <Slicer label="Go-live" options={optionsOf(lp, "quarter", i => i.quarter, sortQuarters)} selected={f.quarter} onChange={v => setF({ ...f, quarter: v })} />
       <PeriodSlicer value={f.period} basis={lp.settings.executive.periodBasis} fieldLabel={lp.settings.executive.periodField ? dimLabel(lp.settings.executive.periodField) : undefined} hidden={periodHidden(lp)} onChange={v => setF({ ...f, period: v })} />
+      {stageDatesOn(lp.settings.executive.stages) && <Slicer label="Stage dates" options={sdateOptions(lp)} selected={f.sdate} onChange={v => setF({ ...f, sdate: v })} />}
       {lp.historyOn && <Slicer label="Go-live changes" options={movedOptions(lp)} selected={f.moved} onChange={v => setF({ ...f, moved: v })} />}
       {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && <Slicer label="RAG check" options={declOptions(lp)} selected={f.decl} onChange={v => setF({ ...f, decl: v })} />}
     </div>
@@ -202,6 +209,7 @@ export function MapLayout({ lp }: { lp: LP }) {
         {lp.fields.map(d => rail(dimLabel(d), optionsOf(lp, { dim: d }, i => i.r.dims[d]), f.dims[d] ?? [], v => setF({ ...f, dims: { ...f.dims, [d]: v } })))}
         {lp.settings.executive.resources && rail("Team", optionsOf(lp, "team", i => i.team), f.team, v => setF({ ...f, team: v }))}
         {rail("Go-live", optionsOf(lp, "quarter", i => i.quarter, sortQuarters), f.quarter, v => setF({ ...f, quarter: v }))}
+        {stageDatesOn(lp.settings.executive.stages) && rail("Stage dates", sdateOptions(lp), f.sdate, v => setF({ ...f, sdate: v }))}
         {lp.historyOn && rail("Go-live changes", movedOptions(lp), f.moved, v => setF({ ...f, moved: v }))}
         {lp.settings.executive.declaredField && lp.settings.executive.statusSource !== "rag" && rail("RAG check", declOptions(lp), f.decl, v => setF({ ...f, decl: v }))}
       </aside>
@@ -259,8 +267,8 @@ function Roadmap({ lp }: { lp: LP }) {
             <div className="lane cat"><button className="nm" aria-expanded={isOpen} onClick={() => setOpen(toggle(open, g))}><span aria-hidden="true">{isOpen ? "▾" : "▸"}</span> <b>{g}</b><small>{list.length} Epics · {c.red} at risk</small></button>
               {track(<div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: c[s], background: COLOR[s] }} />)}</div>)}</div>
             {isOpen && list.slice(0, lim).map(i => { const l = pos(i.r.start ?? i.r.goLive! - 90 * DAY), r = pos(i.r.goLive!), f = i.r.forecast, late = i.r.slip > 0 && i.status !== "done", b0 = lp.historyOn && i.hist && i.hist.baseline !== i.hist.current ? Date.parse(i.hist.baseline + "T00:00:00Z") : undefined;
-              return <div className="lane" key={i.id}><div className="nm"><button className="lk" onClick={() => lp.open(i)}>{i.title}</button><small>{i.state}</small></div>
-                {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} /></button>
+              return <div className="lane" key={i.id}><div className="nm"><button className="lk" onClick={() => lp.open(i)}>{i.title}</button><small>{i.state}{i.stage ? ` · ${i.stage}` : ""}</small></div>
+                {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]}${i.stage ? " · " + i.stage : ""} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} />{i.stage && r - l > 9 && <span className="gs">{i.stage}</span>}</button>
                   {late && f !== undefined && <div className="slipx" style={{ left: r + "%", width: Math.max(.4, pos(f) - r) + "%" }} title="Forecast slip" />}
                   {b0 !== undefined && <><div className={"mvline " + (b0 < i.r.goLive! ? "later" : "earlier")} style={{ left: Math.min(pos(b0), r) + "%", width: Math.max(.2, Math.abs(r - pos(b0))) + "%" }} /><div className="orig" style={{ left: `calc(${pos(b0)}% - 5px)` }} title={`Original go-live ${lp.day(b0)} · moved ${i.sum.moves}× (${signed(i.sum.net)} days)`} /></>}
                   {f !== undefined && i.status !== "done" && i.status !== "idle" && <div className="diam" style={{ left: `calc(${pos(f)}% - 6px)` }} title={`Forecast finish ${lp.day(f)}`} />}</>)}</div>; })}
@@ -268,7 +276,7 @@ function Roadmap({ lp }: { lp: LP }) {
           </React.Fragment>; })}
         <div className="today" style={{ left: `calc(220px + (100% - 220px) * ${pos(lp.today) / 100})` }}><span>Today</span></div>
       </div>
-      <div className="muted" style={{ padding: "6px 10px" }}>Collapsed row: the stripe is the group\u2019s status mix (not dates). Bar = start to go-live (hover or click for the title), darker part = progress · hatched = forecast slip · ◆ = forecast finish{lp.historyOn ? " · ◇ and a line = where the go-live date was originally (red = moved later)" : ""}. Epics without a go-live date are not drawn.</div>
+      <div className="muted" style={{ padding: "6px 10px" }}>Collapsed row: the stripe is the group’s status mix (not dates). Bar = start to go-live (hover or click for the title), darker part = progress · hatched = forecast slip · ◆ = forecast finish{lp.historyOn ? " · ◇ and a line = where the go-live date was originally (red = moved later)" : ""}. Epics without a go-live date are not drawn.</div>
     </section>
   );
 }

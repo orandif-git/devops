@@ -61,10 +61,10 @@ function Timeline({ lp, items }: { lp: LP; items: Item[] }) {
   return (
     <div className="exm-tl" role="img" aria-label="Go-live timeline">
       <div className="lanes">{lanes.map(l => <div key={l} className="lane"><span className="lb" title={l}>{l}</span><div className="tr">{months.map(m => <i key={m} className="gl" style={{ left: pos(m) + "%" }} />)}
-        {live.filter(i => (l === "Other" ? !top.includes(i.r.dims[dim]) : i.r.dims[dim] === l)).map(i => <button key={i.id} type="button" className="dot" aria-label={`${i.title}, go-live ${lp.day(i.r.goLive)}, ${STATUS_NAME[i.status]}`} title={`${i.title} · ${lp.day(i.r.goLive)} · ${STATUS_NAME[i.status]}`} style={{ left: pos(i.r.goLive!) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} />)}</div></div>)}
+        {live.filter(i => (l === "Other" ? !top.includes(i.r.dims[dim]) : i.r.dims[dim] === l)).map(i => <button key={i.id} type="button" className={"dot" + (i.stage ? " num" : "")} aria-label={`${i.title}, go-live ${lp.day(i.r.goLive)}, ${STATUS_NAME[i.status]}${i.stage ? ", stage " + i.stage : ""}`} title={`${i.title} · ${lp.day(i.r.goLive)} · ${STATUS_NAME[i.status]}${i.stage ? " · " + i.stage : ""}`} style={{ left: pos(i.r.goLive!) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)}>{i.stage && i.r.stageIdx !== undefined ? i.r.stageIdx + 1 : null}</button>)}</div></div>)}
         <div className="today" style={{ left: `calc(150px + (100% - 150px) * ${pos(lp.today) / 100})` }}><span>Today</span></div></div>
       <div className="axis"><i />{<div className="m">{months.map(m => <span key={m} style={{ left: pos(m) + "%" }}>{new Date(m).toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" })}</span>)}</div>}</div>
-      <div className="exm-leg">{ORDER.filter(s => s !== "done").map(s => <span key={s}><i style={{ background: COLOR[s] }} />{STATUS_NAME[s]}</span>)}</div>
+      <div className="exm-leg">{ORDER.filter(s => s !== "done").map(s => <span key={s}><i style={{ background: COLOR[s] }} />{STATUS_NAME[s]}</span>)}{stagesOn(lp.settings.executive.stages) && <span className="stg">Number in a dot = delivery stage: {lp.settings.executive.stages.stages.map((s, k) => `${k + 1} ${s.name}`).join(" · ")}</span>}</div>
     </div>
   );
 }
