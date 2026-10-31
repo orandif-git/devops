@@ -678,10 +678,14 @@ describe("Stage dates in the modern design", () => {
     const h = await mountSD(); const dots = Array.from(h.querySelectorAll(".exm-tl .dot")); expect(dots.length).toBeGreaterThan(0); expect(dots.every(d => /^[1-5]$/.test(d.textContent!))).toBe(true);
     expect(dots[0].getAttribute("aria-label")).toMatch(/stage (SIT|UAT)/); expect(h.querySelector(".exm-tl")!.textContent).toContain("1 Design · 2 Development · 3 SIT · 4 UAT · 5 Deployment");
   });
-  it("lists the Epics whose stage dates do not fit in the data notes and under the Stage dates filter", async () => {
+  it("lists the Epics whose stage dates do not fit in the data notes, in the pinned Stage dates filter and on the Overview", async () => {
     const h = await mountSD(); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with a problem in the stage dates"); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with stage dates changed");
-    act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("Stage dates");
-    act(() => { Simulate.click(Array.from(panel.querySelectorAll("button.c")).find(b => b.textContent!.startsWith("Date problems"))!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("Stage dates: date problems");
+    expect(h.querySelector(".exm-fb")!.textContent).toContain("Stage dates");                                  // pinned in the filter bar, so it is there on the Overview
+    const card = h.querySelector('.exm-card[aria-label="Stage dates"]')!; expect(card.textContent).toContain("1Epic has dates that do not fit"); expect(card.textContent).toContain("1Epic had a date changed");
+    act(() => { Simulate.click(card.querySelector(".exm-sdr")!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("Stage dates: date problems"); expect(h.querySelector('.exm-card[aria-label="Stage dates"] .exm-sdr.on')).not.toBeNull();
     act(() => { Simulate.click(Array.from(h.querySelectorAll(".exm-tb [role=tab]")).find(b => b.textContent === "Epics")!); }); expect(h.querySelectorAll(".exm-t tr.rw").length).toBe(1);
+    act(() => { Simulate.click(h.querySelector(".exm-chips button")!); }); expect(h.querySelectorAll(".exm-t tr.rw").length).toBe(3);
+    const pill = Array.from(h.querySelectorAll(".exm-fb .ex-chip")).find(x => x.textContent!.includes("Stage dates"))!; act(() => { Simulate.click(pill); });
+    act(() => { Simulate.change(Array.from(h.querySelectorAll(".ex-pop label")).find(l => l.textContent!.startsWith("Dates changed"))!.querySelector("input")!, { target: { checked: true } } as never); }); expect(h.querySelectorAll(".exm-t tr.rw").length).toBe(1);
   });
 });

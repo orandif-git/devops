@@ -1,14 +1,15 @@
 import * as React from "react";
 import { dimLabel, ExecStatus, STATUS_NAME } from "../../core/executive";
-import { stagesOn } from "../../core/stages";
+import { stageDatesOn, stagesOn } from "../../core/stages";
 import { health } from "../../core/snapshots";
 import { quarterLabel, quartersIn, summarizeDelivery } from "../../core/delivery";
 import { parseDay } from "../../core/execPeriod";
 import { ByFieldCard } from "../ByField";
 import { DeliveryCard } from "../Delivery";
 import { PipelineCard } from "../Pipeline";
+import { sdateOptions } from "../layouts";
 import type { LP } from "../layouts";
-import { byStatus, isEmpty, Item, pass, SHOWN, sortQuarters, toggle } from "../model";
+import { byStatus, isEmpty, Item, pass, SDATE, SHOWN, sortQuarters, toggle } from "../model";
 import { COLOR, Columns, Delta, Num, Spark, Sw } from "../parts";
 
 export type Tab = "overview" | "pipeline" | "epics" | "insights";
@@ -91,6 +92,18 @@ function DeliveryMini({ lp }: { lp: LP }) {
   );
 }
 
+/** The stage dates at a glance: how many Epics have dates that do not fit and how many had a date changed; a click filters to them. */
+function StageDatesCard({ lp }: { lp: LP }) {
+  const { f, setF } = lp, opts = sdateOptions(lp), d = lp.settings.executive.stages.dates;
+  const row = (value: string, text: (n: number) => string) => { const o = opts.find(x => x.value === value); if (!o) return null; const on = f.sdate.includes(value);
+    return <button type="button" key={value} className={"exm-sdr" + (on ? " on" : "")} aria-pressed={on} onClick={() => setF({ ...f, sdate: toggle(f.sdate, value) })}><b>{o.count}</b><span>{text(o.count)}</span></button>; };
+  return (
+    <section className="exm-card" aria-label="Stage dates"><h3>Stage dates <small>{d.track && d.consistency ? "checks and changes" : d.consistency ? "checks" : "changes"}</small></h3>
+      <div className="exm-sdrs">{row(SDATE.problems, n => (n === 1 ? "Epic has dates that do not fit" : "Epics have dates that do not fit"))}{row(SDATE.changed, n => (n === 1 ? "Epic had a date changed" : "Epics had a date changed"))}</div>
+      {opts.every(o => o.count === 0) && <div className="exm-mut">All the stage dates fit and none were changed.</div>}</section>
+  );
+}
+
 export function OverviewPage({ lp, go }: { lp: LP; go(t: Tab, status?: ExecStatus[]): void }) {
   const { f, setF } = lp, base = lp.all.filter(i => pass(i, f, "status")), c = byStatus(base), snaps = lp.snaps ?? [], act = base.length - c.idle, score = health(c);
   const whole = isEmpty({ ...f, status: [] }), trend = snaps.length > 1 && lp.all.length > 0 && whole, prev = snaps.length > 1 ? health(snaps[snaps.length - 2]) : undefined;
@@ -113,6 +126,7 @@ export function OverviewPage({ lp, go }: { lp: LP; go(t: Tab, status?: ExecStatu
           <section className="exm-card"><h3>Delivery pipeline <button type="button" className="lk" onClick={() => go("pipeline")}>Open</button></h3>
             {stagesOn(st) ? st.stages.map(s => { const a = base.filter(i => i.stage === s.name); return <div key={s.name} className="exm-pr"><span>{s.name}</span>{a.length ? <Mix c={byStatus(a)} n={a.length} /> : <div className="exm-stk" />}<b>{a.length}</b></div>; })
               : <div className="exm-mut">Set up the delivery stages in Settings to see where Epics are.</div>}</section>
+          {stageDatesOn(st) && <StageDatesCard lp={lp} />}
           <DeliveryMini lp={lp} />
         </div>
       </div>
