@@ -2,6 +2,21 @@ import type { Timelines } from "./asof";
 
 /** The delivery stages of an Epic (for example Design, Development, SIT, UAT, Deployment), mapped from a field and/or the state. They are the core of how progress is measured. */
 export interface StageDef { name: string; /** what an Epic in this stage counts as, in percent */ pct: number; /** the share of the Epic's time (start to go-live), in percent, in which it should be in this stage */ from: number; to: number }
+/** Where one stage starts and ends, from date fields of the Epic. A stage can start when the previous one ends, and end when the next one starts (so a field for “Development completed” is not needed). */
+export interface StageDateDef { start: string; startMode: "field" | "prev"; end: string; endMode: "next" | "field" | "none" }
+export interface StageDateSettings {
+  /** use the dates for time in stage and stage durations */ enabled: boolean;
+  /** by stage name */ stages: Record<string, StageDateDef>;
+  /** when a date is missing, read it from the work item history */ fallback: boolean;
+  /** flag Epics where the stage and the dates disagree (missing, out of order, skipped, rework) */ consistency: boolean;
+  /** the date field that says when an Epic was delivered (empty = as in the delivery performance settings) */ delivered: string;
+  /** track changes to these dates from the work item history, like the go-live date */ track: boolean;
+  /** show “recorded late” when a date was entered more than `lateDays` days after the date itself */ late: boolean; lateDays: number;
+}
+export const defaultStageDates = (): StageDateSettings => ({ enabled: false, stages: {}, fallback: true, consistency: true, delivered: "", track: true, late: true, lateDays: 7 });
+/** Every date field the stage dates read. */
+export const stageDateFields = (s: StageSettings): string[] => { const f: string[] = []; for (const d of Object.values(s.dates.stages)) { if (d.startMode === "field" && d.start) f.push(d.start); if (d.endMode === "field" && d.end) f.push(d.end); } if (s.dates.delivered) f.push(s.dates.delivered); return Array.from(new Set(f)); };
+export const stageDatesOn = (s: StageSettings) => stagesOn(s) && s.dates.enabled && stageDateFields(s).length > 0;
 export interface StageSettings {
   source: "field" | "state" | "both"; field: string;
   stages: StageDef[];
@@ -13,9 +28,11 @@ export interface StageSettings {
   lagRule: boolean; lagAmber: number; lagRed: number;
   /** Needs attention when an Epic has been in a stage for more than this many days */
   stuckRule: boolean; stuckDays: number;
+  /** optional: the date fields that say when each stage started and ended */
+  dates: StageDateSettings;
 }
 export const IGNORE = "(ignore)";
-export const defaultStages = (): StageSettings => ({ source: "both", field: "", stages: [], map: {}, smooth: false, lagRule: true, lagAmber: 1, lagRed: 2, stuckRule: true, stuckDays: 45 });
+export const defaultStages = (): StageSettings => ({ source: "both", field: "", stages: [], map: {}, smooth: false, lagRule: true, lagAmber: 1, lagRed: 2, stuckRule: true, stuckDays: 45, dates: defaultStageDates() });
 /** Stages are in use once at least one stage and one mapped value exist; until then progress works as before (the other progress sources). */
 export const stagesOn = (s: StageSettings) => s.stages.length > 0 && Object.keys(s.map).length > 0;
 
@@ -83,7 +100,9 @@ export function withStageNames(s: StageSettings, names: string[]): StageSettings
   const rename = old.length === names.length && !names.some(x => old.some(d => key(d.name) === key(x)));
   const map: Record<string, string> = {};
   for (const [v, m] of Object.entries(s.map)) { const t = m === IGNORE ? IGNORE : rename ? names[old.findIndex(d => key(d.name) === key(m))] : names.find(n => key(n) === key(m)); if (t) map[v] = t; }
-  return { ...s, stages, map };
+  const dateDefs: Record<string, StageDateDef> = {};
+  old.forEach((o, i) => { const def = s.dates.stages[o.name]; if (!def) return; const n = names.find(x => key(x) === key(o.name)) ?? (rename ? names[i] : undefined); if (n) dateDefs[n] = def; });
+  return { ...s, stages, map, dates: { ...s.dates, stages: dateDefs } };
 }
 
 const PHASES: { value: RegExp; stage: RegExp }[] = [

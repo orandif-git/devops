@@ -1,6 +1,6 @@
 /** The history of one date field of an Epic (for example the go-live date): the first value ever set and every later change. */
 export interface Change { at: string; by: string; from: string; to: string }
-export interface Hist { baseline: string; current: string; changes: Change[]; /** last revision read */ rev: number }
+export interface Hist { baseline: string; current: string; changes: Change[]; /** last revision read */ rev: number; /** when and by whom the first date was entered (when known) */ firstAt?: string; firstBy?: string }
 export interface Rev { id: number; rev: number; at: string; by: string; value: string }
 
 const DAY = 86400000;
@@ -16,7 +16,7 @@ export function applyRevisions(prev: Record<number, Hist>, revs: Rev[]): Record<
     const h = out[r.id], v = norm(r.value);
     if (h && r.rev <= h.rev) continue;
     if (!v) { if (h) h.rev = r.rev; continue; }                     // a cleared date is not a move; the next value is compared with the last real one
-    if (!h) { out[r.id] = { baseline: v, current: v, changes: [], rev: r.rev }; continue; }
+    if (!h) { out[r.id] = { baseline: v, current: v, changes: [], rev: r.rev, firstAt: r.at, firstBy: r.by }; continue; }
     if (v !== h.current) { h.changes.push({ at: r.at, by: r.by, from: h.current, to: v }); h.current = v; }
     h.rev = r.rev;
   }
@@ -30,7 +30,7 @@ export function historyFromUpdates(updates: { rev?: number; revisedDate?: string
     const c = u.fields?.[field]; if (!c) continue;
     const from = norm(c.oldValue), to = norm(c.newValue), by = typeof u.revisedBy === "string" ? u.revisedBy : u.revisedBy?.displayName ?? "", at = u.revisedDate ?? "";
     if (!to) continue;
-    if (!h) { h = from && from !== to ? { baseline: from, current: to, changes: [{ at, by, from, to }], rev: u.rev ?? 0 } : { baseline: to, current: to, changes: [], rev: u.rev ?? 0 }; continue; }
+    if (!h) { h = from && from !== to ? { baseline: from, current: to, changes: [{ at, by, from, to }], rev: u.rev ?? 0 } : { baseline: to, current: to, changes: [], rev: u.rev ?? 0, firstAt: at, firstBy: by }; continue; }
     if (to !== h.current) { h.changes.push({ at, by, from: h.current, to }); h.current = to; }
     h.rev = u.rev ?? h.rev;
   }

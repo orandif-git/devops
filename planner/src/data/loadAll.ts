@@ -1,7 +1,7 @@
 import { loadStateGroups } from "./stateGroups";
 import { HistoryMap, loadRevisionData } from "./history";
 import { backfillSnapshots, Timelines, trackedFields } from "../core/asof";
-import { stageSince, stagesOn } from "../core/stages";
+import { stageDateFields, stageDatesOn, stageSince, stagesOn } from "../core/stages";
 import { doneDatesFromField, doneDatesFromTimelines } from "../core/delivery";
 import { buildExec } from "../core/executive";
 import { metricsOf, Snapshot } from "../core/snapshots";
@@ -59,13 +59,14 @@ export async function loadAll(project: { id: string; name: string }, s: PlannerS
   });
   const [avail, stateGroups] = await Promise.all([loadAvailability(s.capacityTeams, opts.force), loadStateGroups(project.name, s.workItemType)]);
   let history: HistoryMap | undefined, historyError: string | undefined, timelines: Timelines | undefined;
-  const hf = Array.from(new Set([s.epicTargetField, s.executive.goLiveField].filter(Boolean)));
-  const dv = s.executive.delivery, needTl = s.executive.enabled && (s.history.trendBackfill || (dv.enabled && dv.source === "history") || (stagesOn(s.executive.stages) && s.executive.stages.stuckRule));
+  const sdf = stageDatesOn(s.executive.stages) && s.executive.stages.dates.track ? stageDateFields(s.executive.stages) : [];       // the stage dates are tracked like the go-live date
+  const hf = Array.from(new Set([s.epicTargetField, s.executive.goLiveField, ...sdf].filter(Boolean)));
+  const dv = s.executive.delivery, needTl = s.executive.enabled && (s.history.trendBackfill || (dv.enabled && dv.source === "history") || (stagesOn(s.executive.stages) && s.executive.stages.stuckRule) || (stageDatesOn(s.executive.stages) && s.executive.stages.dates.fallback));
   const track = needTl ? trackedFields(s) : [];       // the same read of the revisions also keeps what the earlier weeks of the trend need
   if (s.history.enabled && hf.length) { try { const r = await loadRevisionData(project, s.workItemType, hf, track, { force: opts.force, progress: opts.progress }); history = r.map; timelines = track.length ? r.timelines : undefined; } catch (e) { historyError = (e as Error).message; } }
   const stageSinceMap = timelines && stagesOn(s.executive.stages) ? stageSince(timelines, s.executive.stages) : undefined;        // when each Epic entered its stage
   const exec = buildExec({ stageSince: stageSinceMap, epics: load.epics, gridDone, bookings, avail, settings: s, history: history?.[s.executive.goLiveField || s.epicTargetField] });
-  const deliveredAt = s.executive.enabled && dv.enabled ? (dv.source === "field" ? doneDatesFromField(load.epics, dv.dateField) : timelines ? doneDatesFromTimelines(timelines, s.executive.doneStates) : undefined) : undefined;     // when each Epic reached Done
+  const sdd = s.executive.stages.dates.delivered, deliveredAt = s.executive.enabled && dv.enabled ? (stageDatesOn(s.executive.stages) && sdd ? doneDatesFromField(load.epics, sdd) : dv.source === "field" ? doneDatesFromField(load.epics, dv.dateField) : timelines ? doneDatesFromTimelines(timelines, s.executive.doneStates) : undefined) : undefined;     // when each Epic reached Done
   const snapshots = opts.queryId ? undefined : await recordSnapshot(project.id, metricsOf(exec.rows, new Date()), timelines && s.history.trendBackfill ? async weeks => backfillSnapshots({ epics: load.epics, timelines: timelines!, settings: s, weeks }) : undefined);       // only the whole portfolio is a fair comparison
   return { load, epics: load.epics, bookings, tasks, gridDone, stats: sumStats(perStats), perSource, avail, stateGroups, history, historyError, snapshots, deliveredAt, stageSince: stageSinceMap, ms: Date.now() - t0, at: new Date().toISOString() };
 }

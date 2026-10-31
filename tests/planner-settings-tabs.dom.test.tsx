@@ -43,6 +43,21 @@ describe("Delivery stages editor", () => {
     expect(sel("Design").value).toBe("Design"); expect(sel("UAT").value).toBe("UAT"); expect(sel("Build").value).toBe("Development");           // the pick-list values found (mock: Design, Build, UAT) are matched
     act(() => { Simulate.change(sel("Build"), { target: { value: "SIT" } } as never); }); expect(v.executive.stages.map.Build).toBe("SIT");
   });
+  it("maps the stage dates: a stage ends when the next one starts, or at its own field", async () => {
+    let v = normalizeSettings({ ...defaultSettings(), executive: { enabled: true, stages: { source: "field", field: "Custom.DS" } } });
+    const fields = [{ referenceName: "Custom.Dev", name: "Dev Start Date", type: "dateTime" }, { referenceName: "Custom.SIT", name: "SIT Start Date", type: "dateTime" }, { referenceName: "Custom.UATDone", name: "UAT Completion Date", type: "dateTime" }];
+    const h = document.createElement("div"); document.body.appendChild(h);
+    const render = async () => { await act(async () => { ReactDOM.render(<StagesEditor s={v} fields={fields} project="P" onChange={n => { v = { ...v, executive: { ...v.executive, stages: n } }; void render(); }} />, h); }); };
+    await render(); await act(async () => { Simulate.click(Array.from(h.querySelectorAll("button")).find(b => b.textContent === "Use the SDLC stages")!); });
+    expect(h.querySelector(".stage-dates table")).toBeNull();
+    await act(async () => { Simulate.change(h.querySelector('.stage-dates input[type=checkbox]')!, { target: { checked: true } } as never); });
+    const rows = () => Array.from(h.querySelectorAll(".stage-dates tbody tr")); expect(rows().length).toBe(5); expect(rows()[1].textContent).toContain("When SIT starts"); expect(rows()[4].textContent).toContain("Open (until delivered)");
+    await act(async () => { Simulate.change(h.querySelector('select[aria-label="Development starts"]')!, { target: { value: "Custom.Dev" } } as never); }); expect(v.executive.stages.dates.stages.Development.start).toBe("Custom.Dev");
+    await act(async () => { Simulate.click(Array.from(rows()[3].querySelectorAll("button")).find(b => b.textContent === "use its own field")!); });
+    await act(async () => { Simulate.change(h.querySelector('select[aria-label="UAT ends"]')!, { target: { value: "Custom.UATDone" } } as never); }); expect(v.executive.stages.dates.stages.UAT).toMatchObject({ endMode: "field", end: "Custom.UATDone" });
+    await act(async () => { Simulate.click(Array.from(rows()[4].querySelectorAll("button")).find(b => b.textContent === "use a date field") ?? Array.from(rows()[4].querySelectorAll("button"))[0]); });
+    expect(v.executive.stages.dates.enabled).toBe(true);
+  });
   it("warns when the chosen field holds a RAG status", async () => {
     const v = normalizeSettings({ ...defaultSettings(), executive: { enabled: true, stages: { source: "field", field: "Custom.RAGStatus" } } });
     const h = document.createElement("div"); document.body.appendChild(h);

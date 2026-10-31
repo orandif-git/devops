@@ -1,4 +1,4 @@
-import { defaultStages, IGNORE } from "./stages";
+import { defaultStageDates, defaultStages, IGNORE, StageDateDef, StageDateSettings } from "./stages";
 import { isDateFormat } from "../../../src/core/dateFormat";
 import { cleanTiles } from "./epicStats";
 import { validateQueries } from "./execQuery";
@@ -58,7 +58,15 @@ function normStages(raw: unknown): ExecSettings["stages"] {
     .filter(x => x.name && !seen.has(x.name.toLowerCase()) && !!seen.add(x.name.toLowerCase()));
   const names = new Set(stages.map(x => x.name.toLowerCase()));
   const map: Record<string, string> = {}; if (r.map && typeof r.map === "object") for (const [k, v] of Object.entries(r.map as Record<string, unknown>)) { const t = typeof v === "string" ? v : ""; if (k.trim() && (t === IGNORE || names.has(t.toLowerCase()))) map[k] = stages.find(x => x.name.toLowerCase() === t.toLowerCase())?.name ?? IGNORE; }
-  return { source: (["field", "state", "both"].includes(str(r.source)) ? str(r.source) : "both") as ExecSettings["stages"]["source"], field: str(r.field), stages, map, smooth: r.smooth === true, lagRule: r.lagRule !== false, lagAmber: n(r.lagAmber, d.lagAmber, 1, 10), lagRed: n(r.lagRed, d.lagRed, 1, 10), stuckRule: r.stuckRule !== false, stuckDays: n(r.stuckDays, d.stuckDays, 1, 730) };
+  // the stage dates: only for stages that exist, a field only where its mode uses one
+  const dr = (r.dates && typeof r.dates === "object" ? r.dates : {}) as Record<string, unknown>, dd = defaultStageDates(), dstages: Record<string, StageDateDef> = {};
+  if (dr.stages && typeof dr.stages === "object") for (const [k, v] of Object.entries(dr.stages as Record<string, unknown>)) {
+    const st = stages.find(x => x.name.toLowerCase() === k.toLowerCase()); if (!st || !v || typeof v !== "object") continue;
+    const o = v as Record<string, unknown>, startMode = o.startMode === "prev" ? "prev" : "field", endMode = o.endMode === "field" ? "field" : o.endMode === "none" ? "none" : "next";
+    dstages[st.name] = { startMode, start: startMode === "field" ? str(o.start) : "", endMode, end: endMode === "field" ? str(o.end) : "" };
+  }
+  const dates: StageDateSettings = { enabled: dr.enabled === true, stages: dstages, fallback: dr.fallback !== false, consistency: dr.consistency !== false, delivered: str(dr.delivered), track: dr.track !== false, late: dr.late !== false, lateDays: n(dr.lateDays, dd.lateDays, 1, 90) };
+  return { source: (["field", "state", "both"].includes(str(r.source)) ? str(r.source) : "both") as ExecSettings["stages"]["source"], field: str(r.field), stages, map, smooth: r.smooth === true, lagRule: r.lagRule !== false, lagAmber: n(r.lagAmber, d.lagAmber, 1, 10), lagRed: n(r.lagRed, d.lagRed, 1, 10), stuckRule: r.stuckRule !== false, stuckDays: n(r.stuckDays, d.stuckDays, 1, 730), dates };
 }
 const DELIVERY_PARTS = ["rate", "late", "delivered", "predict", "chart", "delays"];
 function normDelivery(raw: unknown): ExecSettings["delivery"] {

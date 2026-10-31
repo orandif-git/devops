@@ -21,6 +21,7 @@ export interface LP {
   /** the status view: the owner's RAG, the data, or the variance between them */
   view: "rag" | "data" | "var"; canSwitch: boolean;
   /** delivery performance: when each Epic reached Done, and whether the card is open */
+  /** how long each stage normally takes (median of the finished ones), when the stage dates are set up */ stageTypical?: Record<string, number>;
   deliveredAt?: Record<number, number>; showDelivery: boolean; onDelivery(on: boolean): void;
 }
 const DAY = 86400000;

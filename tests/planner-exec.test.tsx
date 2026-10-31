@@ -639,3 +639,26 @@ describe("Designs: classic and modern", () => {
     act(() => { Simulate.click(tab(h, "Insights")); }); expect(h.querySelector(".ex-byfield")).not.toBeNull();
   });
 });
+
+describe("Stage dates in the modern design", () => {
+  const SN = ["Design", "Development", "SIT", "UAT", "Deployment"];
+  const sdSettings = normalizeSettings({ ...settings, history: { enabled: true }, executive: { ...settings.executive, designs: { classic: false, modern: true }, stages: { source: "field", field: "Custom.DS", stages: SN.map((n, i) => ({ name: n, pct: 17 * (i + 1), from: i * 20, to: i * 20 + 20 })), map: Object.fromEntries(SN.map(n => [n, n])), stuckRule: false, lagRule: false,
+    dates: { enabled: true, track: true, late: true, lateDays: 7, consistency: true, fallback: false, stages: { Design: { startMode: "field", start: "Custom.ES", endMode: "next" }, Development: { startMode: "field", start: "Custom.Dev", endMode: "next" }, SIT: { startMode: "field", start: "Custom.SIT", endMode: "next" }, UAT: { startMode: "field", start: "Custom.UAT", endMode: "none" }, Deployment: { startMode: "prev", endMode: "none" } } } } } });
+  const mk = (id: number, ds: string, d: Record<string, string>) => ({ ...epic(id, "Epic " + id, "Active", "Regulatory", "2026-03-02", "2027-03-01"), extra: { "Custom.Type": "Regulatory", "Custom.DS": ds, "Custom.ES": "2026-05-11", ...d } });
+  const eps = [mk(1, "SIT", { "Custom.Dev": "2026-06-29", "Custom.SIT": "2026-09-14" }), mk(2, "SIT", { "Custom.Dev": "2026-06-29" }), mk(3, "UAT", { "Custom.Dev": "2026-06-29", "Custom.SIT": "2026-09-14", "Custom.UAT": "2026-10-19" })];
+  const hist = { "Custom.SIT": { 1: { baseline: "2026-09-12", current: "2026-09-14", changes: [{ at: "2026-09-16T10:00:00Z", by: "Sara", from: "2026-09-12", to: "2026-09-14" }], rev: 5, firstAt: "2026-10-01T10:00:00Z", firstBy: "Omar" } } };
+  const loaded = { epics: eps, bookings: [], gridDone: {}, avail: { records: [], hours: () => null, team: () => "" }, at: new Date().toISOString(), load: { ms: 10 }, history: { "Custom.GoLive": {}, "Custom.Dev": {}, "Custom.SIT": hist["Custom.SIT"], "Custom.UAT": {}, "Custom.ES": {} } } as never;
+  const mountSD = async () => { store.doc = { views: [], defaultId: undefined, design: undefined }; const h = document.createElement("div"); document.body.appendChild(h); await act(async () => { ReactDOM.render(<ExecDashboard project={{ id: "P", name: "Proj" }} settings={sdSettings} loaded={loaded} busy={false} error="" onReload={() => undefined} />, h); }); await act(async () => { await new Promise(r => setTimeout(r, 0)); }); return h; };
+  it("shows how long each stage took, the dates with what they were derived from, and the history of the dates", async () => {
+    const h = await mountSD(); act(() => { Simulate.click(Array.from(h.querySelectorAll(".exm-tb [role=tab]")).find(b => b.textContent === "Epics")!); });
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".exm-t tr.rw")).find(r => r.getAttribute("data-ep") === "1")!); }); const p = h.querySelector(".exm-insp.on")!.textContent!;
+    expect(p).toContain("How long each stage took"); expect(p).toContain("Stage dates"); expect(p).toContain("= SIT start"); expect(p).toContain("77 d"); expect(p).toContain("edited 1×");
+    expect(p).toContain("Stage date history"); expect(p).toContain("SIT start:"); expect(p).toContain("Sara"); expect(p).toMatch(/recorded \d+ d late/);
+  });
+  it("lists the Epics whose stage dates do not fit in the data notes and under the Stage dates filter", async () => {
+    const h = await mountSD(); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with a problem in the stage dates"); expect(h.querySelector("details.ex-notes")!.textContent).toContain("1 with stage dates changed");
+    act(() => { Simulate.click(h.querySelector("[data-more-btn]")!); }); const panel = h.querySelector(".exm-more")!; expect(panel.textContent).toContain("Stage dates");
+    act(() => { Simulate.click(Array.from(panel.querySelectorAll("button.c")).find(b => b.textContent!.startsWith("Date problems"))!); }); expect(h.querySelector(".exm-chips")!.textContent).toContain("Stage dates: date problems");
+    act(() => { Simulate.click(Array.from(h.querySelectorAll(".exm-tb [role=tab]")).find(b => b.textContent === "Epics")!); }); expect(h.querySelectorAll(".exm-t tr.rw").length).toBe(1);
+  });
+});

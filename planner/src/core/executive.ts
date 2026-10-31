@@ -2,7 +2,8 @@ import { AvailabilityLike, buildPeople, cellOf, noFilters } from "./model";
 import { GridDone, progressOf } from "./progress";
 import { Booking, EpicRecord, ExecSettings, PlannerSettings } from "./types";
 import { Hist, signed, summarize } from "./history";
-import { expectedIdx, resolveStage, stageProgress, stagesOn } from "./stages";
+import { expectedIdx, resolveStage, stageDatesOn, stageProgress, stagesOn } from "./stages";
+import { computeStageDates, StageDatesResult } from "./stageDates";
 
 export type ExecStatus = "green" | "amber" | "red" | "idle" | "unknown" | "done";
 export const STATUS_NAME: Record<ExecStatus, string> = { green: "On track", amber: "Needs attention", red: "At risk", idle: "Not started", unknown: "Not assessed", done: "Done" };
@@ -48,6 +49,8 @@ export interface ExecEpic {
   declared?: "green" | "amber" | "red"; declaredText?: string; compare?: "same" | "optimistic" | "cautious";
   /** the delivery stage (when stages are set up): its name and place, what the value was, how the value mapped, days in it, and how many stages behind the time used */
   stage?: string; stageIdx?: number; stageKind?: "stage" | "ignore" | "unmapped" | "none"; stageValue?: string; stageDays?: number; stageLag?: number;
+  /** the dates of each stage (when the stage dates are set up): start, end, duration and what looks wrong */
+  stageDates?: StageDatesResult;
   /** the size of the Epic on the portfolio map (the size field, else 1) */
   size: number;
 }
@@ -113,6 +116,11 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const dv0 = x.declaredField ? valueOf(e, x.declaredField) : "", dv = x.ragNone.some(o => same(o, dv0)) ? "" : dv0; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
     { const since = p.stageSince?.[e.id]; if (since !== undefined && row.stage) row.stageDays = Math.max(0, Math.floor((today - since) / DAY)); }
+    if (stageDatesOn(st)) {                       // when each stage started and ended, from the Epic's date fields; the time in the current stage comes from them first
+      const isDone = has(x.doneStates, e.state), idx = rs?.kind === "stage" ? rs.idx : isDone ? st.stages.length - 1 : -1;
+      const sd = idx >= 0 ? computeStageDates({ st, extra: e.extra, curIdx: idx, done: isDone, since: p.stageSince?.[e.id], today }) : undefined;
+      if (sd) { row.stageDates = sd; if (sd.timeInStage !== undefined) row.stageDays = sd.timeInStage; }
+    }
     if (goLive === undefined) noGoLive++;
     if (pr === undefined) noProgress++;
     if (has(x.doneStates, e.state)) { row.status = "done"; row.conf = 100; row.pct = 100; reasons.push("Delivered"); rows.push(row); continue; }

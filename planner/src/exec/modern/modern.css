@@ -55,3 +55,13 @@
 
 .exm-t td.why { max-width: 300px; overflow: hidden; text-overflow: ellipsis; } .exm-t td b { max-width: 260px; }
 .exm-main.ins .exm-t.ep th:nth-child(3), .exm-main.ins .exm-t.ep td:nth-child(3) { display: none; }
+
+/* stage dates in the Epic panel */
+.exm-insp .stp .dd { display: block; font-size: 10.5px; color: var(--m-l2); font-weight: 400; margin-top: 1px; } .exm-insp .stp .skip i { background: #fff; border: 2px dashed #b8b8c0; color: #999; } .exm-insp .stp .skip:before { background: repeating-linear-gradient(90deg, #d1d1d6 0 4px, transparent 4px 8px); }
+.exm-dur { display: flex; height: 22px; border-radius: 7px; overflow: hidden; background: var(--m-fill); } .exm-dur i { display: flex; align-items: center; justify-content: center; font: 600 10.5px var(--m-font); color: #fff; font-style: normal; border-right: 2px solid #fff; overflow: hidden; white-space: nowrap; } .exm-dur i:last-child { border: 0; } .exm-dur i.skip { background: repeating-linear-gradient(45deg, #e5e5ea 0 5px, #f4f4f6 5px 10px); color: #888; }
+.exm-sd { width: 100%; border-collapse: collapse; font-size: 13px; } .exm-sd th { text-align: left; font: 600 11px var(--m-font); color: var(--m-l2); padding: 4px 6px; text-transform: uppercase; } .exm-sd td { padding: 7px 6px; border-top: 1px solid #f0f0f3; } .exm-sd td.tg { border-top: 0; padding: 0 6px 6px; } .exm-sd .r { text-align: right; }
+.exm-insp .tag { display: inline-block; border-radius: 99px; padding: 1px 8px; font: 600 11px var(--m-font); margin: 0 4px 2px 0; white-space: nowrap; } .exm-insp .tag.e { background: #fef3c7; color: #92400e; } .exm-insp .tag.l { background: #ede9fe; color: #5b21b6; margin-left: 6px; } .exm-insp .tag.c { background: #e0f2fe; color: #075985; } .exm-insp .tag.w { background: #fee2e2; color: #b91c1c; } .exm-insp .tag.m { background: var(--m-fill); color: #555; margin-left: 4px; }
+.exm-warn { background: #fff7e6; border: 1px solid #fde1a8; border-radius: 12px; padding: 9px 12px; font-size: 13px; margin-top: 8px; display: flex; gap: 8px; } .exm-warn.r { background: #fef2f2; border-color: #fecaca; }
+.exm-sdh { list-style: none; margin: 0; padding: 0; } .exm-sdh li { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid #f0f0f3; font-size: 13px; } .exm-sdh li:first-child { border: 0; } .exm-sdh .dt { width: 8px; height: 8px; border-radius: 50%; background: var(--m-acc); margin-top: 6px; flex: none; } .exm-sdh small { display: block; color: var(--m-l2); font-size: 12px; }
+.exm-sd td:nth-child(2), .exm-sd td:nth-child(3), .exm-sd td.r { white-space: nowrap; }
+.exm-insp.on { position: sticky; top: 0; align-self: flex-start; max-height: 100vh; overflow-y: auto; }

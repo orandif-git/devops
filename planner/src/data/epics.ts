@@ -2,6 +2,7 @@ import { shortHash } from "../../../src/shared/ids";
 import { buildWiql, EpicFilters } from "../core/wiql";
 import { chunk, idsToFetch, mergeEpics } from "../core/sync";
 import { EpicRecord, PlannerSettings } from "../core/types";
+import { stageDateFields } from "../core/stages";
 import { restPost } from "../rest";
 import { cacheGet, cacheSet } from "./idb";
 import { runSavedQuery } from "./queries";
@@ -18,7 +19,7 @@ const text = (v: unknown): string => (v && typeof v === "object" ? String((v as 
 /** Epic fields kept in `extra`: the filter fields plus what the Executive Dashboard reads (categories, go-live date, progress fields). */
 export function extraFields(s: PlannerSettings): string[] {
   const x = s.executive;
-  const f = [...s.extraFilterFields, s.ganttLabelField, ...s.ganttGroupFields, ...x.categoryFields, x.goLiveField, x.tolSlipAmberField, x.tolSlipRedField, x.tolGapAmberField, x.tolGapRedField, x.declaredField, x.periodField, x.delivery.dateField, x.stages.field, x.sizeField, x.blockerField, ...x.rules.map(q => q.field), ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
+  const f = [...s.extraFilterFields, s.ganttLabelField, ...s.ganttGroupFields, ...x.categoryFields, x.goLiveField, x.tolSlipAmberField, x.tolSlipRedField, x.tolGapAmberField, x.tolGapRedField, x.declaredField, x.periodField, x.delivery.dateField, x.stages.field, ...stageDateFields(x.stages), x.sizeField, x.blockerField, ...x.rules.map(q => q.field), ...x.progress.flatMap(p => [p.field, p.doneField, p.totalField])];
   return Array.from(new Set(f.filter((v): v is string => !!v)));
 }
 

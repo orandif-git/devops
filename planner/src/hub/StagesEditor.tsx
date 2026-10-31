@@ -1,7 +1,7 @@
 import React from "react";
 import { PlannerSettings } from "../core/types";
-import { IGNORE, looksLikeRag, parseStageNames, SDLC_STAGES, StageSettings, stagesOn, suggestMap, withStageNames } from "../core/stages";
-import { isCategoryType } from "../core/fieldTypes";
+import { IGNORE, looksLikeRag, parseStageNames, SDLC_STAGES, StageDateDef, StageDateSettings, StageSettings, stagesOn, suggestMap, withStageNames } from "../core/stages";
+import { isCategoryType, isDateType } from "../core/fieldTypes";
 import { FieldInfo, listFieldValues, listStates } from "../data/fields";
 import { FieldPick } from "./SettingsTab";
 
@@ -59,6 +59,7 @@ export function StagesEditor(p: { s: PlannerSettings; fields: FieldInfo[]; proje
           <div className="help">“{IGNORE}” is for values that should not count (Closed, On Hold, Cancelled). Done Epics always count as 100% by their state.</div></>}
       </>}
 
+      {st.stages.length > 0 && <StageDatesEditor st={st} fields={p.fields} set={set} />}
       {stagesOn(st) && <>
         <div className="help" style={{ marginTop: 12 }}><b>Rules</b></div>
         <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={st.smooth} onChange={e => set({ smooth: e.target.checked })} /> Move progress smoothly inside a stage with the time of its planned window (otherwise progress jumps from stage to stage)</label>
@@ -67,6 +68,40 @@ export function StagesEditor(p: { s: PlannerSettings; fields: FieldInfo[]; proje
         <div className="help rule-eg">e.g. With 63% of its time used an Epic should be in UAT: still in SIT = Needs attention, still in Development = At risk.</div>
         <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={st.stuckRule} onChange={e => set({ stuckRule: e.target.checked })} /> Flag an Epic that has stayed in one stage for more than <input type="number" min={1} max={730} style={{ width: 64 }} value={st.stuckDays} onChange={e => set({ stuckDays: Number(e.target.value) || 45 })} /> days (read from the work item history)</label>
         <div className="help rule-eg">e.g. An Epic in UAT for 70 days becomes Needs attention even if its dates look fine (needs the work item history).</div>
+      </>}
+    </div>
+  );
+}
+
+const defOf = (names: string[], i: number): StageDateDef => ({ start: "", startMode: "field", end: "", endMode: i < names.length - 1 ? "next" : "none" });
+
+/** Optional: the date fields that say when each stage started and ended. A stage can end when the next one starts, so no “completed” field is needed. */
+function StageDatesEditor(p: { st: StageSettings; fields: FieldInfo[]; set(patch: Partial<StageSettings>): void }) {
+  const { st } = p, d = st.dates, names = st.stages.map(x => x.name), setD = (patch: Partial<StageDateSettings>) => p.set({ dates: { ...d, ...patch } });
+  const def = (i: number): StageDateDef => d.stages[names[i]] ?? defOf(names, i);
+  const setDef = (i: number, patch: Partial<StageDateDef>) => setD({ stages: { ...Object.fromEntries(names.map((n, k) => [n, def(k)])), [names[i]]: { ...def(i), ...patch } } });
+  const dateField = (label: string, value: string, onChange: (v: string) => void) => <FieldPick bare label={label} value={value} fields={p.fields} accept={f => isDateType(f.type)} placeholder="Custom.StageStartDate" onChange={onChange} />;
+  const link = (text: string, on: () => void) => <button type="button" className="lk" onClick={on}>{text}</button>;
+  return (
+    <div className="stage-dates">
+      <div className="help" style={{ marginTop: 14 }}><b>Stage dates</b> (optional). If your Epics have date fields for when each stage started, the dashboard can show how long an Epic has been in its stage, how long each finished stage took, and where the dates do not fit.</div>
+      <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={d.enabled} onChange={e => setD({ enabled: e.target.checked, ...(e.target.checked && !Object.keys(d.stages).length ? { stages: Object.fromEntries(names.map((n, i) => [n, defOf(names, i)])) } : {}) })} /> Use the stage dates</label>
+      {d.enabled && <>
+        <table className="stage-tbl"><thead><tr><th>Stage</th><th>Starts when</th><th>Ends when</th></tr></thead>
+          <tbody>{names.map((n, i) => { const f = def(i);
+            return <tr key={n}><td><b>{n}</b></td>
+              <td>{f.startMode === "prev" && i > 0 ? <>When {names[i - 1]} ends {link("use a date field", () => setDef(i, { startMode: "field" }))}</> : <>{dateField(`${n} starts`, f.start, v => setDef(i, { start: v, startMode: "field" }))}{i > 0 && <div>{link(`use “${names[i - 1]} ends” instead`, () => setDef(i, { startMode: "prev", start: "" }))}</div>}</>}</td>
+              <td>{f.endMode === "next" && i < names.length - 1 ? <>When {names[i + 1]} starts <span className="muted">(calculated)</span> {link("use its own field", () => setDef(i, { endMode: "field" }))}</> : f.endMode === "field" ? <>{dateField(`${n} ends`, f.end, v => setDef(i, { end: v, endMode: "field" }))}{i < names.length - 1 && <div>{link(`use “${names[i + 1]} starts” instead`, () => setDef(i, { endMode: "next", end: "" }))}</div>}</> : <><span className="muted">Open (until delivered)</span> {link("choose a field", () => setDef(i, { endMode: "field" }))}</>}</td></tr>; })}</tbody></table>
+        <div className="help">There is no field for “{names[1] ?? "Development"} completed”? Leave “Ends when” on “When the next stage starts”: the end of a stage is the start date of the next one. A stage can also start when the previous one ends.</div>
+        <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={d.fallback} onChange={e => setD({ fallback: e.target.checked })} /> When a date is missing, read it from the work item history</label>
+        <div className="help rule-eg">Otherwise the stage shows “date missing” and is left out of the durations. Needs the work item history to be readable.</div>
+        <label style={{ display: "block", margin: "4px 0" }}><input type="checkbox" checked={d.consistency} onChange={e => setD({ consistency: e.target.checked })} /> Flag Epics where the stage and the dates do not fit</label>
+        <div className="help rule-eg">A start date is missing, dates are out of order, a stage looks skipped, or the Epic went back to an earlier stage (rework).</div>
+        <div className="row" style={{ alignItems: "flex-end" }}><FieldPick label="Delivered date field (optional): used for on-time delivery and days late" value={d.delivered} fields={p.fields} accept={f => isDateType(f.type)} placeholder="Custom.UATCompletionDate" onChange={v => setD({ delivered: v })} /></div>
+        <label style={{ display: "block", margin: "8px 0 4px" }}><input type="checkbox" checked={d.track} onChange={e => setD({ track: e.target.checked })} /> Track changes to the stage dates</label>
+        <div className="help rule-eg">Like the go-live date changes: who changed a date, from what to what, and when. Shown in the Epic panel and as a filter. Needs the work item history.</div>
+        <label style={{ display: "block", margin: "4px 0 4px 22px" }}><input type="checkbox" disabled={!d.track} checked={d.late} onChange={e => setD({ late: e.target.checked })} /> Show “recorded late” when a date was entered more than <input type="number" min={1} max={90} style={{ width: 56 }} disabled={!d.track || !d.late} value={d.lateDays} onChange={e => setD({ lateDays: Number(e.target.value) || 7 })} /> days after the date itself</label>
+        <div className="help rule-eg" style={{ marginLeft: 22 }}>It helps you judge how much to trust a date. It says nothing about why.</div>
       </>}
     </div>
   );

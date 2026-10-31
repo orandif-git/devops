@@ -50,6 +50,11 @@ export async function loadRevisionData(project: { id: string; name: string }, wo
   return { map, timelines };
 }
 
+/** One Epic's history for several date fields, read once from its updates. */
+export async function fetchEpicHistories(id: number, fields: string[]): Promise<Record<string, Hist | undefined>> {
+  const r = await restGet<{ value?: Parameters<typeof historyFromUpdates>[0] }>(`wit/workItems/${id}/updates`);
+  return Object.fromEntries(fields.map(f => [f, historyFromUpdates(r.value ?? [], f)]));
+}
 /** One Epic's history for one date field, read from its updates (used when the history of all Epics is not switched on). */
 export async function fetchEpicHistory(id: number, field: string): Promise<Hist | undefined> {
   const r = await restGet<{ value?: Parameters<typeof historyFromUpdates>[0] }>(`wit/workItems/${id}/updates`);

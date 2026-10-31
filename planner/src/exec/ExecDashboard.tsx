@@ -7,6 +7,8 @@ import { buildExec, dayText, dimFields, dimLabel, withSource } from "../core/exe
 import { catalog, calcKey, formatCell, runQuery } from "../core/execQuery";
 import { monthsOfPeriod } from "../core/period";
 import { ExecDesign, ExecLayout, PlannerSettings } from "../core/types";
+import { stageDateFields, stageDatesOn } from "../core/stages";
+import { typicalStageDays } from "../core/stageDates";
 import { decodeJson, encodeJson, newViewId } from "../core/views";
 import { LoadProgress } from "../data/epics";
 import { Loaded } from "../data/loadAll";
@@ -56,6 +58,7 @@ export function ExecDashboard(p: {
   const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
 
   const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, stageSince: L.stageSince, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
+  const typical = React.useMemo(() => (built && stageDatesOn(x.stages) ? typicalStageDays(built.rows.map(r => r.stageDates), x.stages.stages.map(s => s.name)) : undefined), [built, x.stages]);
   const viewRows = React.useMemo(() => (built ? built.rows.map(r => withSource(r, view === "rag" ? (x.statusSource === "rag" ? "rag" : "rag-check") : view === "data" || view === "var" ? "data" : "data")) : []), [built, view, x.statusSource]);
   const all = React.useMemo(() => (L && built ? buildItems(viewRows, L, p.settings) : []), [L, built, viewRows, p.settings]);
   const input = React.useMemo(() => (L && built ? { settings: p.settings, exec: viewRows, bookings: L.bookings, avail: L.avail, gridDone: L.gridDone } : undefined), [L, built, p.settings]);
@@ -78,11 +81,11 @@ export function ExecDashboard(p: {
   const items = React.useMemo(() => all.filter(i => pass(i, fx)), [all, f, savedRun]);   // eslint-disable-line react-hooks/exhaustive-deps
   const chosen = all.find(i => i.id === sel);
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, showDelivery, onDelivery: setShowDelivery };
+  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, stageTypical: typical, showDelivery, onDelivery: setShowDelivery };
 
   // my saved views and a shared link
-  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, stage: f.stage, chart: f.chart, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
-  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, stage: v.stage, chart: v.chart, period: v.period, dims: v.dims, text: v.text }); setShowDelivery(v.delivery); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
+  const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, stage: f.stage, sdate: f.sdate, chart: f.chart, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });
+  const apply = (raw: unknown) => { const v = normalizeExecView(raw, x.layout); setLayout(v.layout); setF({ ...emptyXF(), status: v.status, state: v.state, team: v.team, quarter: v.quarter, moved: v.moved, decl: v.decl, cell: v.cell, stage: v.stage, sdate: v.sdate, chart: v.chart, period: v.period, dims: v.dims, text: v.text }); setShowDelivery(v.delivery); setView(v.view); setSavedId(v.savedId); setSel(undefined); };
   const [doc, setDoc] = React.useState<ExecViewDoc>({ views: [] }), [viewErr, setViewErr] = React.useState(""), started = React.useRef(false);
   React.useEffect(() => {
     if (started.current) return; started.current = true;
@@ -130,6 +133,12 @@ export function ExecDashboard(p: {
       if (dated && !f.period!.undated) notes.push({ short: `${dated} not shown: no date for the period`, long: <>{dated} Epic(s) have no date to judge the period by (“{periodLabel(f.period!, x.periodField ? dimLabel(x.periodField) : undefined)}”), so they are left out. Tick “Include Epics without a date” in the Period filter to show them.</> });
       if (noDate) notes.push({ short: `${noDate} without a go-live date`, long: <>{noDate} Epic(s) have no go-live date in “{dimLabel(goLiveField)}”, so they cannot be assessed against a date.</> });
       if (noProg) notes.push({ short: `${noProg} without a progress value`, long: <>{noProg} Epic(s) have no progress value{x.progress.length ? "" : " (no progress source is set up yet: Settings › Executive Dashboard › Progress)"}; they are assessed on dates only.</> });
+      if (stageDatesOn(x.stages)) {
+        const prob = x.stages.dates.consistency ? items.filter(i => i.dateIssues > 0) : [], edits = x.stages.dates.track ? items.filter(i => i.dateEdits > 0) : [];
+        const kinds = (k: string) => prob.filter(i => i.r.stageDates?.issues.some(y => y.kind === k)).length;
+        if (prob.length) notes.push({ short: `${prob.length} with a problem in the stage dates`, long: <>{prob.length} Epic(s) have stage dates that do not fit: {kinds("missing")} with a missing start date, {kinds("order")} out of order, {kinds("skipped")} with a skipped stage, {kinds("rework")} back in an earlier stage. Open an Epic to see which dates. Filter them with “Stage dates” under More filters (Modern design).</> });
+        if (edits.length) notes.push({ short: `${edits.length} with stage dates changed after they were entered`, long: <>{edits.length} Epic(s) had a stage date changed after it was first entered (read from the work item history, like the go-live date changes).</> });
+      }
       if (noMoves) notes.push({ short: "no go-live changes recorded", long: <>No go-live date change is recorded in the field “{dimLabel(goLiveField)}” that this dashboard reads{p.settings.epicTargetField && goLiveField !== p.settings.epicTargetField ? `, while the Epic Gantt reads “${dimLabel(p.settings.epicTargetField)}”` : ""}. Check Settings › Executive Dashboard › Go-live date field.</> });
       return notes.length ? <details className="ex-notes"><summary><span aria-hidden="true">ⓘ</span> Data notes for the {items.length} Epics shown: {notes.map(n => n.short).join(" · ")}</summary><ul>{notes.map((n, k) => <li key={k}>{n.long}</li>)}</ul></details> : null;
     })();
@@ -140,7 +149,7 @@ export function ExecDashboard(p: {
       <ModernDashboard lp={lp} L={L} project={p.project.name} busy={p.busy} error={p.error} full={p.full} onFull={p.onFull} onReload={p.onReload} searchRef={searchRef}
         views={viewsMenu} queryControls={queryControls} designSwitch={designSwitchNode("exm-ds")} notes={notesNode} statusNote={statusNoteNode} onView={id => { setView(id); setF({ ...f, cell: [] }); }}
         chosen={chosen} onClose={() => setSel(undefined)} onDetails={id => setDialog(id)} onOpenEpic={id => { void openWorkItem(p.project.name, id); }} hist={eh.hist} histState={eh.state} histError={eh.error}
-        onReset={() => { setF(emptyXF()); setSavedId(""); }} historyError={L.historyError} />
+        onReset={() => { setF(emptyXF()); setSavedId(""); }} historyError={L.historyError} dateHistAllRead={historyOn && stageDatesOn(x.stages) && stageDateFields(x.stages).every(f => !!L.history?.[f])} />
       {dialogNode}
     </>
   );

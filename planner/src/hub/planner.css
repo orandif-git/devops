@@ -202,3 +202,4 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 @media (prefers-reduced-motion: reduce) { .tile.gs, .gantt-wrap .tl-row, .subtab { transition: none; } }
 .stage-tbl { border-collapse: collapse; margin: 6px 0; } .stage-tbl th { text-align: left; font-size: 12px; color: #667085; font-weight: 600; padding: 4px 18px 4px 0; } .stage-tbl td { padding: 3px 18px 3px 0; } .stage-tbl select { min-width: 200px; }
 .rule-eg { margin: 0 0 8px 22px; font-style: normal; }
+.stage-dates .lk { border: 0; background: none; color: #7a1a3c; cursor: pointer; padding: 0; text-decoration: underline; font: inherit; } .stage-dates .stage-tbl td { vertical-align: top; } .stage-dates .stage-tbl td .field { min-width: 240px; }

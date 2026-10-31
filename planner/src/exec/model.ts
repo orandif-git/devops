@@ -2,6 +2,7 @@ import { fmtDate } from "../core/dates";
 import { dimFields, dimLabel, ExecEpic, ExecStatus, NO_VALUE, STATUS_NAME } from "../core/executive";
 import { ChartType, PlannerSettings } from "../core/types";
 import { Hist, movedTags, Summary, summarize } from "../core/history";
+import { stageDateFields, stageDatesOn } from "../core/stages";
 import { Loaded } from "../data/loadAll";
 import { Dates, parseDay, Period, periodLabel, periodState } from "../core/execPeriod";
 
@@ -19,12 +20,17 @@ export interface Item {
   stage: string;
   /** why an Epic is in no stage: "Ignored", "Not mapped" or "No stage" (empty when it is in a stage or stages are not used) */
   stageGap: string;
+  /** how many times a stage date was changed after it was entered, and how many problems the stage dates have (missing, out of order, skipped, rework) */
+  dateEdits: number; dateIssues: number;
+  /** the history of each stage date field of this Epic (who changed it, when) */
+  dateHist?: Record<string, Hist>;
   /** the history of the go-live date (when it was read), what it says, and the words it can be filtered by */
   hist?: Hist; sum: Summary; moved: string[];
   /** lower-case text the search looks in: id, title, state, area, categories, reasons, people, dates, team */
   text: string;
 }
 
+export const SDATE = { changed: "Dates changed", problems: "Date problems" };
 export const STAGE_GAP = { ignore: "Ignored", unmapped: "Not mapped", none: "No stage" };
 export const DECL_NONE = "No RAG";
 export const DECL_ORDER = ["Check this", "Looks fine", DECL_NONE];
@@ -49,15 +55,18 @@ export function buildItems(rows: ExecEpic[], L: Loaded, s: PlannerSettings, toda
     const hist = hmap?.[r.epic.id], sum = summarize(hist, today, s.history.windowDays), moved = movedTags(sum);
     const e = s.executive.resources ? by.get(r.epic.id) : undefined, team = e ? Array.from(e.teams).sort((a, b) => b[1] - a[1])[0][0] : NO_VALUE;
     const text = [r.epic.id, r.epic.title, r.epic.state, r.epic.areaPath, ...Object.values(r.dims), ...r.reasons, STATUS_NAME[r.status], team, quarterOf(r.goLive), iso(r.goLive), fmtDate(s, iso(r.goLive)), iso(r.forecast), ...(e ? Array.from(e.people) : []), ...(hist ? moved : [])].join(" | ").toLowerCase();
-    return { r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, stage: r.stage ?? "", stageGap: r.stageKind === "ignore" ? STAGE_GAP.ignore : r.stageKind === "unmapped" ? STAGE_GAP.unmapped : r.stageKind === "none" ? STAGE_GAP.none : "", dt: { start: r.start, goLive: r.goLive, created: parseDay(r.epic.created), field: s.executive.periodField ? parseDay(r.epic.extra[s.executive.periodField]) : undefined }, cell: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? r.declared + "|" + r.dataStatus : "", gap: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.dataStatus] - ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.declared] : 0, decl: DECL[r.compare ?? ""] ?? (s.executive.declaredField ? DECL_NONE : ""), text, hist, sum, moved };
+    const sdf = stageDatesOn(s.executive.stages) ? stageDateFields(s.executive.stages) : [], dh: Record<string, Hist> = {};
+    for (const f of sdf) { const h = L.history?.[f]?.[r.epic.id]; if (h) dh[f] = h; }
+    const dateEdits = s.executive.stages.dates.track ? Object.values(dh).reduce((n, h) => n + h.changes.length, 0) : 0, dateIssues = s.executive.stages.dates.consistency ? r.stageDates?.issues.length ?? 0 : 0;
+    return { dateEdits, dateIssues, ...(Object.keys(dh).length ? { dateHist: dh } : {}), r, id: r.epic.id, title: r.epic.title, state: r.epic.state, status: r.status, team, quarter: quarterOf(r.goLive), hours: e ? r1(e.hours) : 0, stage: r.stage ?? "", stageGap: r.stageKind === "ignore" ? STAGE_GAP.ignore : r.stageKind === "unmapped" ? STAGE_GAP.unmapped : r.stageKind === "none" ? STAGE_GAP.none : "", dt: { start: r.start, goLive: r.goLive, created: parseDay(r.epic.created), field: s.executive.periodField ? parseDay(r.epic.extra[s.executive.periodField]) : undefined }, cell: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? r.declared + "|" + r.dataStatus : "", gap: r.declared && (r.dataStatus === "green" || r.dataStatus === "amber" || r.dataStatus === "red") ? ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.dataStatus] - ({ green: 0, amber: 1, red: 2 } as Record<string, number>)[r.declared] : 0, decl: DECL[r.compare ?? ""] ?? (s.executive.declaredField ? DECL_NONE : ""), text, hist, sum, moved };
   });
 }
 
 /** What the person has chosen. Within one slicer the choices add up (or); different slicers narrow each other (and). */
-export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; stage: string[]; /** the chart chosen for each field in the By-field card (kept in saved views) */ chart: Record<string, ChartType>; /** the period (all time when absent) */ period?: Period; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
-export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], moved: [], decl: [], cell: [], stage: [], chart: {}, dims: {}, text: "" });
-export const isEmpty = (f: XF) => !f.status.length && !f.state.length && !f.team.length && !f.quarter.length && !f.moved.length && !f.decl.length && !f.cell.length && !f.stage.length && !f.period && !Object.values(f.dims).some(v => v.length) && !f.text && !f.saved;
-export type Skip = "stage" | "period" | "status" | "state" | "team" | "quarter" | "moved" | "decl" | "cell" | { dim: string };
+export interface XF { status: ExecStatus[]; state: string[]; team: string[]; quarter: string[]; moved: string[]; decl: string[]; cell: string[]; stage: string[]; /** stage dates: “Dates changed” and/or “Date problems” */ sdate: string[]; /** the chart chosen for each field in the By-field card (kept in saved views) */ chart: Record<string, ChartType>; /** the period (all time when absent) */ period?: Period; dims: Record<string, string[]>; text: string; saved?: number[]; savedName?: string }
+export const emptyXF = (): XF => ({ status: [], state: [], team: [], quarter: [], moved: [], decl: [], cell: [], stage: [], sdate: [], chart: {}, dims: {}, text: "" });
+export const isEmpty = (f: XF) => !f.status.length && !f.state.length && !f.team.length && !f.quarter.length && !f.moved.length && !f.decl.length && !f.cell.length && !f.stage.length && !f.sdate.length && !f.period && !Object.values(f.dims).some(v => v.length) && !f.text && !f.saved;
+export type Skip = "stage" | "sdate" | "period" | "status" | "state" | "team" | "quarter" | "moved" | "decl" | "cell" | { dim: string };
 
 export function pass(i: Item, f: XF, skip?: Skip): boolean {
   const k = typeof skip === "string" ? skip : undefined, d = typeof skip === "object" ? skip.dim : undefined;
@@ -67,6 +76,7 @@ export function pass(i: Item, f: XF, skip?: Skip): boolean {
   if (k !== "quarter" && f.quarter.length && !f.quarter.includes(i.quarter)) return false;
   if (k !== "moved" && f.moved.length && !i.moved.some(t => f.moved.includes(t))) return false;
   if (k !== "stage" && f.stage.length && !f.stage.includes(i.stage) && !f.stage.includes(i.stageGap)) return false;
+  if (k !== "sdate" && f.sdate.length && !((f.sdate.includes(SDATE.changed) && i.dateEdits > 0) || (f.sdate.includes(SDATE.problems) && i.dateIssues > 0))) return false;
   if (k !== "period" && f.period) { const st = periodState(f.period, i.dt); if (st === "out" || (st === "undated" && !f.period.undated)) return false; }
   if (k !== "cell" && f.cell.length && !f.cell.includes(i.cell)) return false;
   if (k !== "decl" && f.decl.length && !f.decl.includes(i.decl)) return false;
@@ -91,6 +101,7 @@ export function chipsOf(f: XF, change: (n: XF) => void, fieldLabel?: string): { 
   f.quarter.forEach(s => out.push({ label: "Go-live: " + s, clear: () => change({ ...f, quarter: f.quarter.filter(x => x !== s) }) }));
   f.moved.forEach(s => out.push({ label: "Go-live: " + s.toLowerCase(), clear: () => change({ ...f, moved: f.moved.filter(x => x !== s) }) }));
   f.decl.forEach(s => out.push({ label: "RAG: " + s.toLowerCase(), clear: () => change({ ...f, decl: f.decl.filter(x => x !== s) }) }));
+  f.sdate.forEach(g => out.push({ label: "Stage dates: " + g.toLowerCase(), clear: () => change({ ...f, sdate: f.sdate.filter(x => x !== g) }) }));
   f.stage.forEach(g => out.push({ label: "Stage: " + g, clear: () => change({ ...f, stage: f.stage.filter(x => x !== g) }) }));
   if (f.period) out.push({ label: "Period: " + periodLabel(f.period, fieldLabel), clear: () => change({ ...f, period: undefined }) });
   f.cell.forEach(c => { const [o, d] = c.split("|"); out.push({ label: `Owner ${o[0].toUpperCase() + o.slice(1)} · Data ${STATUS_NAME[d as ExecStatus]}`, clear: () => change({ ...f, cell: f.cell.filter(x => x !== c) }) }); });
