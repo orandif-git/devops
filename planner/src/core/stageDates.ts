@@ -33,9 +33,10 @@ export function computeStageDates(p: { st: StageSettings; extra: Record<string, 
     else if (d.endMode === "next") for (let k = i + 1; k < n; k++) { if (defs[k]?.startMode === "field" && rows[k].start !== undefined) { r.end = rows[k].start; r.endsWith = rows[k].name; break; } }
   });
   rows.forEach((r, i) => { if (defs[i]?.startMode === "prev" && i > 0) r.start = rows[i - 1].end; });
-  const maxIdx = rows.reduce((m, r, i) => (r.start !== undefined ? i : m), -1), fallback = st.dates.fallback && p.since !== undefined;
+  const maxIdx = rows.reduce((m, r, i) => (r.start !== undefined && r.start <= p.today ? i : m), -1),   // a start date still ahead is a plan, not a stage that has begun
+     fallback = st.dates.fallback && p.since !== undefined;
 
-  // rework: the field is behind the dates (a later stage already has a start): time in this stage counts from when the field changed
+  // rework: the field is behind the dates (a later stage already has a start that has passed): time in this stage counts from when the field changed
   const rework = !p.done && cur < maxIdx;
   if (rework) { const r = rows[cur]; r.rework = true; r.end = undefined; if (fallback) { r.start = p.since; r.fromHistory = true; } else r.start = undefined; }
   rows.forEach((r, i) => {

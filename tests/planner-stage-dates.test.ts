@@ -49,6 +49,11 @@ describe("stage dates of an Epic", () => {
     const r = run({ "Custom.EpicStart": "2026-05-04", "Custom.Dev": "2026-07-06", "Custom.UAT": "2026-10-12" }, 3);
     expect(r.rows[2]).toMatchObject({ skipped: true, dur: 0 }); expect(r.rows[1]).toMatchObject({ end: day("2026-10-12"), endsWith: "UAT" }); expect(r.issues.map(i => i.kind)).toEqual(["skipped"]);
   });
+  it("does not call planned dates rework: a later stage whose start date is still ahead has not begun", () => {
+    const r = run({ "Custom.EpicStart": "2026-08-03", "Custom.Dev": "2026-10-18", "Custom.SIT": "2026-11-12", "Custom.UAT": "2026-11-25" }, 1);
+    expect(r.rows[1].rework).toBeFalsy(); expect(r.issues.filter(i => i.kind === "rework")).toEqual([]);
+    const late = run({ "Custom.EpicStart": "2026-08-03", "Custom.Dev": "2026-10-18", "Custom.SIT": "2026-10-30" }, 1); expect(late.rows[1].rework).toBe(true);   // that start has passed: it is rework
+  });
   it("find rework: the field is behind the dates; time in stage counts from the history", () => {
     const r = run({ "Custom.EpicStart": "2026-03-23", "Custom.Dev": "2026-06-01", "Custom.SIT": "2026-09-07" }, 1, { since: day("2026-10-02") });
     expect(r.rows[1]).toMatchObject({ rework: true, fromHistory: true, dur: 29, open: true }); expect(r.timeInStage).toBe(29); expect(r.issues.map(i => i.kind)).toEqual(["rework"]);
