@@ -2,7 +2,11 @@
 import * as React from "react";
 import * as ReactDOM from "react-dom";
 import { act, Simulate } from "react-dom/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
+
+// the tab opens on the current month, so the clock is pinned to the month of the sample data
+beforeAll(() => { vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-15T10:00:00Z") }); });
+afterAll(() => { vi.useRealTimers(); });
 
 const opened: number[] = [];
 vi.mock("../src/shared/ado", () => ({ downloadFile: vi.fn() }));
