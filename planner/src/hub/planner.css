@@ -93,6 +93,7 @@ table.tv { width: 100%; border-collapse: collapse; font-size: 12px; } table.tv t
 .cc-trend { display: flex; gap: 3px; align-items: flex-end; height: 54px; margin: 8px 0; } .cc-trend i { flex: 1; display: block; border-radius: 3px 3px 0 0; min-height: 2px; cursor: pointer; } .cc-trend i.cur { outline: 2px solid var(--fg); }
 @media (max-width: 1000px) { .cc-strip { grid-template-columns: 1fr 1fr; } .cc-main.withpanel { grid-template-columns: 1fr; } .cc-panel { position: static; } }
 .chip.on .btn.icon { background: transparent; border: 0; color: inherit; padding: 0 5px; margin-left: 2px; border-radius: 8px; } .chip.on .btn.icon:hover:not(:disabled) { background: rgba(255,255,255,.25); } .chip.on .btn.icon:disabled { opacity: .35; }
+.chip.on select { background: rgba(255,255,255,.16); color: var(--accent-fg); border: 1px solid rgba(255,255,255,.4); border-radius: 6px; padding: 1px 4px; font: inherit; font-size: 12.5px; cursor: pointer; margin-left: 4px; } .chip.on select:hover { background: rgba(255,255,255,.26); } .chip.on select option { color: #1b1b1b; background: #fff; }
 
 /* plan layout: toolbar in two tidy rows, sticky name and total columns, rows by level */
 .cc-bar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; padding: 4px 0; position: static; } .cc-bar > * { flex: none; } .cc-bar .grow { flex: 1 1 0; min-width: 0; }
