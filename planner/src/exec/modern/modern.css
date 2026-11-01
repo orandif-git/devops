@@ -83,3 +83,9 @@
 .exm .ex-dp > div > svg { flex: 0 0 auto; margin-top: auto; margin-bottom: auto; } .exm .ex-dp .ex-dlegend { margin-top: auto; }
 .exm .ex-dp .ex-dpt2 { flex: 1 1 auto; height: 100%; } .exm .ex-dp .ex-dpt2 td { vertical-align: middle; }
 @media (max-width: 1100px) { .exm .ex-dp > .ex-dptiles { grid-template-rows: none; } }
+
+/* the status tiles stay a grid (the stretch rule above must not turn them into a column) */
+.exm-g > .exm-sts { display: grid; }
+/* the attention list takes the height of the row (set by the cards beside it) and scrolls inside when it has more rows */
+.exm-g > div > .exm-card > .exm-fill, .exm-g > .exm-card > .exm-fill { flex: 1 1 0; height: 0; min-height: 200px; overflow: auto; }
+@media (max-width: 1100px) { .exm-g > div > .exm-card > .exm-fill, .exm-g > .exm-card > .exm-fill { height: auto; overflow: visible; } }

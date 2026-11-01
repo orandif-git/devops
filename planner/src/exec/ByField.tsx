@@ -20,8 +20,8 @@ const risk = (r: Row) => (r.risk ? `${r.risk}%` : "–");
 /** The By-field card: Epics by status for the values of a category field, as bars or a sortable table. "Auto" picks bars up to 12 values and the table above that. */
 export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: string): void }) {
   const { f, setF } = lp;
-  const bodyRef = React.useRef<HTMLDivElement>(null), [wide, setWide] = React.useState(true);
-  React.useEffect(() => { const el = bodyRef.current; if (!el || typeof ResizeObserver === "undefined") return; const ro = new ResizeObserver(() => setWide(el.clientWidth >= 560)); ro.observe(el); return () => ro.disconnect(); }, []);
+  const bodyRef = React.useRef<HTMLDivElement>(null), [wide, setWide] = React.useState(true), [bh, setBh] = React.useState(BODY_H), [bw, setBw] = React.useState(0);   // bh: the height the chart may use (the card can be taller than its own content when it shares a row)
+  React.useEffect(() => { const el = bodyRef.current; if (!el || typeof ResizeObserver === "undefined") return; const ro = new ResizeObserver(() => { setWide(el.clientWidth >= 560); setBh(Math.max(BODY_H, el.clientHeight)); setBw(el.clientWidth); }); ro.observe(el); return () => ro.disconnect(); }, []);
   const [showAll, setShowAll] = React.useState(false), [q, setQ] = React.useState(""), [sort, setSort] = React.useState<{ k: string; up: boolean }>({ k: "n", up: false });
   React.useEffect(() => { setShowAll(false); setQ(""); setSort({ k: "n", up: false }); }, [dim]);
   const forDim = lp.all.filter(i => pass(i, f, { dim }));
@@ -46,7 +46,7 @@ export function ByFieldCard({ lp, dim, onDim }: { lp: LP; dim: string; onDim(d: 
   if (use === "bars") {
     const base = ordered ? inOrder : bySize, list = showAll ? base : withOther(base, 8, n => `Other (${n} types)`);
     body = <>
-      <StackedBars w={wide ? 840 : 420} rowH={Math.max(26, Math.min(72, Math.floor((BODY_H - (base.length > 8 ? 36 : 4)) * 0.92 / Math.max(1, list.length))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
+      <StackedBars w={wide ? 840 : 420} rowH={Math.max(26, Math.min(72, Math.floor((bh - (base.length > 8 ? 36 : 4)) / Math.max(1, list.length) * ((wide ? 840 : 420) / Math.max(1, bw || (wide ? 840 : 420))))))} rows={list.map(r => ({ label: r.label, counts: r.counts }))} selected={sel} selectedStatus={f.status} onPick={pickValue} />
       {base.length > 8 && <button type="button" className="ex-more" onClick={() => setShowAll(!showAll)}>{showAll ? "Show the top 8" : `Show all ${base.length}`}</button>}</>;
   } else {
     const list = rows.filter(r => r.label.toLowerCase().includes(q.toLowerCase())).sort((a, b) => { const g = (r: Row) => (sort.k === "label" ? r.label : sort.k === "risk" ? r.risk : sort.k === "avg" ? r.avg ?? -1 : sort.k === "n" ? r.n : r.counts[sort.k as ExecStatus]); const x = g(a), y = g(b); return (typeof x === "string" ? x.localeCompare(y as string) : (x as number) - (y as number)) * (sort.up ? 1 : -1); });

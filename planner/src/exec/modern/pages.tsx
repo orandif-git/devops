@@ -109,7 +109,7 @@ export function OverviewPage({ lp, go }: { lp: LP; go(t: Tab, status?: ExecStatu
       </div>
       <div className="exm-g">
         <section className="exm-card flush s8"><h3>Needs your attention <button type="button" className="lk" onClick={() => go("epics", ["red", "amber"])}>View all {att.length}</button></h3>
-          <EpicTable lp={lp} items={att.slice(0, 7)} cols={["status", "title", "stage", "why", "goLive", "slip"]} compact /></section>
+          <div className="exm-fill"><EpicTable lp={lp} items={att.slice(0, 14)} cols={["status", "title", "stage", "why", "goLive", "slip"]} compact /></div></section>
         <div className="s4 col">
           <section className="exm-card"><h3>Delivery pipeline <button type="button" className="lk" onClick={() => go("pipeline")}>Open</button></h3>
             {stagesOn(st) ? st.stages.map(s => { const a = base.filter(i => i.stage === s.name); return <div key={s.name} className="exm-pr"><span>{s.name}</span>{a.length ? <Mix c={byStatus(a)} n={a.length} /> : <div className="exm-stk" />}<b>{a.length}</b></div>; })
