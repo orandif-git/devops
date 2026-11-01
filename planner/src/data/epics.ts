@@ -6,6 +6,7 @@ import { stageDateFields } from "../core/stages";
 import { restPost } from "../rest";
 import { cacheGet, cacheSet } from "./idb";
 import { runSavedQuery } from "./queries";
+import { localIso } from "../core/execPeriod";
 
 export interface LoadProgress { phase: "query" | "check" | "read" | "history"; done: number; total: number }
 export interface LoadResult { epics: EpicRecord[]; ids: number; fetched: number; fromCache: number; failed: number; ms: number; syncedAt: string; usedCache: boolean }
@@ -34,7 +35,7 @@ const toEpic = (w: BatchItem, s: PlannerSettings): EpicRecord => {
   for (const src of s.sources) { const v = g(src.dataField); if (typeof v === "string" && v.trim()) grids[src.id] = v; }
   const extra: Record<string, string> = {};
   for (const f of extraFields(s)) extra[f] = text(g(f));
-  const d = (k: string) => (k && g(k) ? String(g(k)).slice(0, 10) : undefined);
+  const d = (k: string) => (k && g(k) ? localIso(String(g(k))) ?? String(g(k)).slice(0, 10) : undefined);   // the day as the viewer sees it
   return { id: w.id, title: text(g("System.Title")), state: text(g("System.State")), type: text(g("System.WorkItemType")), areaPath: text(g("System.AreaPath")), iterationPath: text(g("System.IterationPath")),
     changed: text(g("System.ChangedDate")), created: text(g("System.CreatedDate")) || undefined, start: d(s.epicStartField), target: d(s.epicTargetField), grids, extra };
 };

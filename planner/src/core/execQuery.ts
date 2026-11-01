@@ -2,6 +2,7 @@ import { dimFields, dimLabel, ExecEpic, NO_VALUE, STATUS_NAME } from "./executiv
 import { AvailabilityLike, buildPeople, cellOf, groupByTeam, noFilters } from "./model";
 import { GridDone } from "./progress";
 import { resolveMonth } from "./widgets";
+import { localIso, parseDay } from "./execPeriod";
 import { checkFormula, EvalAbort, evaluate, extractRefs } from "../../../src/core/expr";
 import { Booking, EpicRecord, ExecFormula, ExecQuery, PlannerSettings, QueryCondition, QueryOp, QueryShow } from "./types";
 
@@ -86,7 +87,7 @@ export function addCalculated(v: Record<string, Cell>, show: QueryShow, s: Plann
         if (!fd) throw new EvalAbort(`unknown field '${name}'`);
         const x = v[fd.key];
         if (x === undefined || x === "") throw new EvalAbort(`'${name}' has no value`);
-        if (fd.type === "date") { const t = Date.parse(String(x).slice(0, 10)); return Number.isFinite(t) ? t / 86400000 : (() => { throw new EvalAbort("bad date"); })(); }
+        if (fd.type === "date") { const t = parseDay(String(x)); return t !== undefined && Number.isFinite(t) ? t / 86400000 : (() => { throw new EvalAbort("bad date"); })(); }
         return typeof x === "number" ? x : fd.type === "number" ? Number(x) : String(x);
       }, { strictDiv: true });
       if (typeof out === "number") { if (!Number.isFinite(out)) { v[def.key] = undefined; } else { const m = Math.pow(10, f.decimals); v[def.key] = Math.round(out * m) / m; } }
@@ -120,7 +121,7 @@ export function test(v: Cell, c: QueryCondition, type: FieldType, today: number)
     return c.op === "=" ? a === b : c.op === "<>" ? a !== b : c.op === ">" ? a > b : c.op === ">=" ? a >= b : c.op === "<" ? a < b : c.op === "<=" ? a <= b : false;
   }
   if (type === "date") {
-    const a = String(v).slice(0, 10), b = dateValue(c.value, today);
+    const a = localIso(String(v)) ?? String(v).slice(0, 10), b = dateValue(c.value, today);
     if (!b) return false;
     return c.op === "=" ? a === b : c.op === "<>" ? a !== b : c.op === ">" ? a > b : c.op === ">=" ? a >= b : c.op === "<" ? a < b : c.op === "<=" ? a <= b : false;
   }
@@ -156,7 +157,7 @@ const finish = (q: ExecQuery, month: string, fields: FieldDef[], rows: ResultRow
 /** Run one query over the dashboard's data. */
 export function runQuery(q: ExecQuery, p: QueryInput): QueryResult {
   const now = p.today ?? new Date();
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());   // the viewer's own day
   const month = resolveMonth(q.month, now);
   const fields = catalog(q.show, p.settings);
   const type = (f: string): FieldType => fields.find(x => x.key === f)?.type ?? "text";

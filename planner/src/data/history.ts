@@ -23,7 +23,7 @@ export async function loadHistory(project: { id: string; name: string }, workIte
  * which is what rebuilds the earlier weeks of the trend lines.
  */
 export async function loadRevisionData(project: { id: string; name: string }, workItemType: string, fields: string[], track: string[], opts: { force?: boolean; progress?: (p: LoadProgress) => void } = {}): Promise<{ map: HistoryMap; timelines: Timelines }> {
-  const key = `history|${project.id}|${shortHash(JSON.stringify([fields, workItemType, track]))}`;
+  const key = `history|${project.id}|${shortHash(JSON.stringify([fields, workItemType, track, "day-in-local-zone"]))}`;
   const cached = opts.force ? undefined : await cacheGet<Cached>(key);
   const map: HistoryMap = {}; for (const f of fields) map[f] = cached?.map?.[f] ?? {};
   const seen: Record<string, Rev[]> = Object.fromEntries(fields.map(f => [f, []]));

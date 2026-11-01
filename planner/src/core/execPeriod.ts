@@ -68,3 +68,6 @@ export function normalizePeriod(raw: unknown, today: Date): Period | undefined {
   if (preset === "custom" && !custom) return undefined;
   return makePeriod(preset, basis, r.undated === true, today, custom);       // a relative period (this quarter) is counted from today again
 }
+
+/** The calendar day of a date value as "YYYY-MM-DD", read the same way as `parseDay` (in the viewer's time zone for a date-time with a zone). */
+export const localIso = (v?: string): string | undefined => { const t = parseDay(v); return t === undefined ? undefined : new Date(t).toISOString().slice(0, 10); };

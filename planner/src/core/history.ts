@@ -1,10 +1,11 @@
+import { localIso } from "./execPeriod";
 /** The history of one date field of an Epic (for example the go-live date): the first value ever set and every later change. */
 export interface Change { at: string; by: string; from: string; to: string }
 export interface Hist { baseline: string; current: string; changes: Change[]; /** last revision read */ rev: number; /** when and by whom the first date was entered (when known) */ firstAt?: string; firstBy?: string }
 export interface Rev { id: number; rev: number; at: string; by: string; value: string }
 
 const DAY = 86400000;
-const norm = (v: unknown): string => { const s = typeof v === "string" ? v : v instanceof Date ? v.toISOString() : ""; const m = /^(\d{4}-\d{2}-\d{2})/.exec(s.trim()); return m ? m[1] : ""; };
+const norm = (v: unknown): string => { const s = typeof v === "string" ? v : v instanceof Date ? v.toISOString() : ""; return localIso(s.trim()) ?? ""; };
 const ts = (d: string) => Date.parse(d + "T00:00:00Z");
 export const daysBetween = (a: string, b: string) => Math.round((ts(b) - ts(a)) / DAY);
 

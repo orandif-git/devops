@@ -4,6 +4,7 @@ import { Booking, EpicRecord, ExecSettings, PlannerSettings } from "./types";
 import { Hist, signed, summarize } from "./history";
 import { expectedIdx, resolveStage, stageDatesOn, stageProgress, stagesOn } from "./stages";
 import { computeStageDates, StageDatesResult } from "./stageDates";
+import { parseDay } from "./execPeriod";
 
 export type ExecStatus = "green" | "amber" | "red" | "idle" | "unknown" | "done";
 export const STATUS_NAME: Record<ExecStatus, string> = { green: "On track", amber: "Needs attention", red: "At risk", idle: "Not started", unknown: "Not assessed", done: "Done" };
@@ -85,7 +86,7 @@ const RANK = { green: 0, amber: 1, red: 2 } as const;
 const flagged = (v: string, only: string[]) => (only.length ? only.some(o => same(o, v)) : !!v && !/^(no|false|none|n\/a|0)$/i.test(v));
 
 const DAY = 86400000;
-const ts = (v?: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v ?? ""); return m ? Date.UTC(+m[1], +m[2] - 1, +m[3]) : undefined; };
+const ts = parseDay;   // the calendar day as the viewer sees it (a date set as 17 Dec 00:00 is 17 Dec, not the 16th in UTC)
 const has = (list: string[], v: string) => list.some(x => x.toLowerCase() === v.trim().toLowerCase());
 export const dayText = (t: number) => new Date(t).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
@@ -94,7 +95,7 @@ export interface ExecResult { rows: ExecEpic[]; ignored: number; noGoLive: numbe
 /** Status, forecast and confidence of every Epic, from its dates, state, progress and the people booked over capacity. Pure: `today` is a parameter. */
 export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date; /** when each Epic entered its current stage */ stageSince?: Record<number, number>; /** the go-live date history of each Epic, when it was read */ history?: Record<number, Hist> }): ExecResult {
   const s = p.settings, x = s.executive, st = x.stages, stOn = stagesOn(st);
-  const today = Date.UTC((p.today ?? new Date()).getUTCFullYear(), (p.today ?? new Date()).getUTCMonth(), (p.today ?? new Date()).getUTCDate());
+  const now0 = p.today ?? new Date(), today = Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate());   // the viewer's own day
   const month = new Date(today).toISOString().slice(0, 7);
   // who is over capacity this month, and on which Epics they have hours
   const overBy = new Map<number, string[]>();
@@ -146,7 +147,7 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
         else if (lag >= st.lagAmber) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name}, but ${st.stages[exp].name} was due by now (${lag} stage${lag > 1 ? "s" : ""} behind for the time used)`); } }
       if (st.stuckRule && row.stageDays !== undefined && row.stageDays > st.stuckDays) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name} for ${row.stageDays} days`); }
     }
-    if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed.slice(0, 10)); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
+    if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
     if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimLabel(x.blockerField)} = ${bv}`); } }
     const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
     if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }

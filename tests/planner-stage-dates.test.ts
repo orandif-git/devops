@@ -117,3 +117,22 @@ describe("dates are read in the viewer's time zone", () => {
     expect(parseDay("")).toBeUndefined(); expect(parseDay("soon")).toBeUndefined();
   });
 });
+
+describe("the dashboard reads go-live and other dates in the viewer's time zone", () => {
+  const tz = process.env.TZ;
+  const at = (zone: string, f: () => void) => { process.env.TZ = zone; try { f(); } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; } };
+  it("a go-live set as 17 Dec 00:00 in a zone ahead of UTC is 17 Dec on the dashboard, as on the work item form", () => {
+    at("Europe/Moscow", () => {
+      const r = exec([{ ...ep(1, {}), target: "2026-12-16T21:00:00Z", start: "2026-02-28T21:00:00Z" }])[0];
+      expect(r.goLive).toBe(Date.UTC(2026, 11, 17)); expect(r.start).toBe(Date.UTC(2026, 2, 1));
+    });
+    at("America/New_York", () => expect(exec([{ ...ep(1, {}), target: "2026-12-17T03:00:00Z" }])[0].goLive).toBe(Date.UTC(2026, 11, 16)));   // a zone behind UTC keeps the day it shows
+    expect(exec([{ ...ep(1, {}), target: "2026-12-17" }])[0].goLive).toBe(Date.UTC(2026, 11, 17));   // a plain date is unchanged
+  });
+  it("the go-live history compares days in the same zone, so a re-read never invents a one-day move", () => {
+    at("Europe/Moscow", () => {
+      const h = applyRevisions({}, [{ id: 1, rev: 1, at: "2026-08-05T09:00:00Z", by: "A", value: "2026-10-01T00:00:00Z" }, { id: 1, rev: 2, at: "2026-08-05T10:00:00Z", by: "A", value: "2026-10-01T00:00:00Z" }, { id: 1, rev: 3, at: "2026-09-01T10:00:00Z", by: "A", value: "2026-12-16T21:00:00Z" }])[1];
+      expect(h.baseline).toBe("2026-10-01"); expect(h.current).toBe("2026-12-17"); expect(h.changes).toHaveLength(1);
+    });
+  });
+});
