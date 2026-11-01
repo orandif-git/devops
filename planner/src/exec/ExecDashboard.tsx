@@ -56,7 +56,7 @@ export function ExecDashboard(p: {
   const [dialog, setDialog] = React.useState<number>();
   const fields = dimFields(p.settings);
   const goLiveField = x.goLiveField || p.settings.epicTargetField, historyOn = !!L?.history && p.settings.history.enabled;
-  const now = new Date(), today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const now = new Date(), today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());   // the viewer's own day
 
   const built = React.useMemo(() => (L ? buildExec({ epics: L.epics, gridDone: L.gridDone, bookings: L.bookings, avail: L.avail, settings: p.settings, stageSince: L.stageSince, history: L.history?.[goLiveField] }) : undefined), [L, p.settings]);
   const typical = React.useMemo(() => (built && stageDatesOn(x.stages) ? typicalStageDays(built.rows.map(r => r.stageDates), x.stages.stages.map(s => s.name)) : undefined), [built, x.stages]);

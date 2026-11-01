@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseDay } from "../planner/src/core/execPeriod";
 import { computeStageDates, recordedLate, typicalStageDays } from "../planner/src/core/stageDates";
 import { normalizeSettings } from "../planner/src/core/settings";
 import { applyRevisions, historyFromUpdates } from "../planner/src/core/history";
@@ -101,5 +102,18 @@ describe("history of the first entry", () => {
     const h = applyRevisions({}, [{ id: 1, rev: 3, at: "2026-07-01T10:00:00Z", by: "Sara", value: "2026-06-29" }, { id: 1, rev: 5, at: "2026-09-16T10:00:00Z", by: "Omar", value: "2026-07-03" }])[1];
     expect(h).toMatchObject({ baseline: "2026-06-29", firstAt: "2026-07-01T10:00:00Z", firstBy: "Sara" }); expect(h.changes).toEqual([{ at: "2026-09-16T10:00:00Z", by: "Omar", from: "2026-06-29", to: "2026-07-03" }]);
     const u = historyFromUpdates([{ rev: 2, revisedDate: "2026-07-01T10:00:00Z", revisedBy: { displayName: "Sara" }, fields: { "Custom.Dev": { newValue: "2026-06-29" } } }], "Custom.Dev"); expect(u).toMatchObject({ baseline: "2026-06-29", firstAt: "2026-07-01T10:00:00Z", firstBy: "Sara" });
+  });
+});
+
+describe("dates are read in the viewer's time zone", () => {
+  const tz = process.env.TZ;
+  const at = (zone: string, f: () => void) => { process.env.TZ = zone; try { f(); } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; } };
+  it("a date set as 1 Nov 00:00 in a zone ahead of UTC is 1 Nov, not 31 Oct", () => {
+    at("Europe/Moscow", () => expect(parseDay("2024-10-31T21:00:00Z")).toBe(Date.UTC(2024, 10, 1)));
+    at("Asia/Dubai", () => expect(parseDay("2024-10-31T20:00:00Z")).toBe(Date.UTC(2024, 10, 1)));
+  });
+  it("a zone behind UTC keeps the evening before; a plain date or a time without a zone keeps its own day", () => {
+    at("America/New_York", () => { expect(parseDay("2024-11-01T03:00:00Z")).toBe(Date.UTC(2024, 9, 31)); expect(parseDay("2024-11-01T00:00:00")).toBe(Date.UTC(2024, 10, 1)); expect(parseDay("2024-11-01")).toBe(Date.UTC(2024, 10, 1)); });
+    expect(parseDay("")).toBeUndefined(); expect(parseDay("soon")).toBeUndefined();
   });
 });

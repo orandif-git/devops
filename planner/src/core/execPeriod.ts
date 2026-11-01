@@ -42,7 +42,14 @@ export function periodState(p: Period, d: Dates): "in" | "out" | "undated" {
   if (v === undefined) return "undated";
   return v >= a && v <= b ? "in" : "out";
 }
-export const parseDay = day;
+/**
+ * The calendar day of a date value, as the person sees it. A date-time with a zone (“2024-10-31T21:00:00Z”, which is how Azure DevOps returns a date set as 1 Nov 00:00 in a zone ahead of UTC)
+ * is read in the viewer's own time zone; a plain date or a time without a zone keeps the day it was written with.
+ */
+export const parseDay = (v?: string) => {
+  if (v && /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})$/i.test(v)) { const d = new Date(v); if (!isNaN(+d)) return Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()); }
+  return day(v);
+};
 
 const fmt = (d: string) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 /** A short name for the chip: "This quarter · active" or "1 Oct 2026 – 31 Dec 2026 · go-live". */

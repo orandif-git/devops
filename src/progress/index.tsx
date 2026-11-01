@@ -15,14 +15,19 @@ function App(p: { settings: ProgressSettings }) {
   const ref = React.useRef<HTMLDivElement>(null);
   const refresh = React.useCallback(async () => {
     const fields = progressFields(p.settings), vals = (await (await getFormService()).getFieldValues(fields)) as Record<string, unknown>;
-    setModel(buildProgress({ settings: p.settings, fields: Object.fromEntries(fields.map(f => [f, vals[f] == null ? "" : vals[f] instanceof Date ? (vals[f] as Date).toISOString() : String(vals[f])])), today: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) }));
+    setModel(buildProgress({ settings: p.settings, fields: Object.fromEntries(fields.map(f => [f, vals[f] == null ? "" : vals[f] instanceof Date ? (vals[f] as Date).toISOString() : String(vals[f])])), today: Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) }));
   }, [p.settings]);
   React.useEffect(() => {
     SDK.register(SDK.getContributionId(), () => ({ onLoaded: () => { void refresh(); }, onFieldChanged: () => { void refresh(); }, onSaved: () => { void refresh(); }, onReset: () => { void refresh(); }, onRefreshed: () => { void refresh(); } }));
     refresh().catch(() => setModel({ kind: "hidden" }));
   }, [refresh]);
-  // the frame is as tall as its content (nothing when the control is off)
-  React.useEffect(() => { SDK.resize(undefined, model.kind === "hidden" ? 1 : Math.max(30, (ref.current?.offsetHeight ?? 40) + 6)); });
+  // the frame is always as tall as its content (one pixel when the control is off), also when the width changes and the content wraps: no scrollbar
+  React.useEffect(() => {
+    let last = -1;
+    const fit = () => { const h = model.kind === "hidden" ? 1 : Math.max(30, Math.ceil(ref.current?.getBoundingClientRect().height ?? 40) + 4); if (h !== last) { last = h; SDK.resize(undefined, h); } };
+    fit(); const ro = typeof ResizeObserver !== "undefined" && ref.current ? new ResizeObserver(fit) : undefined; ro?.observe(ref.current!); window.addEventListener("resize", fit);
+    return () => { ro?.disconnect(); window.removeEventListener("resize", fit); };
+  }, [model]);
   return <div ref={ref}><ProgressControl model={model} /></div>;
 }
 

@@ -22,9 +22,9 @@ describe("Delivery progress control", () => {
     const h = mount(<ProgressControl model={{ kind: "hidden" } as ProgressModel} />); expect(h.innerHTML).toBe("");
     const off = mount(<ProgressControl model={model({}, { enabled: false })} />); expect(off.innerHTML).toBe("");
   });
-  it("shows the steps, the days in the current stage and a tooltip with the dates", () => {
+  it("shows the steps, the days in the current stage and the dates of the current stage in a line under it, and those of the stage pointed at", () => {
     const h = mount(<ProgressControl model={model({ "Custom.DS": "UAT", "Custom.A": "2026-05-11", "Custom.B": "2026-06-29", "Custom.C": "2026-09-14", "Custom.D": "2026-10-19" })} />);
-    expect(h.querySelectorAll(".dp-st")).toHaveLength(5); expect(h.textContent).toContain("12 d in UAT"); expect(h.textContent).toContain("Started 29 Jun 2026"); expect(h.querySelector(".dp-st.cur")?.textContent).toContain("UAT"); expect(h.querySelector(".dp-flags")).toBeNull();
+    expect(h.querySelectorAll(".dp-st")).toHaveLength(5); expect(h.textContent).toContain("12 d in UAT"); expect(h.querySelector(".dp-detail")!.textContent).toContain("UAT"); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 19 Oct 2026"); act(() => { Simulate.mouseEnter(h.querySelectorAll(".dp-st")[1]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 29 Jun 2026"); act(() => { Simulate.mouseLeave(h.querySelectorAll(".dp-st")[1]); }); expect(h.querySelector(".dp-st.cur")?.textContent).toContain("UAT"); expect(h.querySelector(".dp-flags")).toBeNull();
   });
   it("flags dates that do not fit", () => {
     const h = mount(<ProgressControl model={model({ "Custom.DS": "SIT", "Custom.A": "2026-04-06", "Custom.B": "2026-06-08" })} />);
