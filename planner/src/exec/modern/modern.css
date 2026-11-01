@@ -75,3 +75,11 @@
 /* the small Delivery performance card spreads its content over the card instead of leaving the lower half empty */
 .exm-card .exm-dp { flex: 1 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 10px; padding: 4px 0; } .exm-card .exm-dp .ring { width: 150px; height: 150px; align-self: center; } .exm-card .exm-dp .ring svg { width: 100%; height: 100%; } .exm-card .exm-dp .ring b { font-size: 30px; } .exm-card .exm-dp dl { flex: 1 1 auto; gap: 0; grid-auto-rows: minmax(40px, 1fr); } .exm-card .exm-dp dl div { align-items: center; border-bottom: 1px solid var(--m-sep); } .exm-card .exm-dp dl div:last-child { border-bottom: 0; }
 @media (max-width: 1100px) { .exm .ex-byfield .ex-bfb { min-height: 0; } }
+
+/* Delivery performance panel: the tiles, the chart and the delays list are the same height and start at the same line */
+.exm .ex-dp { align-items: stretch; margin-top: 12px; } .exm .ex-dp > div { display: flex; flex-direction: column; min-width: 0; }
+.exm .ex-dp > .ex-dptiles { display: grid; grid-template-rows: 1fr 1fr; align-content: stretch; } .exm .ex-dp .ex-dpt { display: flex; flex-direction: column; justify-content: center; }
+.exm .ex-dp h5 { min-height: 20px; align-items: baseline; }
+.exm .ex-dp > div > svg { flex: 0 0 auto; margin-top: auto; margin-bottom: auto; } .exm .ex-dp .ex-dlegend { margin-top: auto; }
+.exm .ex-dp .ex-dpt2 { flex: 1 1 auto; height: 100%; } .exm .ex-dp .ex-dpt2 td { vertical-align: middle; }
+@media (max-width: 1100px) { .exm .ex-dp > .ex-dptiles { grid-template-rows: none; } }
