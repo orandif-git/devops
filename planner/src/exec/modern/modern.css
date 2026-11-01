@@ -62,3 +62,16 @@
 .exm-insp.on { position: fixed; right: 0; top: 0; bottom: 0; z-index: 60; width: 420px; max-width: 92vw; overflow-y: auto; box-shadow: -14px 0 40px rgba(15,23,42,.14); } .exm-body:has(.exm-insp.on) .exm-main { margin-right: 420px; } .exm-insp.on .in { max-width: 100%; }
 .exm-tl .dot.num { top: 5px; width: 20px; height: 20px; display: grid; place-items: center; color: #fff; font: 700 10px var(--m-font); text-shadow: 0 1px 1px rgba(0,0,0,.3); } .exm-leg .stg { margin-left: auto; } 
 @media (max-width: 1100px) { .exm-body:has(.exm-insp.on) .exm-main { margin-right: 0; } }
+
+/* Cards that share a row are the same height and their content fills it: no empty white space under the shorter one. */
+.exm-g > .s3, .exm-g > .s4, .exm-g > .s5, .exm-g > .s7, .exm-g > .s8 { display: flex; flex-direction: column; min-height: 0; }
+.exm-g > div > .exm-card, .exm-g > div > .ex-card, .exm-g > .exm-card, .exm-g > .ex-card { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.exm-g > div > .exm-card > h3 + *, .exm-g > div > .ex-card > h4 + * { min-height: 0; }
+/* the by-field table grows with its card; it is at least 8 rows tall */
+.exm .ex-byfield { display: flex; flex-direction: column; } .exm .ex-byfield .ex-bfb { flex: 1 1 auto; height: auto; min-height: 292px; display: flex; flex-direction: column; overflow: hidden; }
+.exm .ex-byfield .ex-vtable { flex: 1 1 auto; height: auto; min-height: 0; } .exm .ex-vtable .scrw { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; } .exm .ex-vtable .scr { flex: 1 1 auto; height: auto; min-height: 0; }
+/* the go-live columns fill the card they are in */
+.exm-g > div > .exm-card > .exm-cols, .exm-g > div > .exm-card > svg { flex: 1 1 auto; min-height: 0; }
+/* the small Delivery performance card spreads its content over the card instead of leaving the lower half empty */
+.exm-card .exm-dp { flex: 1 1 auto; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 10px; padding: 4px 0; } .exm-card .exm-dp .ring { width: 150px; height: 150px; align-self: center; } .exm-card .exm-dp .ring svg { width: 100%; height: 100%; } .exm-card .exm-dp .ring b { font-size: 30px; } .exm-card .exm-dp dl { flex: 1 1 auto; gap: 0; grid-auto-rows: minmax(40px, 1fr); } .exm-card .exm-dp dl div { align-items: center; border-bottom: 1px solid var(--m-sep); } .exm-card .exm-dp dl div:last-child { border-bottom: 0; }
+@media (max-width: 1100px) { .exm .ex-byfield .ex-bfb { min-height: 0; } }
