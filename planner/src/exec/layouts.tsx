@@ -181,11 +181,11 @@ export function ReportLayout({ lp }: { lp: LP }) {
 /** Layout 2: a rail of slicers with counts, a map of the portfolio (block size = hours booked, colour = status) and the Epics that need attention. */
 export function MapLayout({ lp }: { lp: LP }) {
   RES = lp.settings.executive.resources;
-  const { f, setF, items } = lp, ref = React.useRef<HTMLDivElement>(null), [w, setW] = React.useState(700);
-  React.useEffect(() => { const el = ref.current; if (!el) return; const size = () => setW(el.clientWidth || 700); size(); if (typeof ResizeObserver === "undefined") { window.addEventListener("resize", size); return () => window.removeEventListener("resize", size); } const ro = new ResizeObserver(size); ro.observe(el); return () => ro.disconnect(); }, []);
+  const { f, setF, items } = lp, ref = React.useRef<HTMLDivElement>(null), [w, setW] = React.useState(700), [mh, setMh] = React.useState(440);
+  React.useEffect(() => { const el = ref.current; if (!el) return; const size = () => { setW(el.clientWidth || 700); setMh(Math.max(440, el.clientHeight)); }; size(); if (typeof ResizeObserver === "undefined") { window.addEventListener("resize", size); return () => window.removeEventListener("resize", size); } const ro = new ResizeObserver(size); ro.observe(el); return () => ro.disconnect(); }, []);
   const rail = (title: string, opts: { value: string; count: number; color?: string }[], sel: string[], on: (v: string[]) => void) => <div key={title} className="ex-railgrp"><h5>{title}{sel.length > 0 && <button className="lk" onClick={() => on([])}>clear</button>}</h5>
     {opts.map(o => <label key={o.value}><input type="checkbox" checked={sel.includes(o.value)} onChange={() => on(toggle(sel, o.value))} />{o.color && <i className="dot" style={{ background: o.color }} />}<span className="t">{o.value}</span><span className="n">{o.count}</span></label>)}</div>;
-  const d0 = lp.fields[0], H = 440;
+  const d0 = lp.fields[0], H = mh;   // the map is as tall as the row it shares with the attention list: no empty space under it
   const groups = Array.from(new Set(items.map(i => i.r.dims[d0]))).map(g => ({ g, list: items.filter(i => i.r.dims[d0] === g).sort((a, b) => wt(b) - wt(a)) })).sort((a, b) => b.list.reduce((s, i) => s + wt(i), 0) - a.list.reduce((s, i) => s + wt(i), 0));
   const half = Math.ceil(groups.length / 2), rows = [groups.slice(0, half), groups.slice(half)].filter(r => r.length);
   const rowT = rows.map(r => r.reduce((s, g) => s + g.list.reduce((a, i) => a + wt(i), 0), 0)), allT = rowT.reduce((a, b) => a + b, 0) || 1;
@@ -213,7 +213,7 @@ export function MapLayout({ lp }: { lp: LP }) {
       <div className="ex-mapmain"><KpiRow lp={lp} />
         <div className="ex-mapcols">
           <section className="ex-card"><h4>Where is the portfolio at risk? <span>block size = {lp.settings.executive.resources ? "hours booked" : lp.settings.executive.sizeField ? sizeName(lp.settings.executive.sizeField) : "one per Epic"} · colour = status · {items.length} Epics</span></h4>
-            <div className="ex-map" ref={ref} style={{ height: H }}>{blocks}{!items.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div></section>
+            <div className="ex-map" ref={ref}>{blocks}{!items.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div></section>
           <section className="ex-card"><h4>Needs your attention <span>worst first</span></h4>
             <div className="ex-att">{attention.map(i => <button key={i.id} type="button" className="it" onClick={() => lp.open(i)}><Sw s={i.status} /><div><b>{i.title}</b><div className="muted">{i.r.dims[d0]} · {i.r.reasons[0]}</div><ProgressBar i={i} /></div><span className="ex-slip">{i.r.slip > 0 ? `+${i.r.slip}d` : ""}</span></button>)}
               {!attention.length && <div className="muted">Nothing needs attention in this view.</div>}</div></section>
@@ -236,7 +236,7 @@ export function RoadmapLayout({ lp }: { lp: LP }) {
       <section className="ex-card ex-head">
         <div className="hl"><button className="hlb red" onClick={() => setF({ ...f, status: toggle(f.status, "red") })}>{c.red} of {base.length}</button> Epics are at risk{worst && worst[1] > 0 && worst[0] !== NO_VALUE ? <>, mostly <button className="hlb" onClick={() => setF({ ...f, dims: { ...f.dims, [d0]: toggle(f.dims[d0] ?? [], worst[0]) } })}>{worst[0]}</button></> : null}.</div>
         <div className="muted">{c.green} on track · {c.amber} need attention · {c.done} delivered. {soon} go-live{soon === 1 ? "" : "s"} fall in the next 90 days.</div>
-        <div className="ex-rag" role="group" aria-label="Status mix">{SHOWN.filter(s => c[s]).map(s => <button key={s} type="button" className={f.status.length && !f.status.includes(s) ? "dim" : ""} style={{ flex: c[s], background: COLOR[s] }} aria-pressed={f.status.includes(s)} onClick={() => setF({ ...f, status: toggle(f.status, s) })}>{c[s]} {STATUS_NAME[s]}</button>)}</div>
+        <div className="ex-mix" role="group" aria-label="Status mix">{SHOWN.filter(s => c[s]).map(s => <button key={s} type="button" className={f.status.length && !f.status.includes(s) ? "dim" : ""} style={{ flex: `${c[s]} 1 auto`, background: COLOR[s] }} aria-pressed={f.status.includes(s)} onClick={() => setF({ ...f, status: toggle(f.status, s) })}>{c[s]} {STATUS_NAME[s]}</button>)}</div>
       </section>
       <Slicers {...lp} />
       <div className="ex-tabs" role="tablist">{(["Roadmap", "Scorecards", "Table"] as const).map(t => <button key={t} role="tab" aria-selected={tab === t} className={"ex-tab" + (tab === t ? " on" : "")} onClick={() => setTab(t)}>{t}</button>)}</div>
@@ -262,7 +262,7 @@ function Roadmap({ lp }: { lp: LP }) {
         {groups.map(g => { const list = dated.filter(i => i.r.dims[d0] === g).sort((a, b) => a.r.goLive! - b.r.goLive!), isOpen = open.includes(g), c = byStatus(list), lim = limit[g] ?? 40;
           return <React.Fragment key={g}>
             <div className="lane cat"><button className="nm" aria-expanded={isOpen} onClick={() => setOpen(toggle(open, g))}><span aria-hidden="true">{isOpen ? "▾" : "▸"}</span> <b>{g}</b><small>{list.length} Epics · {c.red} at risk</small></button>
-              {track(<div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: c[s], background: COLOR[s] }} />)}</div>)}</div>
+              {track(<div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: `${c[s]} 1 auto`, background: COLOR[s] }} />)}</div>)}</div>
             {isOpen && list.slice(0, lim).map(i => { const l = pos(i.r.start ?? i.r.goLive! - 90 * DAY), r = pos(i.r.goLive!), f = i.r.forecast, late = i.r.slip > 0 && i.status !== "done", b0 = lp.historyOn && i.hist && i.hist.baseline !== i.hist.current ? Date.parse(i.hist.baseline + "T00:00:00Z") : undefined;
               return <div className="lane" key={i.id}><div className="nm"><button className="lk" onClick={() => lp.open(i)}>{i.title}</button><small>{i.state}{i.stage ? ` · ${i.stage}` : ""}</small></div>
                 {track(<><button type="button" className="gb" style={{ left: l + "%", width: Math.max(.6, r - l) + "%", background: COLOR[i.status] }} onClick={() => lp.open(i)} title={`${i.title}\n${STATUS_NAME[i.status]}${i.stage ? " · " + i.stage : ""} · ${i.r.pct ?? "–"}% · go-live ${lp.day(i.r.goLive)}`}><u style={{ width: (i.r.pct ?? 0) + "%" }} />{i.stage && r - l > 9 && <span className="gs">{i.stage}</span>}</button>
@@ -287,7 +287,7 @@ function Scorecards({ lp }: { lp: LP }) {
       const next = list.filter(i => i.status !== "done" && i.r.goLive !== undefined && i.r.goLive >= lp.today).sort((a, b) => a.r.goLive! - b.r.goLive!)[0];
       return <button key={g} type="button" className={"ex-sc" + (on ? " on" : "")} aria-pressed={on} onClick={() => setF({ ...f, dims: { ...f.dims, [d0]: toggle(f.dims[d0] ?? [], g) } })}>
         <h4>{g}<span>{list.length} Epics</span></h4><div className="big">{avg}% <small>average progress</small></div>
-        <div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: c[s], background: COLOR[s] }} title={`${STATUS_NAME[s]}: ${c[s]}`} />)}</div>
+        <div className="mix" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ flex: `${c[s]} 1 auto`, background: COLOR[s] }} title={`${STATUS_NAME[s]}: ${c[s]}`} />)}</div>
         <div className="kv2"><span>Delivery confidence</span><b>{cf}%</b></div><div className="kv2"><span>At risk / need attention</span><b>{c.red} / {c.amber}</b></div><div className="kv2"><span>Next go-live</span><b>{next ? lp.day(next.r.goLive) : "–"}</b></div></button>; })}</div>
   );
 }
