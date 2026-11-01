@@ -155,3 +155,6 @@ export async function openWorkItemForm(id: number): Promise<void> {
   try { await (await SDK.getService<IWorkItemNavigationLike>(WorkItemTrackingServiceIds.WorkItemFormNavigationService)).openWorkItem(id, false); } catch { /* not available */ }
 }
 interface IWorkItemNavigationLike { openWorkItem(id: number, newTab?: boolean): Promise<unknown> }
+
+/** True on Azure DevOps Server (not Services): its older REST api-version refuses some calls of the typed client, so those go straight to an explicit api-version. */
+export function isOnPremises(): boolean { try { return !SDK.getHost().isHosted; } catch { return false; } }

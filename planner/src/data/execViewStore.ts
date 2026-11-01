@@ -31,5 +31,5 @@ export async function loadExecViews(projectId: string, layout: ExecLayout): Prom
   try { return normalizeExecDoc(await (await dataManager()).getDocument(COLLECTION, docId(projectId), OPTS), layout); } catch (e) { if (is404(e)) return { views: [] }; throw e; }
 }
 export async function saveExecViews(projectId: string, doc: ExecViewDoc): Promise<void> {
-  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "exec-views", projectId, views: doc.views, defaultId: doc.defaultId ?? "", design: doc.design ?? "" }, OPTS);
+  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "exec-views", projectId, views: doc.views, defaultId: doc.defaultId ?? "", design: doc.design ?? "", __etag: -1 }, OPTS);
 }

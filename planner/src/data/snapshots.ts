@@ -26,7 +26,7 @@ export async function recordSnapshot(projectId: string, cur: Snapshot, backfill?
       if (want.length) { try { const extra = (await backfill(want)).filter(s => want.includes(s.week)); if (extra.length) { list = [...list, ...extra]; rebuilt = true; } } catch { /* no history: the trend just starts now */ } }
     }
     const mine = list.find(s => s.week === cur.week), merged = mergeSnapshot(list, cur);
-    if (rebuilt || !mine || Date.parse(cur.at) - Date.parse(mine.at) > HOURS12) await mgr.setDocument(COLLECTION, { id: docId(projectId), kind: "snapshots", projectId, snapshots: merged });
+    if (rebuilt || !mine || Date.parse(cur.at) - Date.parse(mine.at) > HOURS12) await mgr.setDocument(COLLECTION, { id: docId(projectId), kind: "snapshots", projectId, snapshots: merged, __etag: -1 });
     return merged;
   } catch { return [cur]; }
 }

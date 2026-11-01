@@ -3,7 +3,7 @@ import { keyNorm } from "../core/keys";
 import { shortHash } from "./ids";
 import { CalendarBook, CalendarSettings, defaultCalendar, nativeCalendarBook, registerCalendarBook } from "../core/schedule";
 import { NativeReport, NativeTeam, normalizeWorkingDays, recordsFromNative, reportNative, toIsoDate } from "../core/nativeCapacity";
-import { dataManager, getCompat, getProject, getTeamsCompat, withTimeout, workClient } from "./ado";
+import { dataManager, getCompat, getProject, getTeamsCompat, isOnPremises, withTimeout, workClient } from "./ado";
 import { projectAdminStatus } from "./presetAccess";
 
 const COLLECTION = "wig-capacity";
@@ -94,7 +94,7 @@ export async function migrateRecordIds(projectId: string): Promise<number> {
 
 // ---------- capacity from Azure DevOps team capacity ----------
 /** Set once the explicit-version request succeeded after the library's own request was refused (older Azure DevOps Server). */
-let typedRefused = false;
+let typedRefused: boolean | undefined;   // on Azure DevOps Server the typed client is skipped from the start: its refused request only filled the console with errors
 let nativeCache: { key: string; at: number; value: { teams: NativeTeam[]; report: NativeReport[] } } | undefined;
 
 /** Read iterations, working days, per-person capacity and days off of the chosen teams. Cached for a minute. */
@@ -107,6 +107,7 @@ export async function readNativeCapacity(teamRefs: TeamRef[], force = false): Pr
   const enc = encodeURIComponent;
   /** The typed client first (it works on Services and newer servers); if the server refuses its api-version, ask again with an explicit 5.0. */
   const either = async <T,>(what: string, typed: () => Promise<T>, compat: () => Promise<T>): Promise<T> => {
+    typedRefused ??= isOnPremises();
     if (typedRefused) return withTimeout(compat(), what);              // this server already refused the library's api-version: do not ask it again
     try { return await withTimeout(typed(), what); }
     catch (first) {

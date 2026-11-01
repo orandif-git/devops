@@ -14,5 +14,5 @@ export async function loadViews(projectId: string, defaults: ViewState): Promise
 }
 
 export async function saveViews(projectId: string, doc: ViewDoc): Promise<void> {
-  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "views", projectId, views: doc.views, defaultId: doc.defaultId ?? "" }, OPTS);
+  await (await dataManager()).setDocument(COLLECTION, { id: docId(projectId), kind: "views", projectId, views: doc.views, defaultId: doc.defaultId ?? "", __etag: -1 }, OPTS);
 }
