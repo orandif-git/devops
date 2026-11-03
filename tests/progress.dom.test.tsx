@@ -82,3 +82,51 @@ describe("Delivery progress settings tab", () => {
     expect(h.textContent).toContain("Project Collection Administrator"); expect(seen).toHaveLength(0);
   });
 });
+
+describe("Delivery progress control: clean one-row layout", () => {
+  const T2 = Date.UTC(2026, 10, 3);
+  const live = (f: Record<string, string>, state = "Active", o: Record<string, unknown> = {}) => buildProgress({ settings: cfg(o), fields: { "System.WorkItemType": "Epic", "System.State": state, ...f }, today: T2 });
+  const plan = { "Custom.DS": "Development", "Custom.A": "2026-08-25", "Custom.B": "2026-10-27", "Custom.C": "2026-12-02", "Custom.D": "2027-01-06" };
+  it("has one short line under each stage, a colour class for each state, and planned dates marked", () => {
+    const h = mount(<ProgressControl model={live(plan)} />);
+    const st = Array.from(h.querySelectorAll(".dp-st")); expect(st).toHaveLength(5);
+    expect(st.map(x => x.querySelector(".dp-ls")?.textContent)).toEqual(["63 d", "27 Oct → 2 Dec", "from 2 Dec", "from 6 Jan ’27", undefined]);
+    expect(st[0].className).toContain("done"); expect(st[1].className).toContain("cur"); expect(st[2].className).toContain("todo"); expect(st[2].className).toContain("plan");
+    expect(h.querySelectorAll(".dp-st .dp-ls")).toHaveLength(4); for (const x of st) expect(x.querySelectorAll(".dp-ls").length).toBeLessThanOrEqual(1);
+    expect(h.querySelector(".dp-chip.t")?.textContent).toBe("7 d in Development");
+    expect(h.querySelector(".dp-steps")!.getAttribute("style")).toContain("repeat(5, minmax(0, 1fr))");
+  });
+  it("the detail line holds the words: the stage in progress by default, the stage pointed at on hover, and nothing pops up", () => {
+    const h = mount(<ProgressControl model={live(plan)} />);
+    expect(h.querySelector(".dp-detail")!.textContent).toBe("DevelopmentStarted 27 Oct 2026Planned end 2 Dec 2026" + "7 d so far36 d planned");
+    act(() => { Simulate.mouseEnter(h.querySelectorAll(".dp-st")[2]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Planned start 2 Dec 2026"); expect(h.querySelector(".dp-detail")!.textContent).toContain("35 d planned");
+    act(() => { Simulate.mouseLeave(h.querySelectorAll(".dp-st")[2]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 27 Oct 2026");
+    expect(h.querySelector("[role=tooltip]")).toBeNull();
+    expect(h.querySelector(".dp-detail")!.getAttribute("title")).toContain("Planned end 2 Dec 2026");   // the whole text, in case the line is cut
+  });
+  it("past its planned end: the stage and the chip are red", () => {
+    const own = cfg({ stages: { ...cfg().stages, dates: { ...cfg().stages.dates, stages: { ...cfg().stages.dates.stages, Development: { startMode: "field", start: "Custom.B", endMode: "field", end: "Custom.E" } } } } });
+    const m = buildProgress({ settings: own, fields: { "System.WorkItemType": "Epic", "System.State": "Active", "Custom.DS": "Development", "Custom.A": "2026-08-25", "Custom.B": "2026-10-20", "Custom.E": "2026-11-02" }, today: T2 });
+    const h = mount(<ProgressControl model={m} />); expect(h.querySelector(".dp-st.late .dp-ls")!.textContent).toBe("20 Oct → 2 Nov · +1 d"); expect(h.querySelector(".dp-chip.r")!.textContent).toBe("⚠ 14 d in Development");
+  });
+  it("a delivered work item: every stage green and the green chip", () => {
+    const m = live({ "Custom.DS": "Deployment", "Custom.A": "2026-05-01", "Custom.B": "2026-06-01", "Custom.C": "2026-07-01", "Custom.D": "2026-08-01" }, "Closed");
+    const h = mount(<ProgressControl model={m} />); expect(h.querySelector(".dp-chip.g")!.textContent).toContain("Delivered"); expect(h.querySelectorAll(".dp-st.done")).toHaveLength(5);   // the delivery date and the days to delivery are in the model tests
+  });
+  it("a narrow frame leaves out the lines under the stages and moves the chip to the detail line: no wrapping, nothing on top of anything", () => {
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () { return { width: 380, height: 40, top: 0, left: 0, right: 380, bottom: 40, x: 0, y: 0, toJSON() { return {}; } } as DOMRect; };
+    try {
+      const h = mount(<ProgressControl model={live(plan)} />);
+      expect(h.querySelector(".dp-nolines")).not.toBeNull(); expect(h.querySelector(".dp-narrow")).not.toBeNull();
+      expect(h.querySelector(".dp-row .dp-chips")).toBeNull(); expect(h.querySelector(".dp-foot .dp-chips")).not.toBeNull();   // the chip is on the detail line, not beside the stepper
+      expect(h.querySelector(".dp-detail")!.textContent).toContain("Planned end 2 Dec 2026");   // everything is still readable
+    } finally { HTMLElement.prototype.getBoundingClientRect = real; }
+  });
+  it("a wide frame keeps the chip beside the stepper", () => {
+    const real = HTMLElement.prototype.getBoundingClientRect;
+    HTMLElement.prototype.getBoundingClientRect = function () { return { width: 900, height: 40, top: 0, left: 0, right: 900, bottom: 40, x: 0, y: 0, toJSON() { return {}; } } as DOMRect; };
+    try { const h = mount(<ProgressControl model={live(plan)} />); expect(h.querySelector(".dp-nolines")).toBeNull(); expect(h.querySelector(".dp-row .dp-chips")).not.toBeNull(); }
+    finally { HTMLElement.prototype.getBoundingClientRect = real; }
+  });
+});

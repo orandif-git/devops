@@ -1,13 +1,37 @@
-/* The Delivery progress control: flat, one line, under the group heading that Azure DevOps draws. Light appearance only. */
+/* The Delivery progress control: flat, one row of stages with one short line under each, under the group heading that Azure DevOps draws. Light appearance only.
+   Nothing wraps, scrolls or overlaps: text is cut with an ellipsis (the full text is in the title and in the detail line). */
 html, body { overflow: hidden; } body { margin: 0; background: transparent; font: 13px/1.4 "Segoe UI", -apple-system, system-ui, sans-serif; color: #1b1b1b; }
-.dp { padding: 2px 0 6px; } .dp-row { display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; } .dp-steps { display: flex; align-items: center; flex-wrap: wrap; row-gap: 6px; min-width: 0; }
-.dp-st { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #616161; position: relative; white-space: nowrap; cursor: default; }
-.dp-st i { width: 18px; height: 18px; border-radius: 50%; background: #e5e5ea; color: #fff; font: 700 10px "Segoe UI", system-ui, sans-serif; font-style: normal; display: grid; place-items: center; flex: none; }
-.dp-ln { width: 26px; height: 3px; background: #e5e5ea; margin: 0 8px; flex: none; border-radius: 2px; } .dp-ln.on { background: #7a1a3c; } .dp-ln.sk { background: repeating-linear-gradient(90deg, #d1d1d6 0 4px, transparent 4px 8px); }
-.dp-st.done i { background: #7a1a3c; } .dp-st.cur { color: #1b1b1b; font-weight: 600; } .dp-st.cur i { background: #7a1a3c; box-shadow: 0 0 0 3px rgba(122,26,60,.2); }
-.dp-st.skip i { background: #fff; border: 2px dashed #b8b8c0; color: #999; } .dp-st.rework i { background: #d97706; box-shadow: 0 0 0 3px rgba(217,119,6,.22); } .dp-st.bad i { box-shadow: 0 0 0 2px rgba(220,38,38,.3); }
-.dp-sp { flex: 1; } .dp-chips { display: flex; align-items: center; gap: 8px; margin-left: 12px; }
-.dp-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; } .dp-chip.t { background: #f3eef0; color: #7a1a3c; } .dp-chip.w { background: #fef3c7; color: #92400e; } .dp-chip.r { background: #fee2e2; color: #b91c1c; } .dp-chip.g { background: #dcfce7; color: #166534; }
-.dp-st.hot { color: #1b1b1b; } .dp-st.hot i { box-shadow: 0 0 0 3px rgba(122,26,60,.18); }
-.dp-detail { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; margin-top: 6px; font-size: 12px; color: #424242; min-height: 18px; } .dp-detail b { font-weight: 600; color: #1b1b1b; } .dp-detail .mut { color: #767676; }
+.dp { padding: 2px 0 6px; min-width: 0; }
+.dp-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
+.dp-steps { display: grid; flex: 1 1 auto; min-width: 0; }
+.dp-st { display: block; min-width: 0; cursor: default; outline: none; padding-right: 4px; }
+.dp-t { display: flex; align-items: center; }
+.dp-t i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #fff; border: 2px solid #cfcfd6; color: #9a9aa3; font: 700 11px "Segoe UI", system-ui, sans-serif; font-style: normal; box-sizing: border-box; }
+.dp-ln { flex: 1 1 auto; height: 3px; margin: 0 6px; border-radius: 2px; min-width: 6px; background: repeating-linear-gradient(90deg, #d3d3da 0 4px, transparent 4px 8px); }
+.dp-nm, .dp-ls { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dp-nm { margin-top: 3px; font-weight: 500; color: #767676; } .dp-ls { font-size: 11.5px; color: #8a8a93; font-style: italic; line-height: 1.35; }
+/* completed: green */
+.dp-st.done .dp-t i { background: #1a9d57; border-color: #1a9d57; color: #fff; } .dp-st.done .dp-ln { background: #1a9d57; } .dp-st.done .dp-nm { color: #13763f; font-weight: 600; } .dp-st.done .dp-ls { color: #555; font-style: normal; }
+/* in progress: blue */
+.dp-st.cur .dp-t i { background: #0f6cbd; border-color: #0f6cbd; color: #fff; box-shadow: 0 0 0 4px rgba(15,108,189,.18); } .dp-st.cur .dp-ln { background: linear-gradient(90deg, #0f6cbd 0 35%, #e3e3e8 35%); } .dp-st.cur .dp-nm { color: #0f6cbd; font-weight: 600; } .dp-st.cur .dp-ls { color: #333; font-style: normal; }
+/* past its planned end: red */
+.dp-st.late .dp-t i { background: #c4314b; border-color: #c4314b; color: #fff; box-shadow: 0 0 0 4px rgba(196,49,75,.18); } .dp-st.late .dp-ln { background: linear-gradient(90deg, #c4314b 0 60%, #e3e3e8 60%); } .dp-st.late .dp-nm { color: #c4314b; font-weight: 600; } .dp-st.late .dp-ls { color: #c4314b; font-weight: 600; font-style: normal; }
+/* back in this stage: amber */
+.dp-st.rework .dp-t i { background: #d97706; border-color: #d97706; color: #fff; box-shadow: 0 0 0 4px rgba(217,119,6,.2); } .dp-st.rework .dp-nm { color: #a45a04; font-weight: 600; } .dp-st.rework .dp-ls { color: #a45a04; font-style: normal; }
+/* skipped */
+.dp-st.skip .dp-t i { border-style: dashed; border-color: #b8b8c0; color: #999; } .dp-st.skip .dp-ls { font-style: normal; color: #999; }
+/* a start date that has already passed on a stage not reached (the dates do not fit): plain, not italic */
+.dp-st.todo:not(.plan) .dp-ls { font-style: normal; color: #555; }
+.dp-st.bad .dp-t i { box-shadow: 0 0 0 2px rgba(220,38,38,.35); }
+.dp-st.hot .dp-nm { text-decoration: underline; text-decoration-color: #b5b5bd; text-underline-offset: 3px; } .dp-st:focus-visible .dp-nm { text-decoration: underline; }
+/* the chip(s) */
+.dp-chips { display: flex; align-items: center; gap: 8px; flex: none; }
+.dp-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.dp-chip.t { background: #e5f0fa; color: #0f6cbd; } .dp-chip.g { background: #e3f4ea; color: #13763f; } .dp-chip.r { background: #fbe6ea; color: #c4314b; } .dp-chip.w { background: #fdf0dd; color: #a45a04; }
+/* the detail line: one line, cut with an ellipsis, the whole text is in its title */
+.dp-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; min-width: 0; }
+.dp-detail { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: #424242; min-height: 18px; line-height: 18px; }
+.dp-detail b { font-weight: 600; color: #1b1b1b; margin-right: 12px; } .dp-detail span { margin-right: 14px; } .dp-detail .mut { color: #767676; }
+/* a narrow frame: the per-stage lines are left out (the detail line has them) */
+.dp-nolines .dp-ls { display: none; }
 .dp-note { margin-top: 6px; font-size: 12px; color: #616161; } .dp-flags { margin-top: 6px; display: grid; gap: 4px; } .dp-flag { display: flex; gap: 8px; border-radius: 4px; padding: 5px 9px; font-size: 12.5px; background: #fff7e6; border: 1px solid #fde1a8; } .dp-flag.r { background: #fef2f2; border-color: #fecaca; }
