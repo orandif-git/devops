@@ -77,10 +77,24 @@ export function cellFixed(row: GridRow, colId: string, a: AccessConfig | undefin
   return mode === "filled" && !!saved && filled(saved[colId]) && filled(row[colId]);
 }
 
+/**
+ * A name short enough for a label: “Amanulla Sulthan <asulthan@cbq.com.qa>” becomes “Amanulla Sulthan”, a sign-in on its own (“asulthan@cbq.com.qa”) becomes “asulthan”,
+ * and a name longer than `max` becomes the first name and the initial of the last (“Amanulla S.”).
+ */
+export function compactName(raw: string | undefined, max = 22): string {
+  let n = String(raw ?? "").replace(/\s*<[^>]*>\s*$/, "").trim();
+  if (n.includes("@") && !n.includes(" ")) n = n.split("@")[0];
+  if (n.includes("\\") && !n.includes(" ")) n = n.split("\\").pop() ?? n;   // DOMAIN\user
+  if (n.length <= max) return n;
+  const w = n.split(/\s+/).filter(Boolean);
+  const short = w.length > 1 ? `${w[0]} ${w[w.length - 1][0]}.` : n;
+  return short.length <= max ? short : short.slice(0, max - 1) + "…";
+}
+
 /** A new row, with its owner when “Row owner” is on. */
 export function withOwner<T extends GridRow>(row: T, a: AccessConfig | undefined, who: Pick<AccessWho, "key" | "name"> | undefined, now = new Date()): T {
   if (!a?.rowOwner || !who) return row;
-  return { ...row, _by: who.key, _byName: who.name, _at: now.toISOString() };
+  return { ...row, _by: who.key, _byName: String(who.name ?? "").replace(/\s*<[^>]*>\s*$/, "").trim() || who.key, _at: now.toISOString() };   // the display name without a “<sign-in>” part
 }
 
 /** The columns a preset filled in a row (a copy of the row is a new row: nothing in it is the preset's any more). */

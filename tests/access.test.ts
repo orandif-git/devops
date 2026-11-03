@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessProblems, AccessConfig, startPresetFor, AccessWho, asksBeforeDelete, cellFixed, isAccessAdmin, isMine, mayAdd, mayDelete, mayImport, mayMove, normAccess, ownerLocked, withOwner, withoutPreset } from "../src/core/access";
+import { accessProblems, AccessConfig, compactName, startPresetFor, AccessWho, asksBeforeDelete, cellFixed, isAccessAdmin, isMine, mayAdd, mayDelete, mayImport, mayMove, normAccess, ownerLocked, withOwner, withoutPreset } from "../src/core/access";
 import { columnImpact, gridImpact, presetImpact } from "../src/core/impact";
 import { newRow, normalizeRow } from "../src/core/gridModel";
 import { normalizeGrid } from "../src/core/normalize";
@@ -116,4 +116,11 @@ describe("The preset an empty grid starts with", () => {
     expect(startPresetFor(undefined, st)).toBeUndefined(); expect(startPresetFor({}, st)).toBeUndefined();
     for (const over of [{ rows: 2 }, { readOnly: true }, { derived: true }, { commentOnly: true }, { offered: [{ id: "other" }] }, { offered: [] }]) expect(startPresetFor({ startPreset: "p1" }, { ...st, ...over })).toBeUndefined();
   });
+});
+
+describe("The name on the “Added by” label", () => {
+  it("drops the sign-in or email in angle brackets", () => { expect(compactName("Amanulla Sulthan<asulthan@cbq.com.qa>")).toBe("Amanulla Sulthan"); expect(compactName("Amanulla Sulthan <CBQ\\asulthan>")).toBe("Amanulla Sulthan"); });
+  it("shows a sign-in on its own without the domain", () => { expect(compactName("asulthan@cbq.com.qa")).toBe("asulthan"); expect(compactName("CBQ\\asulthan")).toBe("asulthan"); expect(compactName(undefined)).toBe(""); });
+  it("shortens a long name to the first name and the initial of the last", () => { expect(compactName("Muzaffer Gokhan Songul Ozkaya")).toBe("Muzaffer O."); expect(compactName("Ann A")).toBe("Ann A"); expect(compactName("Supercalifragilisticexpialidocious")).toBe("Supercalifragilistice…"); });
+  it("a row stores the display name without the sign-in part", () => { expect(withOwner(row(), { rowOwner: true }, { key: "a@x.com", name: "Ann A <a@x.com>" })._byName).toBe("Ann A"); });
 });
