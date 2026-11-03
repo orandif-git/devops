@@ -688,6 +688,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
     { id: "access", title: "Rows & access", help: "What people may do with the rows, which cells stay fixed, and the preset a grid starts with.", status: g.access ? (mine("access").length ? "todo" : "ok") : "off", summary: accessSummary(g), show: !g.derived, body: <AccessEditor g={g} onChange={p.onChange} /> },
     { id: "totals", title: "Totals and fields", help: "Figures from the grid, saved to work item fields.", status: (g.totals?.length || g.breakdowns?.length) ? (mine("totals").length ? "todo" : "ok") : "off", show: true, body: (
       <>
+      <label style={{ display: "block", margin: "0 0 8px" }}><input type="checkbox" checked={!g.hideFigures} onChange={e => p.onChange({ ...g, hideFigures: e.target.checked ? undefined : true })} /> <b>Show the totals and grouped totals under the grid</b> <span className="muted">(the figures are calculated and written to their fields either way)</span></label>
       <h3>Push totals to work item fields</h3>
       <div className="help">Whenever rows change, the aggregate is written to the chosen numeric field (e.g. Original Estimate).</div>
       {(g.totals ?? []).map((t, i) => {
@@ -712,6 +713,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
                   onBlur={e => setT({ where: { column: t.where!.column, values: csv(e.target.value) } })} />
               </>}
               <input placeholder="Label shown under the grid (optional)" value={t.label ?? ""} onChange={e => setT({ label: e.target.value || undefined })} />
+              <label className="fixed" style={{ whiteSpace: "nowrap" }}><input type="checkbox" disabled={!!g.hideFigures} checked={!t.hidden && !g.hideFigures} onChange={e => setT({ hidden: e.target.checked ? undefined : true })} /> Show under the grid</label>
             </div>
           </div>
         );
@@ -735,6 +737,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
               <span className="fixed">by</span>
               <select className="fixed" value={b.by} onChange={e => setB({ by: e.target.value })}><option value="" />{g.columns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
               <input placeholder="Title (optional)" value={b.label ?? ""} onChange={e => setB({ label: e.target.value || undefined })} />
+              <label className="fixed" style={{ whiteSpace: "nowrap" }}><input type="checkbox" disabled={!!g.hideFigures} checked={!b.hidden && !g.hideFigures} onChange={e => setB({ hidden: e.target.checked ? undefined : true })} /> Show under the grid</label>
               <button className="btn icon danger fixed" onClick={() => p.onChange({ ...g, breakdowns: delAt(g.breakdowns!, i) })}>✕</button>
             </div>
             {b.by && <>

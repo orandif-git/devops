@@ -151,7 +151,9 @@ export function Grid(p: GridProps) {
   };
   const decidable = (to: "approved" | "rejected") => (rv && actor ? visible.filter(r => stateOf(r, rv) !== to && canDecide(r, cfg, actor).ok).length : 0);
 
-  const sums = React.useMemo(() => summaries(rows, cfg), [rows, cfg]);
+  const allSums = React.useMemo(() => summaries(rows, cfg), [rows, cfg]);
+  // the figures drawn under the grid: all, some or none (they are calculated and written to their fields either way)
+  const sums = React.useMemo(() => (cfg.hideFigures ? { mapped: [], groups: [] } : { mapped: allSums.mapped.filter(m => !m.hidden), groups: allSums.groups.filter(g => !g.hidden) }), [allSums, cfg.hideFigures]);
   const childOn = !!cfg.child?.enabled;
   /** numbers are right-aligned (headers, cells and totals) so figures line up under their heading */
   const isNum = (c: ColumnDef) => {

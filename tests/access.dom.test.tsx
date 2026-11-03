@@ -110,3 +110,18 @@ describe("Row owner", () => {
   });
   it("until it is known who is looking, other people's rows stay fixed", () => { expect(input(mount([theirs], { rowOwner: true }, undefined).host, 0, 0).disabled).toBe(true); });
 });
+
+describe("Hiding the figures under the grid", () => {
+  const withTotals = (extra: Partial<GridConfig> = {}): GridConfig => ({ ...cfg, totals: [{ column: "hrs", aggregate: "sum", field: "F1", label: "Sum of Score" }, { column: "hrs", aggregate: "max", field: "F2", label: "Biggest" }], breakdowns: [{ by: "act", column: "hrs", aggregate: "sum", label: "Hours by activity" }], ...extra });
+  const render = (c: GridConfig) => { const host = document.createElement("div"); document.body.appendChild(host); act(() => { ReactDOM.render(<Grid cfg={c} rows={[mk("a", { act: "A", hrs: 3 }), mk("b", { act: "B", hrs: 5 })]} readOnly={false} projectId="p" busyChildren={false} status="" onChange={() => undefined} onCreateChild={() => undefined} onCreateAllChildren={() => undefined} onImport={() => undefined} onExport={() => undefined} />, host); }); return host; };
+  it("shows every total and breakdown by default", () => { const h = render(withTotals()); expect(Array.from(h.querySelectorAll(".sum")).map(x => x.textContent)).toEqual(["Sum of Score 8", "Biggest 5", "Hours by activity: A 3B 5"]); });
+  it("hides one total or one breakdown on its own", () => {
+    const h = render(withTotals({ totals: [{ column: "hrs", aggregate: "sum", field: "F1", label: "Sum of Score", hidden: true }, { column: "hrs", aggregate: "max", field: "F2", label: "Biggest" }], breakdowns: [{ by: "act", column: "hrs", aggregate: "sum", label: "Hours by activity", hidden: true }] }));
+    expect(Array.from(h.querySelectorAll(".sum")).map(x => x.textContent)).toEqual(["Biggest 5"]);
+  });
+  it("the grid switch hides all of them and the area under the grid disappears", () => { const h = render(withTotals({ hideFigures: true })); expect(h.querySelector(".sums")).toBeNull(); });
+  it("hiding does not stop them being calculated and written: the values are still produced for their fields", async () => {
+    const { mappedTotals } = await import("../src/core/gridModel");
+    expect(mappedTotals([mk("a", { hrs: 3 }), mk("b", { hrs: 5 })], withTotals({ hideFigures: true }))).toEqual({ F1: 8, F2: 5 });
+  });
+});

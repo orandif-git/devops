@@ -101,3 +101,17 @@ describe("Rows & access in the checks", () => {
     const never = validateProject({ ...base, grids: { G: { ...base.grids.G, access: { allowAdd: false } } } }, cat); expect(never.some(i => /always be empty/.test(i.message))).toBe(true);
   });
 });
+
+describe("Hiding the figures: the settings", () => {
+  it("a grid switch and a tick on each total and breakdown, saved as hideFigures and hidden", () => {
+    const g: Record<string, GridConfig> = { R: { dataField: "Custom.R", columns: [{ id: "act", name: "Activity", type: "string" }, { id: "hrs", name: "Hours", type: "number" }], totals: [{ column: "hrs", aggregate: "sum", field: "F1" }], breakdowns: [{ by: "act", column: "hrs", aggregate: "sum" }] } };
+    const m = mount(g, []); act(() => { window.dispatchEvent(new CustomEvent("wig-section", { detail: "totals" })); });
+    const sec = m.host.querySelector("#sect-totals")!; const tick = (label: string, i = 0) => (Array.from(sec.querySelectorAll("label")).filter(l => l.textContent?.includes(label))[i].querySelector("input")) as HTMLInputElement;
+    const set = (el: HTMLInputElement, v: boolean) => act(() => { Simulate.change(Object.assign(el, { checked: v }), { target: el } as never); });
+    expect(tick("Show the totals and grouped totals").checked).toBe(true); expect(tick("Show under the grid", 0).checked).toBe(true);
+    set(tick("Show under the grid", 0), false); expect(m.grids.R.totals![0].hidden).toBe(true); set(tick("Show under the grid", 0), true); expect(m.grids.R.totals![0].hidden).toBeUndefined();
+    set(tick("Show under the grid", 1), false); expect(m.grids.R.breakdowns![0].hidden).toBe(true);
+    set(tick("Show the totals and grouped totals"), false); expect(m.grids.R.hideFigures).toBe(true); expect(tick("Show under the grid", 0).disabled).toBe(true);
+    set(tick("Show the totals and grouped totals"), true); expect(m.grids.R.hideFigures).toBeUndefined();
+  });
+});

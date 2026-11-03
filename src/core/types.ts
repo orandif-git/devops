@@ -96,6 +96,8 @@ export interface TotalMapping {
   label?: string;
   /** work item field reference name, e.g. Microsoft.VSTS.Scheduling.OriginalEstimate */
   field: string;
+  /** do not draw the figure under the grid (it is still calculated and written to the field) */
+  hidden?: boolean;
 }
 
 /** Create child work items from grid rows. */
@@ -116,6 +118,8 @@ export interface Breakdown {
   label?: string;
   /** group value -> work item field to write that group's figure to (0 when the group has no rows) */
   fields?: Record<string, string>;
+  /** do not draw this breakdown under the grid (it is still calculated and written to its fields) */
+  hidden?: boolean;
 }
 
 /** A team or person reference used in approval settings. */
@@ -189,6 +193,8 @@ export interface GridConfig {
   /** let people save the current rows as a preset from the work item ("Save as preset") */
   presetSave?: { enabled: boolean; teams: { id: string; name: string }[]; admins: boolean };
   breakdowns?: Breakdown[];
+  /** do not draw any total or breakdown under the grid; they are still calculated and written to their fields */
+  hideFigures?: boolean;
   /** tint every row by the status of this status column (id), e.g. each resource's row coloured by its Capacity Status */
   rowColorBy?: string;
   /**

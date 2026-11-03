@@ -276,8 +276,8 @@ export function mappedTotals(rows: GridRow[], cfg: GridConfig): Record<string, n
   return out;
 }
 
-export interface SummaryLine { label: string; value: number; field?: string }
-export interface SummaryGroup { title: string; lines: SummaryLine[] }
+export interface SummaryLine { label: string; value: number; field?: string; /** not drawn under the grid */ hidden?: boolean }
+export interface SummaryGroup { title: string; lines: SummaryLine[]; /** not drawn under the grid */ hidden?: boolean }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -288,10 +288,12 @@ export function summaries(rows: GridRow[], cfg: GridConfig): { mapped: SummaryLi
     label: m.label || `${cap(m.aggregate)} of ${name(m.column)}${m.where?.values.length ? ` (${m.where.values.join(" / ")})` : ""}`,
     value: aggregate(rows.filter(r => rowMatches(r, m.where)).map(r => r[m.column]), m.aggregate),
     field: m.field,
+    ...(m.hidden ? { hidden: true } : {}),
   }));
   const groups = (cfg.breakdowns ?? []).filter(b => cfg.columns.some(c => c.id === b.by) && cfg.columns.some(c => c.id === b.column)).map(b => {
     const keys = Array.from(new Set(rows.map(r => String(r[b.by] ?? "").trim()).filter(Boolean)));
     return {
+      ...(b.hidden ? { hidden: true } : {}),
       title: b.label || `${cap(b.aggregate)} of ${name(b.column)} by ${name(b.by)}`,
       lines: keys.map(k => ({ label: k, value: aggregate(rows.filter(r => String(r[b.by] ?? "").trim() === k).map(r => r[b.column]), b.aggregate), field: Object.entries(b.fields ?? {}).find(([g]) => g.toLowerCase() === k.toLowerCase())?.[1] })),
     };
