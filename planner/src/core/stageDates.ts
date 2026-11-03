@@ -13,6 +13,7 @@ export interface StageDateRow {
   /** the start (or end) was not in a date field but read from the work item history */ fromHistory?: boolean; endFromHistory?: boolean;
   /** the stage whose start date is this stage’s end (no “completed” field needed) */ endsWith?: string;
   startField?: string; endField?: string;
+  /** the start and end as the date fields (or the next stage) say, before the rework adjustment below clears them */ declaredStart?: number; declaredEnd?: number;
 }
 export interface StageDatesResult { rows: StageDateRow[]; cur: number; /** the last stage that has a start date */ maxIdx: number; /** days in the current stage, when it is known */ timeInStage?: number; issues: StageIssue[] }
 
@@ -36,6 +37,7 @@ export function computeStageDates(p: { st: StageSettings; extra: Record<string, 
   const maxIdx = rows.reduce((m, r, i) => (r.start !== undefined && r.start <= p.today ? i : m), -1),   // a start date still ahead is a plan, not a stage that has begun
      fallback = st.dates.fallback && p.since !== undefined;
 
+  rows.forEach(r => { r.declaredStart = r.start; r.declaredEnd = r.end; });
   // rework: the field is behind the dates (a later stage already has a start that has passed): time in this stage counts from when the field changed
   const rework = !p.done && cur < maxIdx;
   if (rework) { const r = rows[cur]; r.rework = true; r.end = undefined; if (fallback) { r.start = p.since; r.fromHistory = true; } else r.start = undefined; }

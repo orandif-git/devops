@@ -2,6 +2,8 @@ import * as React from "react";
 import { normProgress, ProgressSettings } from "../core/progress";
 import { normalizeSettings } from "../../planner/src/core/settings";
 import { StageSettings } from "../../planner/src/core/stages";
+import { isDateType } from "../../planner/src/core/fieldTypes";
+import { FieldPick } from "../../planner/src/hub/FieldPick";
 import { StagesEditor } from "../../planner/src/hub/StagesEditor";
 import { addGroup, contributionId, detailsSlot, findGroup, findProcess, findType, getLayout, ProcessInfo, ProcessLayoutError, realRest, removeGroup, Rest } from "../shared/processLayout";
 import { Ctx } from "./ui";
@@ -51,7 +53,7 @@ export function ProgressTab(p: { projectId: string; progress: ProgressSettings; 
 
   return (
     <div className="ptab">
-      <div className="help">A compact stepper of the delivery stages (Design, Development, SIT, UAT, Deployment) with the dates of each stage, as the first group on the work item form. It only reads the form, so it never makes the work item “unsaved”. The heading above it is the <b>group name</b> below, which Azure DevOps draws.</div>
+      <div className="help">A delivery bar for the stages (for example Development, SIT, UAT, Deployment, Live): a marker shows the stage the work item is in, a speech bubble says whether it is on track (green), needs attention (amber) or is at risk (red), and the go-live date and the days left are under it. It is the first group on the work item form and only reads the form, so it never makes the work item “unsaved”. The heading above it is the <b>group name</b> below, which Azure DevOps draws.</div>
       <div className="card">
         <label className="swrow"><input type="checkbox" role="switch" checked={s.enabled} disabled={busy || info.state !== "ok" || !inherited} onChange={e => { setAsk(e.target.checked ? "on" : "off"); setAck(false); setMsg(""); }} /> <b>Show Delivery progress on the {s.workItemType} form</b></label>
         <div className="help">On: the extension adds the group to the top of the first column of the {s.workItemType}’s Details page. Off: it removes the group, so nothing is shown (no heading, no message).</div>
@@ -83,9 +85,11 @@ export function ProgressTab(p: { projectId: string; progress: ProgressSettings; 
           <label className="field" style={{ width: 240 }}><span>Group name (the heading people see)</span><input aria-label="Group name" value={s.groupLabel} onChange={e => set({ groupLabel: e.target.value })} /></label>
           <label className="field" style={{ flex: 1 }}><span>States that mean delivered (comma separated)</span><input aria-label="Delivered states" key={s.doneStates.join("|")} defaultValue={s.doneStates.join(", ")} onBlur={e => set({ doneStates: e.target.value.split(",").map(x => x.trim()).filter(Boolean) })} /></label>
         </div>
+        <div className="row"><FieldPick label="Go-live date field (the finish line)" value={s.goLiveField} fields={pf} accept={f => isDateType(f.type)} placeholder="Microsoft.VSTS.Scheduling.TargetDate" onChange={v => set({ goLiveField: v })} /></div>
+        <div className="help">The date the work item should go live: it is the flag at the end of the bar and gives “days left”. Leave it empty to show no finish line.</div>
         <div className="help">Changing the group name later does not rename a group that is already in the layout: rename it there, or remove it and add it again.</div>
-        <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.showTime} onChange={e => set({ showTime: e.target.checked })} /> Show the time in the current stage</label>
-        <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.flags} onChange={e => set({ flags: e.target.checked })} /> Flag stage dates that do not fit (a start date missing, out of order, a skipped stage, rework)</label>
+        <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.showTime} onChange={e => set({ showTime: e.target.checked })} /> Show the days in the current stage (“In Development since 27 Oct (7 days)”)</label>
+        <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.flags} onChange={e => set({ flags: e.target.checked })} /> Flag stage dates that do not fit (a start date missing, out of order, a skipped stage)</label>
       </div>
       <div className="card"><h3 style={{ marginTop: 0 }}>Stages and dates</h3>
         <div className="help">The same setup as in the Executive Dashboard (Resource Planner &amp; Heatmap), so one {s.workItemType} gets the same answer in both. Choose where the stage comes from, the stages in order, which value is which stage, and the date fields.</div>

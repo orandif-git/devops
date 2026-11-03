@@ -17,22 +17,43 @@ const names = ["Design", "Development", "SIT", "UAT", "Deployment"];
 const cfg = (o: object = {}): ProgressSettings => normProgress({ enabled: true, stages: { source: "field", field: "Custom.DS", stages: evenStages(names), map: Object.fromEntries(names.map(n => [n, n])), dates: { enabled: true, fallback: false, consistency: true, track: true, late: true, lateDays: 7, delivered: "", stages: { Design: { startMode: "field", start: "Custom.A", endMode: "next" }, Development: { startMode: "field", start: "Custom.B", endMode: "next" }, SIT: { startMode: "field", start: "Custom.C", endMode: "next" }, UAT: { startMode: "field", start: "Custom.D", endMode: "none" }, Deployment: { startMode: "prev", endMode: "none" } } } }, ...o });
 const model = (f: Record<string, string>, o: object = {}) => buildProgress({ settings: cfg(o), fields: { "System.WorkItemType": "Epic", "System.State": "Active", ...f }, today: Date.UTC(2026, 9, 31) });
 
-describe("Delivery progress control", () => {
+const stN = ["Development", "SIT", "UAT", "Deployment", "Live"];
+const cfg2 = (o: object = {}): ProgressSettings => normProgress({ enabled: true, goLiveField: "G", stages: { source: "field", field: "DS", stages: evenStages(stN), map: Object.fromEntries(stN.map(n => [n, n])), dates: { enabled: true, fallback: false, consistency: true, track: true, late: true, lateDays: 7, delivered: "", stages: Object.fromEntries(stN.map((n, i) => [n, { startMode: "field", start: "S" + i, endMode: i < 4 ? "next" : "none" }])) } }, ...o });
+const T2 = Date.UTC(2026, 10, 3);
+const live = (f: Record<string, string>, state = "Active") => buildProgress({ settings: cfg2(), fields: { "System.WorkItemType": "Epic", "System.State": state, ...f }, today: T2 });
+const green = { DS: "Development", S0: "2026-10-27", S1: "2026-12-02", S2: "2027-01-06", S3: "2027-02-03", G: "2027-01-20" };
+const withWidth = (w: number, f: () => void) => { const real = HTMLElement.prototype.getBoundingClientRect; HTMLElement.prototype.getBoundingClientRect = function () { return { width: w, height: 40, top: 0, left: 0, right: w, bottom: 40, x: 0, y: 0, toJSON() { return {}; } } as DOMRect; }; try { f(); } finally { HTMLElement.prototype.getBoundingClientRect = real; } };
+
+describe("Delivery Progress control", () => {
   it("draws nothing at all when it is off", () => {
-    const h = mount(<ProgressControl model={{ kind: "hidden" } as ProgressModel} />); expect(h.innerHTML).toBe("");
-    const off = mount(<ProgressControl model={model({}, { enabled: false })} />); expect(off.innerHTML).toBe("");
+    expect(mount(<ProgressControl model={{ kind: "hidden" } as ProgressModel} />).innerHTML).toBe("");
+    expect(mount(<ProgressControl model={buildProgress({ settings: cfg2({ enabled: false }), fields: { "System.WorkItemType": "Epic", ...green }, today: T2 })} />).innerHTML).toBe("");
   });
-  it("shows the steps, the days in the current stage and the dates of the current stage in a line under it, and those of the stage pointed at", () => {
-    const h = mount(<ProgressControl model={model({ "Custom.DS": "UAT", "Custom.A": "2026-05-11", "Custom.B": "2026-06-29", "Custom.C": "2026-09-14", "Custom.D": "2026-10-19" })} />);
-    expect(h.querySelectorAll(".dp-st")).toHaveLength(5); expect(h.textContent).toContain("12 d in UAT"); expect(h.querySelector(".dp-detail")!.textContent).toContain("UAT"); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 19 Oct 2026"); act(() => { Simulate.mouseEnter(h.querySelectorAll(".dp-st")[1]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 29 Jun 2026"); act(() => { Simulate.mouseLeave(h.querySelectorAll(".dp-st")[1]); }); expect(h.querySelector(".dp-st.cur")?.textContent).toContain("UAT"); expect(h.querySelector(".dp-flags")).toBeNull();
+  it("shows the bubble, one track part per stage, the marker with the icon of the stage, the stage names and the two lines", () => {
+    const h = mount(<ProgressControl model={live(green)} />);
+    expect(h.querySelector(".dp-bub")!.textContent).toBe("On track · SIT starts in 29 days"); expect(h.querySelector(".dp")!.className).toContain("dp-green");
+    expect(h.querySelectorAll(".dp-seg")).toHaveLength(5); expect(h.querySelectorAll(".dp-lab .dp-nm")).toHaveLength(5); expect(Array.from(h.querySelectorAll(".dp-nm")).map(x => x.textContent)).toEqual(stN);
+    expect(h.querySelector(".dp-knob")!.querySelector("svg")).not.toBeNull(); expect(h.querySelector(".dp-end")).not.toBeNull();   // the finish flag
+    expect(Array.from(h.querySelectorAll(".dp-foot span")).map(x => x.textContent)).toEqual(["In Development since 27 Oct (7 days)", "Go-live 20 Jan 2027 · 78 days left"]);
+    expect(h.querySelector(".dp-lab.current .dp-nm")!.textContent).toBe("Development"); expect(h.querySelector(".dp-due")).toBeNull();
+    expect(h.querySelector(".dp")!.getAttribute("aria-label")).toBe("Delivery Progress: On track, SIT starts in 29 days. In Development since 27 Oct (7 days). Go-live 20 Jan 2027 · 78 days left");
+    expect(h.querySelector("[role=tooltip]")).toBeNull();
   });
-  it("flags dates that do not fit", () => {
-    const h = mount(<ProgressControl model={model({ "Custom.DS": "SIT", "Custom.A": "2026-04-06", "Custom.B": "2026-06-08" })} />);
-    expect(h.querySelector(".dp-chip.w")?.textContent).toContain("⚠"); expect(h.querySelector(".dp-st.bad")?.textContent).toContain("SIT"); expect(h.querySelector(".dp-flag")?.textContent).toMatch(/SIT/);
+  it("amber and red: the colour class, and “Should be here” under the stage the dates say it should be in", () => {
+    const amber = mount(<ProgressControl model={live({ DS: "SIT", S0: "2026-09-01", S1: "2026-10-03", S2: "2026-11-03", S3: "2027-01-10", G: "2027-01-20" })} />);
+    expect(amber.querySelector(".dp")!.className).toContain("dp-amber"); expect(amber.querySelector(".dp-bub b")!.textContent).toBe("Needs attention");
+    expect(amber.querySelector(".dp-lab.due em")!.textContent).toBe("Should be here"); expect(amber.querySelector(".dp-lab.due .dp-nm")!.textContent).toBe("UAT"); expect(amber.querySelector(".dp-due")).not.toBeNull();
+    const red = mount(<ProgressControl model={live({ DS: "Development", S0: "2026-10-03", S1: "2026-10-10", S2: "2026-10-20", S3: "2026-11-01", G: "2026-12-16" })} />);
+    expect(red.querySelector(".dp")!.className).toContain("dp-red"); expect(red.querySelector(".dp-bub")!.textContent).toBe("At risk · 3 stages behind schedule"); expect(red.querySelector(".dp-lab.due .dp-nm")!.textContent).toBe("Deployment");
   });
-  it("shows the delivered date for a delivered work item", () => {
-    const m = buildProgress({ settings: cfg(), fields: { "System.WorkItemType": "Epic", "System.State": "Closed", "Custom.DS": "Deployment", "Custom.A": "2026-05-01", "Custom.B": "2026-06-01", "Custom.C": "2026-07-01", "Custom.D": "2026-08-01" }, today: Date.UTC(2026, 9, 31) });
-    const h = mount(<ProgressControl model={m} />); expect(h.querySelectorAll(".dp-st.done")).toHaveLength(5); expect(h.querySelector(".dp-chip.g")?.textContent).toContain("Delivered");
+  it("delivered: every part of the track done, a tick in the marker, no finish flag", () => {
+    const h = mount(<ProgressControl model={live({ DS: "Live", S0: "2026-08-01", S1: "2026-09-01", S2: "2026-10-01", S3: "2026-10-20", S4: "2026-11-01", G: "2026-11-20" }, "Closed")} />);
+    expect(h.querySelector(".dp")!.className).toContain("dp-done"); expect(h.querySelectorAll(".dp-seg.done")).toHaveLength(5); expect(h.querySelector(".dp-end")).toBeNull();
+    expect(h.querySelector(".dp-bub")!.textContent).toBe("Delivered · 19 days before go-live"); expect(Array.from(h.querySelectorAll(".dp-foot span")).map(x => x.textContent)).toEqual(["All 5 stages complete", "Delivered 1 Nov 2026"]);
+  });
+  it("shows the warnings below, and a note for a value that is not a stage", () => {
+    const h = mount(<ProgressControl model={live({ DS: "UAT", S0: "2026-08-10", S1: "2026-07-27", S2: "2026-10-01" })} />); expect(h.querySelector(".dp-flag.r")!.textContent).toContain("SIT starts before the stage above it");
+    expect(mount(<ProgressControl model={live({ DS: "Mystery" })} />).querySelector(".dp-note")!.textContent).toMatch(/Mystery/);
   });
 });
 
@@ -83,50 +104,20 @@ describe("Delivery progress settings tab", () => {
   });
 });
 
-describe("Delivery progress control: clean one-row layout", () => {
-  const T2 = Date.UTC(2026, 10, 3);
-  const live = (f: Record<string, string>, state = "Active", o: Record<string, unknown> = {}) => buildProgress({ settings: cfg(o), fields: { "System.WorkItemType": "Epic", "System.State": state, ...f }, today: T2 });
-  const plan = { "Custom.DS": "Development", "Custom.A": "2026-08-25", "Custom.B": "2026-10-27", "Custom.C": "2026-12-02", "Custom.D": "2027-01-06" };
-  it("has one short line under each stage, a colour class for each state, and planned dates marked", () => {
-    const h = mount(<ProgressControl model={live(plan)} />);
-    const st = Array.from(h.querySelectorAll(".dp-st")); expect(st).toHaveLength(5);
-    expect(st.map(x => x.querySelector(".dp-ls")?.textContent)).toEqual(["63 d", "27 Oct → 2 Dec", "from 2 Dec", "from 6 Jan ’27", undefined]);
-    expect(st[0].className).toContain("done"); expect(st[1].className).toContain("cur"); expect(st[2].className).toContain("todo"); expect(st[2].className).toContain("plan");
-    expect(h.querySelectorAll(".dp-st .dp-ls")).toHaveLength(4); for (const x of st) expect(x.querySelectorAll(".dp-ls").length).toBeLessThanOrEqual(1);
-    expect(h.querySelector(".dp-chip.t")?.textContent).toBe("7 d in Development");
-    expect(h.querySelector(".dp-steps")!.getAttribute("style")).toContain("repeat(5, minmax(0, 1fr))");
+describe("Delivery Progress control: the layout keeps its shape", () => {
+  it("keeps every stage name under its part of the track on a wide frame, and the lines in one row", () => {
+    withWidth(900, () => { const h = mount(<ProgressControl model={live(green)} />); expect(h.querySelector(".dp-labels-one")).toBeNull(); expect(h.querySelectorAll(".dp-lab")).toHaveLength(5); expect(h.querySelector(".dp-bub")!.getAttribute("style")).toContain("left"); });
   });
-  it("the detail line holds the words: the stage in progress by default, the stage pointed at on hover, and nothing pops up", () => {
-    const h = mount(<ProgressControl model={live(plan)} />);
-    expect(h.querySelector(".dp-detail")!.textContent).toBe("DevelopmentStarted 27 Oct 2026Planned end 2 Dec 2026" + "7 d so far36 d planned");
-    act(() => { Simulate.mouseEnter(h.querySelectorAll(".dp-st")[2]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Planned start 2 Dec 2026"); expect(h.querySelector(".dp-detail")!.textContent).toContain("35 d planned");
-    act(() => { Simulate.mouseLeave(h.querySelectorAll(".dp-st")[2]); }); expect(h.querySelector(".dp-detail")!.textContent).toContain("Started 27 Oct 2026");
-    expect(h.querySelector("[role=tooltip]")).toBeNull();
-    expect(h.querySelector(".dp-detail")!.getAttribute("title")).toContain("Planned end 2 Dec 2026");   // the whole text, in case the line is cut
-  });
-  it("past its planned end: the stage and the chip are red", () => {
-    const own = cfg({ stages: { ...cfg().stages, dates: { ...cfg().stages.dates, stages: { ...cfg().stages.dates.stages, Development: { startMode: "field", start: "Custom.B", endMode: "field", end: "Custom.E" } } } } });
-    const m = buildProgress({ settings: own, fields: { "System.WorkItemType": "Epic", "System.State": "Active", "Custom.DS": "Development", "Custom.A": "2026-08-25", "Custom.B": "2026-10-20", "Custom.E": "2026-11-02" }, today: T2 });
-    const h = mount(<ProgressControl model={m} />); expect(h.querySelector(".dp-st.late .dp-ls")!.textContent).toBe("20 Oct → 2 Nov · +1 d"); expect(h.querySelector(".dp-chip.r")!.textContent).toBe("⚠ 14 d in Development");
-  });
-  it("a delivered work item: every stage green and the green chip", () => {
-    const m = live({ "Custom.DS": "Deployment", "Custom.A": "2026-05-01", "Custom.B": "2026-06-01", "Custom.C": "2026-07-01", "Custom.D": "2026-08-01" }, "Closed");
-    const h = mount(<ProgressControl model={m} />); expect(h.querySelector(".dp-chip.g")!.textContent).toContain("Delivered"); expect(h.querySelectorAll(".dp-st.done")).toHaveLength(5);   // the delivery date and the days to delivery are in the model tests
-  });
-  it("a narrow frame leaves out the lines under the stages and moves the chip to the detail line: no wrapping, nothing on top of anything", () => {
-    const real = HTMLElement.prototype.getBoundingClientRect;
-    HTMLElement.prototype.getBoundingClientRect = function () { return { width: 380, height: 40, top: 0, left: 0, right: 380, bottom: 40, x: 0, y: 0, toJSON() { return {}; } } as DOMRect; };
+  it("a frame too narrow for the names shows only the current stage name, under its part of the track, and the chip-free lines drop under each other", () => {
+    const real = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = (() => ({ font: "", measureText: (t: string) => ({ width: t.length * 7.5 }) })) as never;   // jsdom has no canvas: a stand-in that measures 7.5 px a letter
     try {
-      const h = mount(<ProgressControl model={live(plan)} />);
-      expect(h.querySelector(".dp-nolines")).not.toBeNull(); expect(h.querySelector(".dp-narrow")).not.toBeNull();
-      expect(h.querySelector(".dp-row .dp-chips")).toBeNull(); expect(h.querySelector(".dp-foot .dp-chips")).not.toBeNull();   // the chip is on the detail line, not beside the stepper
-      expect(h.querySelector(".dp-detail")!.textContent).toContain("Planned end 2 Dec 2026");   // everything is still readable
-    } finally { HTMLElement.prototype.getBoundingClientRect = real; }
+      withWidth(300, () => { const h = mount(<ProgressControl model={live(green)} />); expect(h.querySelector(".dp-labels-one")).not.toBeNull(); expect(h.querySelector(".dp-curlab")!.textContent).toBe("Development"); expect(h.querySelectorAll(".dp-lab")).toHaveLength(0); expect(h.querySelectorAll(".dp-seg")).toHaveLength(5); });
+      withWidth(900, () => { const h = mount(<ProgressControl model={live(green)} />); expect(h.querySelector(".dp-labels-one")).toBeNull(); expect(h.querySelectorAll(".dp-lab")).toHaveLength(5); });
+    } finally { HTMLCanvasElement.prototype.getContext = real; }
   });
-  it("a wide frame keeps the chip beside the stepper", () => {
-    const real = HTMLElement.prototype.getBoundingClientRect;
-    HTMLElement.prototype.getBoundingClientRect = function () { return { width: 900, height: 40, top: 0, left: 0, right: 900, bottom: 40, x: 0, y: 0, toJSON() { return {}; } } as DOMRect; };
-    try { const h = mount(<ProgressControl model={live(plan)} />); expect(h.querySelector(".dp-nolines")).toBeNull(); expect(h.querySelector(".dp-row .dp-chips")).not.toBeNull(); }
-    finally { HTMLElement.prototype.getBoundingClientRect = real; }
+  it("every long text has its whole text in a title, so cutting it with an ellipsis loses nothing", () => {
+    const h = mount(<ProgressControl model={live(green)} />);
+    expect(Array.from(h.querySelectorAll(".dp-foot span")).every(x => x.getAttribute("title") === x.textContent)).toBe(true); expect(Array.from(h.querySelectorAll(".dp-seg")).every(x => !!x.getAttribute("title"))).toBe(true);
   });
 });

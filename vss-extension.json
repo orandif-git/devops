@@ -183,7 +183,7 @@
     {
       "id": "delivery-progress",
       "type": "ms.vss-work-web.work-item-form-control",
-      "description": "A compact, read-only stepper of the delivery stages (Design, Development, SIT, UAT, Deployment) with the dates of each stage. Set up under Project settings \u2192 Grid & Rules \u2192 Delivery progress.",
+      "description": "A read-only delivery bar for the stages (for example Development, SIT, UAT, Deployment, Live): where the work item is, whether it is on track (green), needs attention (amber) or is at risk (red), and the go-live date. Set up under Project settings \u2192 Grid & Rules \u2192 Delivery progress.",
       "targets": [
         "ms.vss-work-web.work-item-form"
       ],

@@ -1,37 +1,37 @@
-/* The Delivery progress control: flat, one row of stages with one short line under each, under the group heading that Azure DevOps draws. Light appearance only.
-   Nothing wraps, scrolls or overlaps: text is cut with an ellipsis (the full text is in the title and in the detail line). */
-html, body { overflow: hidden; } body { margin: 0; background: transparent; font: 13px/1.4 "Segoe UI", -apple-system, system-ui, sans-serif; color: #1b1b1b; }
-.dp { padding: 2px 0 6px; min-width: 0; }
-.dp-row { display: flex; align-items: flex-start; gap: 14px; min-width: 0; }
-.dp-steps { display: grid; flex: 1 1 auto; min-width: 0; }
-.dp-st { display: block; min-width: 0; cursor: default; outline: none; padding-right: 4px; }
-.dp-t { display: flex; align-items: center; }
-.dp-t i { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; flex: none; background: #fff; border: 2px solid #cfcfd6; color: #9a9aa3; font: 700 11px "Segoe UI", system-ui, sans-serif; font-style: normal; box-sizing: border-box; }
-.dp-ln { flex: 1 1 auto; height: 3px; margin: 0 6px; border-radius: 2px; min-width: 6px; background: repeating-linear-gradient(90deg, #d3d3da 0 4px, transparent 4px 8px); }
-.dp-nm, .dp-ls { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.dp-nm { margin-top: 3px; font-weight: 500; color: #767676; } .dp-ls { font-size: 11.5px; color: #8a8a93; font-style: italic; line-height: 1.35; }
-/* completed: green */
-.dp-st.done .dp-t i { background: #1a9d57; border-color: #1a9d57; color: #fff; } .dp-st.done .dp-ln { background: #1a9d57; } .dp-st.done .dp-nm { color: #13763f; font-weight: 600; } .dp-st.done .dp-ls { color: #555; font-style: normal; }
-/* in progress: blue */
-.dp-st.cur .dp-t i { background: #0f6cbd; border-color: #0f6cbd; color: #fff; box-shadow: 0 0 0 4px rgba(15,108,189,.18); } .dp-st.cur .dp-ln { background: linear-gradient(90deg, #0f6cbd 0 35%, #e3e3e8 35%); } .dp-st.cur .dp-nm { color: #0f6cbd; font-weight: 600; } .dp-st.cur .dp-ls { color: #333; font-style: normal; }
-/* past its planned end: red */
-.dp-st.late .dp-t i { background: #c4314b; border-color: #c4314b; color: #fff; box-shadow: 0 0 0 4px rgba(196,49,75,.18); } .dp-st.late .dp-ln { background: linear-gradient(90deg, #c4314b 0 60%, #e3e3e8 60%); } .dp-st.late .dp-nm { color: #c4314b; font-weight: 600; } .dp-st.late .dp-ls { color: #c4314b; font-weight: 600; font-style: normal; }
-/* back in this stage: amber */
-.dp-st.rework .dp-t i { background: #d97706; border-color: #d97706; color: #fff; box-shadow: 0 0 0 4px rgba(217,119,6,.2); } .dp-st.rework .dp-nm { color: #a45a04; font-weight: 600; } .dp-st.rework .dp-ls { color: #a45a04; font-style: normal; }
-/* skipped */
-.dp-st.skip .dp-t i { border-style: dashed; border-color: #b8b8c0; color: #999; } .dp-st.skip .dp-ls { font-style: normal; color: #999; }
-/* a start date that has already passed on a stage not reached (the dates do not fit): plain, not italic */
-.dp-st.todo:not(.plan) .dp-ls { font-style: normal; color: #555; }
-.dp-st.bad .dp-t i { box-shadow: 0 0 0 2px rgba(220,38,38,.35); }
-.dp-st.hot .dp-nm { text-decoration: underline; text-decoration-color: #b5b5bd; text-underline-offset: 3px; } .dp-st:focus-visible .dp-nm { text-decoration: underline; }
-/* the chip(s) */
-.dp-chips { display: flex; align-items: center; gap: 8px; flex: none; }
-.dp-chip { display: inline-flex; align-items: center; gap: 5px; border-radius: 99px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-.dp-chip.t { background: #e5f0fa; color: #0f6cbd; } .dp-chip.g { background: #e3f4ea; color: #13763f; } .dp-chip.r { background: #fbe6ea; color: #c4314b; } .dp-chip.w { background: #fdf0dd; color: #a45a04; }
-/* the detail line: one line, cut with an ellipsis, the whole text is in its title */
-.dp-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; min-width: 0; }
-.dp-detail { flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: #424242; min-height: 18px; line-height: 18px; }
-.dp-detail b { font-weight: 600; color: #1b1b1b; margin-right: 12px; } .dp-detail span { margin-right: 14px; } .dp-detail .mut { color: #767676; }
-/* a narrow frame: the per-stage lines are left out (the detail line has them) */
-.dp-nolines .dp-ls { display: none; }
-.dp-note { margin-top: 6px; font-size: 12px; color: #616161; } .dp-flags { margin-top: 6px; display: grid; gap: 4px; } .dp-flag { display: flex; gap: 8px; border-radius: 4px; padding: 5px 9px; font-size: 12.5px; background: #fff7e6; border: 1px solid #fde1a8; } .dp-flag.r { background: #fef2f2; border-color: #fecaca; }
+/* The Delivery Progress control: a track of the stages, a round marker where the work item is, a speech bubble, the stage names and two quiet lines. Light appearance only.
+   Nothing wraps, overlaps or shrinks out of shape: text is cut with an ellipsis (the full text is in its title) and the footer lines drop under each other. */
+html, body { overflow: hidden; } body { margin: 0; background: transparent; font: 13px/1.4 "Segoe UI", -apple-system, system-ui, sans-serif; color: #1f2328; }
+.dp { --c: #0f6cbd; --ct: #0f6cbd; --cl: #9cc4ec; padding: 2px 0 6px; min-width: 0; }
+.dp-green { --c: #2e9e5b; --ct: #1f7a45; --cl: #8fd0a9; } .dp-amber { --c: #e69a00; --ct: #a86a00; --cl: #f6cf7a; } .dp-red { --c: #d64550; --ct: #b3303a; --cl: #eea0a6; } .dp-done { --c: #1f7a45; --ct: #1f7a45; --cl: #7cc29a; }
+/* the plot: room above for the speech bubble, the track, and the marker that is 40 px wide */
+.dp-plot { padding-top: 52px; }
+.dp-bar { position: relative; height: 40px; }
+.dp-track { position: absolute; left: 0; right: 0; top: 9px; height: 22px; border-radius: 11px; overflow: hidden; display: flex; background: #fff; box-shadow: inset 0 1px 3px rgba(0,0,0,.10); }
+.dp-seg { position: relative; flex: 1 1 0; min-width: 0; margin-right: 3px; background: #eceef2; overflow: hidden; } .dp-seg:last-child { margin-right: 0; }
+.dp-seg.done { background: var(--c); } .dp-seg.skipped { background: repeating-linear-gradient(90deg, #eceef2 0 5px, #fff 5px 8px); }
+.dp-seg u { position: absolute; left: 0; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--c) 0 7px, var(--cl) 7px 14px); text-decoration: none; }
+.dp-seg.bad { box-shadow: inset 0 -3px 0 #d64550; }
+.dp-knob { position: absolute; top: 0; width: 40px; height: 40px; margin-left: -20px; border-radius: 50%; background: #fff; color: var(--c); display: grid; place-items: center; box-shadow: 0 3px 10px rgba(0,0,0,.18), 0 0 0 4px var(--c); }
+.dp-knob svg { width: 20px; height: 20px; }
+.dp-end { position: absolute; left: calc(100% + 8px); top: 4px; width: 32px; height: 32px; border-radius: 50%; background: #fff; color: #7a1a3c; display: grid; place-items: center; box-shadow: 0 2px 6px rgba(0,0,0,.14), inset 0 0 0 2px #cfd3da; } .dp-end svg { width: 15px; height: 15px; }
+.dp-due { position: absolute; top: 4px; height: 32px; width: 0; border-left: 2px dashed #6b7280; margin-left: -1px; }
+/* the speech bubble: one line, never wider than the frame */
+.dp-bub { position: absolute; bottom: 52px; box-sizing: border-box; white-space: nowrap; background: #fff; border-radius: 10px; padding: 7px 13px; font-size: 12.5px; box-shadow: 0 2px 8px rgba(0,0,0,.14), 0 0 0 1px rgba(0,0,0,.04); }
+.dp-bub b { font-weight: 650; color: var(--ct); }
+.dp-ar { position: absolute; left: 50%; bottom: -5px; width: 10px; height: 10px; background: #fff; transform: translateX(-50%) rotate(45deg); box-shadow: 3px 3px 4px rgba(0,0,0,.06); }
+.dp-bt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the stage names, one under each part of the track */
+.dp-labels { display: grid; margin-top: 8px; }
+.dp-lab { min-width: 0; text-align: center; font-size: 12px; color: #8a909a; padding: 0 2px; }
+.dp-nm { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-lab em { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; color: #6b7280; height: 14px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dp-lab.done .dp-nm { color: #1f2328; } .dp-lab.current .dp-nm { color: var(--ct); font-weight: 700; } .dp-lab.skipped .dp-nm { text-decoration: line-through; }
+.dp-done .dp-lab .dp-nm { color: #1f2328; }
+/* when the names do not fit, only the one the work item is in is shown, centred under its part of the track and kept inside the frame */
+.dp-labels-one { display: block; position: relative; height: 18px; margin-top: 8px; }
+.dp-curlab { position: absolute; top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-weight: 700; color: var(--ct); line-height: 18px; }
+/* the two lines at the bottom: each one stays whole, the second drops under the first when they do not fit side by side */
+.dp-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 16px; margin: 10px 10px 0 22px; font-size: 12.5px; color: #4b5563; }
+.dp-foot span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dp-note { margin: 8px 8px 0; font-size: 12px; color: #616161; }
+.dp-flags { margin: 8px 8px 0; display: grid; gap: 4px; } .dp-flag { display: flex; gap: 8px; border-radius: 4px; padding: 5px 9px; font-size: 12.5px; background: #fff7e6; border: 1px solid #fde1a8; } .dp-flag.r { background: #fef2f2; border-color: #fecaca; }
