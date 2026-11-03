@@ -67,9 +67,8 @@
 .wig td:has(> .ro) { white-space: normal; }
 .wig .btn { display: inline-flex; align-items: center; gap: 5px; } .wig .btn.icon { justify-content: center; }
 
-/* Rows & access: a cell that is fixed (a lock on the right), the label of who added a row, and the question before a row is deleted */
-.wig .cell.fixed { box-sizing: border-box; background-color: rgba(120,120,130,.12); color: inherit; padding-right: 22px; background-repeat: no-repeat; background-position: right 6px center; background-size: 11px 11px;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23777' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='7' width='10' height='7' rx='1.5'/><path d='M5.5 7V5a2.5 2.5 0 0 1 5 0v2'/></svg>"); }
+/* Rows & access: a cell that is fixed (soft grey, no icon: read-only says it), the label of who added a row, and the question before a row is deleted */
+.wig .cell.fixed { background-color: rgba(120,120,130,.12); color: inherit; }
 .wig .badge.own { white-space: nowrap; margin-right: 6px; font-size: 11px; }
 .wig tr.confirm td { padding: 0; background: rgba(196,49,75,.06); }
 .wig .ask { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 12px; }

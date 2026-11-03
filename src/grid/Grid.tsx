@@ -305,7 +305,7 @@ export function Grid(p: GridProps) {
                       {stateOf(r, rv) !== "approved" && <button className="btn" title="Approve this row" onClick={() => doDecide([r._id], "approved")}>Approve</button>}
                       {stateOf(r, rv) !== "rejected" && <button className="btn" title="Reject this row (type the reason in the comment column first, if you like)" onClick={() => doDecide([r._id], "rejected")}>Reject</button>}
                     </>}
-                    {ownerTags && r._by && <span className="badge own" title={isMine(r, who ?? { keys: [] }) ? "You added this row" : `Only ${r._byName || r._by} and administrators can change this row`}>{isMine(r, who ?? { keys: [] }) ? "You added this" : `🔒 Added by ${r._byName || r._by}`}</span>}
+                    {ownerTags && r._by && <span className="badge own" title={isMine(r, who ?? { keys: [] }) ? "You added this row" : `Only ${r._byName || r._by} and administrators can change this row`}>{isMine(r, who ?? { keys: [] }) ? "You added this" : `Added by ${r._byName || r._by}`}</span>}
                     {!lockedRows && canMove && !frozen(r) && !sort && !filter && <>
                       <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}><IconUp /></button>
                       <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}><IconDown /></button>

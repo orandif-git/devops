@@ -68,7 +68,7 @@ describe("What people may do with rows", () => {
 
 describe("Fixed cells", () => {
   const preset = mk("a", { act: "Requirements", hrs: 16, _p: ["act", "hrs"] });
-  it("cells the preset filled are disabled with a lock; the others are editable", () => {
+  it("cells the preset filled are disabled and grey; the others are editable", () => {
     const m = mount([preset], { lockCells: "preset" });
     expect(input(m.host, 0, 0).disabled).toBe(true); expect(input(m.host, 0, 0).className).toContain("fixed"); expect(input(m.host, 0, 2).disabled).toBe(true); expect(input(m.host, 0, 1).disabled).toBe(false); expect(input(m.host, 0, 1).className).not.toContain("fixed");
     expect(input(m.host, 0, 0).title).toBe("This value is fixed");
@@ -90,7 +90,7 @@ describe("Row owner", () => {
   it("rows somebody else added are read-only with their name; mine and rows with no owner are editable", () => {
     const m = mount([mine, theirs, open], { rowOwner: true });
     expect(input(m.host, 0, 0).disabled).toBe(false); expect(input(m.host, 1, 0).disabled).toBe(true); expect(input(m.host, 1, 2).disabled).toBe(true); expect(input(m.host, 2, 0).disabled).toBe(false);
-    const badges = Array.from(m.host.querySelectorAll(".badge.own")).map(b => b.textContent); expect(badges).toEqual(["You added this", "🔒 Added by Sam"]);
+    const badges = Array.from(m.host.querySelectorAll(".badge.own")).map(b => b.textContent); expect(badges).toEqual(["You added this", "Added by Sam"]);
   });
   it("another person's row has no move, copy or delete buttons; mine has", () => {
     const rows = Array.from(mount([mine, theirs], { rowOwner: true }).host.querySelectorAll("tbody tr")).map(tr => ({ del: !!tr.querySelector("button[aria-label='Delete row']"), dup: !!tr.querySelector("button[aria-label='Duplicate row']"), up: !!tr.querySelector("button[aria-label='Move up']") }));
