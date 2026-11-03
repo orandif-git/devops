@@ -108,3 +108,14 @@
 .hub .tag.lvl-pages, .hub .tag.lvl-guard { background: color-mix(in srgb, #b26a00 18%, transparent); color: #b26a00; border: 0; }
 .hub .tag.lvl-record { background: var(--hover); color: var(--fg2); }
 .hub table.audit td .tag[class*="lvl-"] { white-space: normal; }
+
+/* the question asked before something is deleted in the settings */
+.hub .cdlg-back { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 300; display: grid; place-items: center; padding: 16px; }
+.hub .cdlg { background: #fff; color: #1b1b1b; border-radius: 10px; padding: 16px 20px; width: min(460px, 100%); box-shadow: 0 10px 34px rgba(0,0,0,.28); }
+.hub .cdlg h4 { margin: 0 0 8px; font-size: 15px; } .hub .cdlg p { margin: 0 0 10px; } .hub .cdlg ul { margin: 0 0 10px; padding-left: 20px; color: #444; }
+.hub .cdlg-warn { background: #fff7e6; border: 1px solid #fde1a8; border-radius: 6px; padding: 7px 10px; margin: 0 0 10px; font-size: 12.5px; }
+.hub .cdlg-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+
+/* Rows & access */
+.hub .access .arow { display: grid; grid-template-columns: 190px 1fr; gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line); } .hub .access .arow:first-child { border-top: 0; }
+.hub .access .arow > b { font-weight: 600; } .hub .access label { display: flex; gap: 6px; align-items: center; margin: 3px 0; } .hub .access .achk { display: flex; gap: 20px; flex-wrap: wrap; } .hub .access select { max-width: 320px; }

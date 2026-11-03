@@ -1,6 +1,7 @@
 import { writtenFields } from "../core/written";
 import { isNoLimit, validateConfig as validateGrid } from "../core/gridModel";
 import { checkFormula } from "../core/expr";
+import { accessProblems } from "../core/access";
 import { ProjectConfig } from "../core/types";
 import { orderCalculations, undefinedVariables } from "../core/calc";
 import { lookupValues, resolvedGrids } from "../core/sharedLookups";
@@ -153,6 +154,8 @@ export function validateProject(raw: ProjectConfig, cat: Catalog): Issue[] {
       }
       if (!r.reasonColumn) add("warn", w, "Review: no comment column is set, so approvers cannot leave a reject reason");
     }
+    // ---- rows & access
+    accessProblems(g).forEach(m => add("warn", `${w} › access`, m));
     // ---- presets
     const presetNames = new Set<string>();
     (g.presets ?? []).forEach(pr => {

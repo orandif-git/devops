@@ -207,7 +207,7 @@ function Hub(props: { projectId: string; projectName: string }) {
         <div className="tabintro">{TAB_INTRO[tab]}</div>
         {tab === "rules" && <RulesTab rules={config.rules} issues={issues} onChange={rules => setConfig({ ...config, rules })} />}
         {tab === "cascades" && <CascadesTab cascades={config.cascades} issues={issues} onChange={cascades => setConfig({ ...config, cascades })} />}
-        {tab === "grids" && <GridsTab focus={focus.n !== focusDone ? focus : undefined} onFocusHandled={setFocusDone} grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
+        {tab === "grids" && <GridsTab calcs={config.calculations} focus={focus.n !== focusDone ? focus : undefined} onFocusHandled={setFocusDone} grids={config.grids} issues={issues} onChange={grids => setConfig({ ...config, grids })} />}
         {tab === "mappings" && <MappingsTab config={config} issues={issues} onChange={(lookups, grids) => setConfig({ ...config, lookups, ...(grids ? { grids } : {}) })} />}
         {tab === "calcs" && <CalculationsTab calcs={config.calculations ?? []} grids={config.grids} onUseDataField={(grid, field) => setConfig({ ...config, grids: { ...config.grids, [grid]: { ...config.grids[grid], dataField: field } } })} issues={issues} onChange={calculations => setConfig({ ...config, calculations })} />}
         {tab === "readonly" && <ReadOnlyTab config={config} />}

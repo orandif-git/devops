@@ -5,6 +5,7 @@ import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, va
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 import { Actor, canDecide, decide, freshReview, isLocked, resetOnEdit, reviewColumns, stateOf } from "../core/review";
+import { AccessConfig, AccessWho, asksBeforeDelete, cellFixed, isMine, mayAdd, mayDelete, mayImport, mayMove, ownerLocked, withOwner, withoutPreset } from "../core/access";
 
 export interface GridProps {
   cfg: GridConfig;
@@ -38,6 +39,10 @@ export interface GridProps {
     canSave: boolean;
     onSave(name: string): void;
   };
+  /** Rows & access: what people may do with the rows (add, delete, move, import), the cells that stay fixed and who added each row; `saved` is each row as it was last saved, for “fixed once it has a value” */
+  access?: { cfg: AccessConfig; who?: AccessWho; saved?: Map<string, GridRow> };
+  /** rows that were just added for the person (a starting preset): no red highlighting until touched */
+  calmIds?: string[];
   /** hover text explaining where a (calculated) figure comes from, e.g. which tasks make up the hours */
   cellInfo?(row: GridRow, col: ColumnDef): string | undefined;
 }
@@ -61,6 +66,7 @@ export function Grid(p: GridProps) {
   const [openRows, setOpenRows] = React.useState<Set<string>>(new Set());          // rows whose detail lines are showing
   // rows added with "Add row" that the user has not touched yet: no red highlighting
   const [pristine, setPristine] = React.useState<Set<string>>(new Set());
+  React.useEffect(() => { if (p.calmIds?.length) setPristine(s => new Set([...Array.from(s), ...p.calmIds!])); }, [p.calmIds]);
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [presetPick, setPresetPick] = React.useState("");
   const [saving, setSaving] = React.useState(false);
@@ -70,6 +76,12 @@ export function Grid(p: GridProps) {
   const actor = p.review?.actor;
   const [reviewMsg, setReviewMsg] = React.useState("");
   const rowLocked = (r: GridRow) => !!rv && isLocked(r, cfg, actor);
+  // Rows & access: what people may do, and the rows and cells that are fixed for them
+  const ax = p.access?.cfg, who = p.access?.who, savedRows = p.access?.saved;
+  const canAdd = mayAdd(ax), canDel = mayDelete(ax), canMove = mayMove(ax), canImp = mayImport(ax), ask = asksBeforeDelete(ax);
+  const frozen = (r: GridRow) => rowLocked(r) || ownerLocked(r, ax, who);
+  const fixedCell = (r: GridRow, col: string) => cellFixed(r, col, ax, who, savedRows?.get(r._id));
+  const [confirmId, setConfirmId] = React.useState<string | null>(null);
   const reviewCols = React.useMemo(() => new Set(rv ? reviewColumns(rv) : []), [rv]);
   const pickedPreset = pt?.presets.find(x => x.id === presetPick);
 
@@ -98,25 +110,29 @@ export function Grid(p: GridProps) {
 
   const update = (rowId: string, col: string, value: unknown) => {
     const target = rows.find(r => r._id === rowId);
-    if (target && rowLocked(target)) return;
+    if (target && (frozen(target) || fixedCell(target, col))) return;
     if (pristine.has(rowId)) setPristine(s => { const n = new Set(s); n.delete(rowId); return n; });
     const adjustable = cfg.columns.find(c => c.id === col)?.derive?.adjustable;       // derived grids: remember the typed value as an adjustment
     const patch = adjustable ? { [col]: value, ["_adj_" + col]: value } : { [col]: value };
     const next = recomputeAll(rows.map(r => (r._id === rowId ? { ...r, ...patch } : r)), cfg);
     p.onChange(rv && !rv.secure ? resetOnEdit(rows, next, cfg) : next);          // an edited approved / rejected row goes back to pending review (when configured)
   };
-  const addRow = () => { const r = newRow(cfg); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
-  const delRow = (id: string) => { const t = rows.find(r => r._id === id); if (t && rowLocked(t)) return; p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg)); };
+  const addRow = () => { if (!canAdd) return; const r = withOwner(newRow(cfg), ax, who); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
+  const delRow = (id: string) => { const t = rows.find(r => r._id === id); if (!canDel || (t && frozen(t))) return; setConfirmId(null); p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg)); };
+  const askDelete = (id: string) => { if (ask) setConfirmId(id); else delRow(id); };
+  /** the first typed value of a row, to say which row is about to be deleted */
+  const rowName = (r: GridRow) => { for (const c of cfg.columns) { if (c.hidden || c.type === "boolean") continue; const v = r[c.id]; if ((typeof v === "string" && v.trim()) || typeof v === "number") return String(v).trim(); } return ""; };
   const move = (id: string, d: number) => {
     const i = rows.findIndex(r => r._id === id), j = i + d;
-    if (j < 0 || j >= rows.length || rowLocked(rows[i]) || rowLocked(rows[j])) return;
+    if (!canMove || j < 0 || j >= rows.length || frozen(rows[i]) || frozen(rows[j])) return;
     const next = [...rows]; [next[i], next[j]] = [next[j], next[i]]; p.onChange(next);
   };
   const dup = (id: string) => {
     const i = rows.findIndex(r => r._id === id);
-    const copy = { ...newRow(cfg), ...rows[i], _id: newRow(cfg)._id } as GridRow;
-    delete copy._childId;
-    const next = [...rows]; next.splice(i + 1, 0, rv ? freshReview(copy, rv) : copy); p.onChange(recomputeAll(next, cfg));
+    if (!canAdd || i < 0 || frozen(rows[i])) return;
+    const copy = withoutPreset({ ...newRow(cfg), ...rows[i], _id: newRow(cfg)._id } as GridRow);       // a copy is a new row: no child, no preset cells, and its owner is whoever copied it
+    delete copy._childId; delete copy._by; delete copy._byName; delete copy._at;
+    const owned = withOwner(copy, ax, who), next = [...rows]; next.splice(i + 1, 0, rv ? freshReview(owned, rv) : owned); p.onChange(recomputeAll(next, cfg));
   };
 
   const doDecide = async (ids: string[], to: "approved" | "rejected") => {
@@ -146,15 +162,17 @@ export function Grid(p: GridProps) {
     return vals.length > 0 && vals.every(v => typeof v === "number");
   };
   const numCols = React.useMemo(() => new Set(cfg.columns.filter(isNum).map(c => c.id)), [cfg, rows]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const ownerTags = !!ax?.rowOwner && !lockedRows;
+  const showActions = childOn || !!rv || (!lockedRows && (canMove || canAdd || canDel)) || ownerTags;
   const rowStatus = cfg.rowColorBy ? cfg.columns.find(c => c.id === cfg.rowColorBy) : undefined;
   const pendingChildren = rows.filter(r => !r._childId).length;
 
   const editor = (c: ColumnDef, r: GridRow) => {
     const v = r[c.id];
     const isEnd = cfg.schedule?.end === c.id;
-    const dis = readOnly || isEnd || (!!c.teamFrom && !c.teamFrom.allowOverride) || rowLocked(r) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
-    const cls = errKey(r._id, c.id) ? "cell err-cell" : "cell";
-    const title = errKey(r._id, c.id) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
+    const dis = readOnly || isEnd || (!!c.teamFrom && !c.teamFrom.allowOverride) || frozen(r) || fixedCell(r, c.id) || (reviewCols.has(c.id) && (c.id !== rv?.reasonColumn || (!!rv?.secure && stateOf(r, rv) !== "pending"))) || !!c.formula || !!c.lookup || (!!c.derive && !c.derive.adjustable) || !!c.capacity || !!c.teamOf || !!c.others || c.type === "calculated";
+    const fixedHere = !readOnly && !frozen(r) && fixedCell(r, c.id), cls = (errKey(r._id, c.id) ? "cell err-cell" : "cell") + (fixedHere ? " fixed" : "");
+    const title = errKey(r._id, c.id) ?? (fixedHere ? "This value is fixed" : undefined) ?? p.cellInfo?.(r, c) ?? (isEnd && typeof r._schedNote === "string" ? r._schedNote : isEnd ? "Calculated from the start date, effort, allocation and the person's calendar" : undefined);
     // automatic grids (e.g. Resource Capacity): read-only cells are shown as plain text, so nothing is cut off like in a disabled input
     if (p.autoRows && dis && c.type !== "boolean") {
       const raw = c.displayFormat ? formatDateText(v, c.displayFormat) : v === null || v === undefined ? "" : String(v);
@@ -199,9 +217,9 @@ export function Grid(p: GridProps) {
       {p.title && <h3 className="gtitle">{p.title}</h3>}
       {!lockedRows && (
         <div className="toolbar">
-          <button className="btn primary" onClick={addRow}><IconPlus /> Add row</button>
+          {canAdd && <button className="btn primary" onClick={addRow}><IconPlus /> Add row</button>}
           <input type="search" placeholder="Filter…" value={filter} onChange={e => setFilter(e.target.value)} style={{ width: 120 }} />
-          {pt && pt.presets.length > 0 && (
+          {canImp && pt && pt.presets.length > 0 && (
             <select value={presetPick} title="Add ready-made rows to this grid" onChange={e => {
               const id = e.target.value;
               setSaving(false);
@@ -218,7 +236,7 @@ export function Grid(p: GridProps) {
           </>}
           {pt?.canSave && <button className="btn" onClick={() => { setSaving(s => !s); setPresetPick(""); }} title="Keep the rows of this grid as a preset others can load">Save as preset…</button>}
           <span className="spacer" />
-          {cfg.allowImport && <>
+          {cfg.allowImport && canImp && <>
             <button className="btn" onClick={() => fileRef.current?.click()}><IconUpload /> Import</button>
             <input ref={fileRef} type="file" accept=".csv,.xlsx" hidden onChange={e => { const f = e.target.files?.[0]; if (f) p.onImport(f); e.target.value = ""; }} />
           </>}
@@ -229,7 +247,7 @@ export function Grid(p: GridProps) {
             Create {cfg.child!.workItemType}s ({pendingChildren})</button>}
         </div>
       )}
-      {!lockedRows && pickedPreset && pt && (
+      {!lockedRows && canImp && pickedPreset && pt && (
         <div className="toolbar presetbar">
           <span>Load <b>{pickedPreset.name}</b> ({pickedPreset.count} row{pickedPreset.count === 1 ? "" : "s"}):</span>
           <button className="btn primary" title="Keep the current rows and add the preset's rows that are not there yet"
@@ -267,7 +285,7 @@ export function Grid(p: GridProps) {
                   {sort?.col === c.id ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
-              {(!lockedRows || childOn || !!rv) && <th className="narrow" />}
+              {showActions && <th className="narrow" />}
             </tr>
           </thead>
           <tbody>
@@ -279,26 +297,35 @@ export function Grid(p: GridProps) {
                   const rvTint = rv && c.id === rv.statusColumn ? { approved: "tint-green", rejected: "tint-red", pending: "tint-yellow" }[stateOf(r, rv)] : "";
                   return <td key={c.id} className={[numCols.has(c.id) ? "num" : "", band ? "tint-" + band.color : "", rvTint, c.statusBands || rvTint ? "status" : ""].join(" ").trim() || undefined}>{editor(c, r)}</td>;
                 })}
-                {(!lockedRows || childOn || !!rv) && (
+                {showActions && (
                   <td className="actions">
                     {rv && actor && !readOnly && canDecide(r, cfg, actor).ok && <>
                       {stateOf(r, rv) !== "approved" && <button className="btn" title="Approve this row" onClick={() => doDecide([r._id], "approved")}>Approve</button>}
                       {stateOf(r, rv) !== "rejected" && <button className="btn" title="Reject this row (type the reason in the comment column first, if you like)" onClick={() => doDecide([r._id], "rejected")}>Reject</button>}
                     </>}
-                    {!lockedRows && !rowLocked(r) && !sort && !filter && <>
+                    {ownerTags && r._by && <span className="badge own" title={isMine(r, who ?? { keys: [] }) ? "You added this row" : `Only ${r._byName || r._by} and administrators can change this row`}>{isMine(r, who ?? { keys: [] }) ? "You added this" : `🔒 Added by ${r._byName || r._by}`}</span>}
+                    {!lockedRows && canMove && !frozen(r) && !sort && !filter && <>
                       <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}><IconUp /></button>
                       <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}><IconDown /></button>
                     </>}
-                    {!lockedRows && !rowLocked(r) && <button className="btn icon" title="Duplicate row" aria-label="Duplicate row" onClick={() => dup(r._id)}><DuplicateIcon /></button>}
+                    {!lockedRows && canAdd && !frozen(r) && <button className="btn icon" title="Duplicate row" aria-label="Duplicate row" onClick={() => dup(r._id)}><DuplicateIcon /></button>}
                     {childOn && (r._childId
                       ? <span className="badge" title="Child work item">#{r._childId}</span>
                       : !lockedRows && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
-                    {!lockedRows && !rowLocked(r) && <button className="btn icon danger" title="Delete row" aria-label="Delete row" onClick={() => delRow(r._id)}><IconTrash /></button>}
+                    {!lockedRows && canDel && !frozen(r) && <button className="btn icon danger" title="Delete row" aria-label="Delete row" aria-expanded={confirmId === r._id} onClick={() => askDelete(r._id)}><IconTrash /></button>}
                   </td>
                 )}
               </tr>
+              {confirmId === r._id && (
+                <tr className="confirm"><td colSpan={shown.length + 1 + (showActions ? 1 : 0)}>
+                  <div className="ask" role="alertdialog" aria-label="Delete this row?" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setConfirmId(null); } }}>
+                    <span><b>Delete this row?</b> {rowName(r) ? `“${rowName(r)}” will be removed from the grid.` : "It will be removed from the grid."}</span>
+                    <span className="acts"><button className="btn" autoFocus onClick={() => setConfirmId(null)}>Cancel</button><button className="btn danger" onClick={() => delRow(r._id)}>Delete</button></span>
+                  </div>
+                </td></tr>
+              )}
               {p.details && openRows.has(r._id) && p.details.lines(r).length > 0 && (() => {
-                const d = p.details!, ls = d.lines(r), at = d.column ? shown.findIndex(c => c.id === d.column) : -1, i0 = at < 0 ? 1 : at, rest = shown.length - i0 - 1 + ((!lockedRows || childOn || !!rv) ? 1 : 0);
+                const d = p.details!, ls = d.lines(r), at = d.column ? shown.findIndex(c => c.id === d.column) : -1, i0 = at < 0 ? 1 : at, rest = shown.length - i0 - 1 + (showActions ? 1 : 0);
                 const total = Math.round(ls.reduce((s, l) => s + l.hours, 0) * 100) / 100;
                 return <>{ls.map((l, k) => <tr key={l.id} className={"detail" + (k === 0 ? " first" : "")}><td className="dbar" />
                   <td colSpan={i0 || 1}><span className="tree" aria-hidden="true">└</span><span className="idc">#{l.id}</span><a href="#" className="lk" onClick={e => { e.preventDefault(); d.onOpen(l.id); }}>{l.title || "Epic " + l.id}</a></td>
@@ -308,7 +335,7 @@ export function Grid(p: GridProps) {
               })()}
               </React.Fragment>
             ))}
-            {!visible.length && <tr><td colSpan={shown.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : "No rows yet – click “Add row” or import a file."}</td></tr>}
+            {!visible.length && <tr><td colSpan={shown.length + 2} className="muted empty">{rows.length ? "No rows match the filter." : lockedRows ? (p.autoRows ? "Rows appear here automatically from the grid above." : "No rows.") : canAdd ? "No rows yet – click “Add row” or import a file." : "No rows."}</td></tr>}
           </tbody>
           {Object.keys(totals).length > 0 && (
             <tfoot>
@@ -317,7 +344,7 @@ export function Grid(p: GridProps) {
                 {shown.map(c => (
                   <td key={c.id} className={numCols.has(c.id) ? "num" : undefined}>{c.total ? <strong title={`${c.total} of ${c.name}`}>{c.total === "count" ? "" : "Σ "}{totals[c.id]}{c.total === "avg" ? " avg" : c.total === "count" ? " items" : c.total === "min" ? " min" : c.total === "max" ? " max" : ""}</strong> : null}</td>
                 ))}
-                {(!lockedRows || childOn || !!rv) && <td />}
+                {showActions && <td />}
               </tr>
             </tfoot>
           )}

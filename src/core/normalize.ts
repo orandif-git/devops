@@ -2,6 +2,7 @@ import { normProgress } from "./progress";
 import { DEFAULT_STATUSES } from "./review";
 import { GridConfig, ProjectConfig, ReviewConfig } from "./types";
 import { readControls } from "./commentOnly";
+import { normAccess } from "./access";
 
 /** A review setting with every part present, so a partly written (hand-edited, older) one cannot crash the pages. */
 export function normalizeReview(r: Partial<ReviewConfig> | undefined): ReviewConfig | undefined {
@@ -27,6 +28,7 @@ export function normalizeGrid(g: GridConfig): GridConfig {
   const out: GridConfig = { ...g, columns: Array.isArray(g.columns) ? g.columns : [] };
   if (g.review !== undefined) out.review = normalizeReview(g.review);
   if (g.presets !== undefined) out.presets = Array.isArray(g.presets) ? g.presets.map(p => ({ ...p, columns: Array.isArray(p.columns) ? p.columns : [], rows: Array.isArray(p.rows) ? p.rows : [] })) : undefined;
+  if (g.access !== undefined) { const a = normAccess(g.access); if (a) out.access = a; else delete out.access; }
   if (g.presetSave) out.presetSave = { enabled: !!g.presetSave.enabled, teams: Array.isArray(g.presetSave.teams) ? g.presetSave.teams : [], admins: g.presetSave.admins !== false };
   return out;
 }

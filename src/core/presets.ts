@@ -21,7 +21,9 @@ export function presetRows(p: GridPreset, cfg: GridConfig): GridRow[] {
   const ids = new Set(p.columns);
   const rows = (p.rows ?? []).map(src => {
     const row = newRow(cfg);
-    for (const c of cfg.columns) if (ids.has(c.id) && src[c.id] !== undefined) row[c.id] = coerce(c, src[c.id]);
+    const filled: string[] = [];
+    for (const c of cfg.columns) if (ids.has(c.id) && src[c.id] !== undefined) { row[c.id] = coerce(c, src[c.id]); const v = row[c.id]; if (v !== null && v !== "" && v !== false) filled.push(c.id); }
+    if (filled.length) row._p = filled;                                    // the cells the preset filled: they can be kept fixed (Rows & access)
     return row;
   });
   // a preset can never hand out approved rows

@@ -1,6 +1,6 @@
 import { DATE_FORMATS, formatDateText, isDateFormat } from "../core/dateFormat";
 import * as React from "react";
-import { Aggregate, ApproverRule, Breakdown, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, ReviewConfig, StatusBand, StatusColor, TotalMapping } from "../core/types";
+import { Aggregate, ApproverRule, Breakdown, Calculation, ColumnDef, ColumnType, GridConfig, GridPreset, GridRow, ReviewConfig, StatusBand, StatusColor, TotalMapping } from "../core/types";
 import { newRow } from "../core/gridModel";
 import { applySharedLookups, lookupValues } from "../core/sharedLookups";
 import { CAPACITY_BANDS, CAPACITY_ROW_COLOR, capacityAllocation, capacityTemplate, TEAM_FROM_CAPACITY } from "../core/derived";
@@ -17,6 +17,9 @@ import "../grid/grid.css";
 import { LookupEditor } from "./LookupEditor";
 import { csv, Ctx, delAt, FieldInput, jumpToSection, Section, SectionStatus, setAt, activate } from "./ui";
 import { issueSection, SectionId } from "./sections";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { columnImpact, gridImpact, presetImpact } from "../core/impact";
+import { AccessConfig, accessProblems, normAccess } from "../core/access";
 import { Issue } from "./validate";
 
 const TYPES: ColumnType[] = ["string", "number", "boolean", "date", "dropdown", "identity", "calculated"];
@@ -297,13 +300,21 @@ function PresetsEditor(p: { g: GridConfig; effective: GridConfig; onChange(g: Gr
   const save = g.presetSave ?? { enabled: false, teams: [], admins: true };
   const setSave = (patch: Partial<NonNullable<GridConfig["presetSave"]>>) => p.onChange({ ...g, presetSave: { ...save, ...patch } });
   const when = cur?.when ?? [];
+  const [askDel, setAskDel] = React.useState(false);
+  const del = presetImpact(g, cur?.id ?? "");
+  const doDelete = () => {   // the preset goes; when it was the preset the grid starts with, the grid starts blank
+    const list = presets.filter((_, i) => i !== idx);
+    p.onChange({ ...g, presets: list.length ? list : undefined, ...(del.isStart ? { access: normAccess({ ...g.access, startPreset: undefined }) } : {}) });
+    setSel(0); setAskDel(false);
+  };
   return (
     <>
+      {askDel && cur && <ConfirmDialog title={`Delete preset “${cur.name || "(unnamed)"}”?`} message={<>{del.rows} row{del.rows === 1 ? "" : "s"}. Work items already created from it are not changed.</>} usedBy={del.isStart ? ["the starting preset of this grid (new grids will start blank)"] : []} confirmLabel="Delete preset" onCancel={() => setAskDel(false)} onConfirm={doDelete} />}
       <div className="help">A preset is a named set of rows users add to the grid with <b>Load preset</b>, e.g. the standard activities with their default effort. People and dates stay blank for the user to fill in. Give a preset a rule (e.g. Project type = Implementation) to offer it only on matching work items.</div>
       <div className="row">
         <select className="fixed" value={idx} onChange={e => setSel(+e.target.value)}>{presets.map((x, i) => <option key={x.id} value={i}>{x.name || "(unnamed)"}</option>)}{!presets.length && <option value={-1}>(no presets yet)</option>}</select>
         <button className="btn fixed" onClick={() => { const id = "p" + Date.now().toString(36); setPresets([...presets, { id, name: "Preset " + (presets.length + 1), columns: defaultPresetColumns(p.effective), rows: [] }]); setSel(presets.length); }}>+ New preset</button>
-        {cur && <button className="btn danger fixed" onClick={() => { setPresets(presets.filter((_, i) => i !== idx)); setSel(0); }}>Delete preset</button>}
+        {cur && <button className="btn danger fixed" onClick={() => setAskDel(true)}>Delete preset</button>}
       </div>
       {cur && (
         <div className="card">
@@ -500,7 +511,60 @@ function ReviewEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
   );
 }
 
-function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; onChange(g: GridConfig, followUp?: { renamed: { from: string; to: string } }): void; issues: Issue[] }) {
+/** A short line for the section header: what is set. */
+function accessSummary(g: GridConfig): string | undefined {
+  const a = g.access; if (!a) return undefined;
+  const parts: string[] = [];
+  if (a.startPreset) parts.push(`starts with “${(g.presets ?? []).find(x => x.id === a.startPreset)?.name ?? "?"}”`);
+  if (a.allowAdd === false || a.allowDelete === false) parts.push("rows fixed");
+  if (a.lockCells && a.lockCells !== "never") parts.push("cells fixed");
+  if (a.rowOwner) parts.push("row owner");
+  return parts.join(" · ") || "Ask before deleting a row: off";
+}
+
+/** Rows & access: the starting preset, what people may do with rows, fixed cells, row owner, administrators and the delete question. */
+function AccessEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
+  const { g } = p, a: AccessConfig = g.access ?? {}, presets = g.presets ?? [];
+  const [teams, setTeams] = React.useState<TeamRef[]>([]);
+  const [projectId, setProjectId] = React.useState("");
+  React.useEffect(() => { getProject().then(pr => { setProjectId(pr.id); return listTeams(pr.id); }).then(setTeams).catch(() => undefined); }, []);
+  const [auto, setAuto] = React.useState(!!a.startPreset);
+  const set = (patch: Partial<AccessConfig>) => p.onChange({ ...g, access: normAccess({ ...a, ...patch }) });
+  const problems = accessProblems(g);
+  const can = (k: "allowAdd" | "allowDelete" | "allowMove" | "allowImport", label: string) => <label><input type="checkbox" checked={a[k] !== false} onChange={e => set({ [k]: e.target.checked ? undefined : false })} /> {label}</label>;
+  return (
+    <div className="access">
+      <div className="arow"><b>Starting rows</b><div>
+        <label><input type="radio" name="start" checked={!auto} onChange={() => { setAuto(false); set({ startPreset: undefined }); }} /> Blank (as before)</label>
+        <label><input type="radio" name="start" checked={auto} disabled={!presets.length} onChange={() => { setAuto(true); set({ startPreset: a.startPreset ?? presets[0]?.id }); }} /> Load a preset automatically{" "}
+          <select aria-label="Starting preset" disabled={!auto} value={a.startPreset ?? ""} onChange={e => set({ startPreset: e.target.value || undefined })}>{presets.map(x => <option key={x.id} value={x.id}>{x.name || "(unnamed)"}</option>)}</select></label>
+        <div className="help">{presets.length ? "Applies to every work item whose grid is empty, new or existing. The preset’s “offered when” rules still apply." : "Create a preset first (the Presets part above)."}</div>
+      </div></div>
+      <div className="arow"><b>People can</b><div>
+        <div className="achk">{can("allowAdd", "Add rows")}{can("allowDelete", "Delete rows")}{can("allowMove", "Move rows")}{can("allowImport", "Import or load a preset")}</div>
+        <div className="help">Turn off Add rows and Delete rows to keep the rows as they are: people only fill in the cells.</div>
+      </div></div>
+      <div className="arow"><b>Fixed cells</b><div>
+        <select aria-label="Fixed cells" value={a.lockCells ?? "never"} onChange={e => set({ lockCells: e.target.value === "never" ? undefined : (e.target.value as "preset" | "filled") })}>
+          <option value="never">Never</option><option value="preset">Cells the preset filled</option><option value="filled">Any cell once it has a value</option></select>
+        <div className="help">Blank cells always stay editable. “Once it has a value” counts a value from the moment it is saved.</div>
+      </div></div>
+      <div className="arow"><b>Row owner</b><div>
+        <label><input type="checkbox" checked={!!a.rowOwner} onChange={e => set({ rowOwner: e.target.checked || undefined })} /> Only the person who added a row (and administrators) can change or delete it</label>
+        <div className="help">Rows with no owner (existing rows, preset rows) can be changed by everyone. Who saved the grid is in the work item’s History. This is enforced in the grid; it does not stop someone who edits the field by other means.</div>
+      </div></div>
+      <div className="arow"><b>Administrators</b><div>
+        <div className="help">Project administrators, and these teams and people, can always change fixed cells and other people’s rows.</div>
+        <TeamChips all={teams} value={a.admins?.teams ?? []} onChange={v => set({ admins: { teams: v, people: a.admins?.people ?? [] } })} />
+        <PeopleList value={a.admins?.people ?? []} projectId={projectId} onChange={v => set({ admins: { teams: a.admins?.teams ?? [], people: v } })} />
+      </div></div>
+      <div className="arow"><b>Delete confirmation</b><div><label><input type="checkbox" checked={a.confirmDelete !== false} onChange={e => set({ confirmDelete: e.target.checked ? undefined : false })} /> Ask before deleting a row</label></div></div>
+      {problems.length > 0 && <div className="issues">{problems.map((m, i) => <div key={i} className="issue warn">{m}</div>)}</div>}
+    </div>
+  );
+}
+
+function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConfig>; calcs?: Calculation[]; onChange(g: GridConfig, followUp?: { renamed: { from: string; to: string } }): void; issues: Issue[] }) {
   const g = p.g;
   const sourceNames = Object.keys(p.grids).filter(n => n !== p.name && !p.grids[n].derived);
   const source = g.derived ? p.grids[g.derived.source] : undefined;
@@ -508,6 +572,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   const [pick, setPick] = React.useState({ resource: "", period: "", hours: "", team: "" });
   const [fromRegister, setFromRegister] = React.useState(true);
   const [openCols, setOpenCols] = React.useState<Set<number>>(new Set());
+  const [askCol, setAskCol] = React.useState<number | null>(null);
   const { lookups } = React.useContext(Ctx);
   const effective = React.useMemo(() => applySharedLookups(g, lookups), [g, lookups]);
   const child = g.child ?? { enabled: false, workItemType: "Task", titleColumn: "", fieldMap: {} };
@@ -591,7 +656,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
           onMove={d => { const j = i + d; if (j < 0 || j >= g.columns.length) return; const cols = [...g.columns]; [cols[i], cols[j]] = [cols[j], cols[i]];
             setOpenCols(o => { const n = new Set<number>(); o.forEach(k => n.add(k === i ? j : k === j ? i : k)); return n; }); p.onChange({ ...g, columns: cols }); }}
           onRename={to => { if (g.columns.some(x => x.id === to)) return; p.onChange(renameColumn(g, c.id, to), renameFollowUp(c.id, to)); }}
-          onChange={nc => p.onChange(dropDanglingColorRefs({ ...g, columns: setAt(g.columns, i, nc) }))} onDelete={() => p.onChange(dropDanglingColorRefs({ ...g, columns: delAt(g.columns, i) }))} />)}</tbody>
+          onChange={nc => p.onChange(dropDanglingColorRefs({ ...g, columns: setAt(g.columns, i, nc) }))} onDelete={() => setAskCol(i)} />)}</tbody>
       </table>
       <button className="btn" onClick={() => { let n = g.columns.length + 1; while (g.columns.some(c => c.id === "col" + n)) n++; p.onChange({ ...g, columns: [...g.columns, { id: "col" + n, name: "Column " + n, type: "string" }] }); }}>+ Add column</button>
       </>
@@ -620,6 +685,7 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
     ) },
     { id: "review", title: "Approval", help: "Chosen people approve or reject each row.", status: flag("review", !!g.review), show: !g.derived, body: <ReviewEditor g={g} onChange={p.onChange} /> },
     { id: "presets", title: "Presets", help: "Ready-made rows people add with one click.", status: g.presets?.length ? (mine("presets").length ? "todo" : "ok") : "off", summary: g.presets?.length ? `${g.presets.length} preset${g.presets.length === 1 ? "" : "s"}` : undefined, show: !g.derived, body: <PresetsEditor g={g} effective={effective} onChange={p.onChange} /> },
+    { id: "access", title: "Rows & access", help: "What people may do with the rows, which cells stay fixed, and the preset a grid starts with.", status: g.access ? (mine("access").length ? "todo" : "ok") : "off", summary: accessSummary(g), show: !g.derived, body: <AccessEditor g={g} onChange={p.onChange} /> },
     { id: "totals", title: "Totals and fields", help: "Figures from the grid, saved to work item fields.", status: (g.totals?.length || g.breakdowns?.length) ? (mine("totals").length ? "todo" : "ok") : "off", show: true, body: (
       <>
       <h3>Push totals to work item fields</h3>
@@ -721,11 +787,14 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
     ) },
   ];
   // journey order: a derived grid starts from its source; an ordinary grid mentions "build from another grid" last
-  const order: SectionId[] = g.derived ? ["storage", "derived", "columns", "totals", "preview"] : ["storage", "columns", "dates", "review", "presets", "totals", "child", "derived", "preview"];
+  const order: SectionId[] = g.derived ? ["storage", "derived", "columns", "totals", "preview"] : ["storage", "columns", "dates", "review", "presets", "access", "totals", "child", "derived", "preview"];
   const shown = defs.filter(d => d.show && order.includes(d.id)).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
   const todo = shown.filter(d => d.status === "todo").length;
+  const colAsked = askCol !== null ? g.columns[askCol] : undefined;
   return (
     <div>
+      {colAsked && <ConfirmDialog title={`Delete column “${colAsked.name || colAsked.id}”?`} message="The column is removed from the grid. Values already saved on work items are not deleted." usedBy={columnImpact({ grids: { ...p.grids, [p.name]: g }, calculations: p.calcs }, p.name, colAsked)} confirmLabel="Delete column"
+        onCancel={() => setAskCol(null)} onConfirm={() => { p.onChange(dropDanglingColorRefs({ ...g, columns: delAt(g.columns, askCol!) })); setOpenCols(new Set()); setAskCol(null); }} />}
       <div className="steps" aria-label="Progress of this grid">
         <div className="head"><span className={todo ? "" : "ok"}>{todo ? `${todo} part${todo === 1 ? "" : "s"} need${todo === 1 ? "s" : ""} attention` : "✓ Every part of this grid is in order"}</span></div>
         <div className="jump">{shown.map((d, i) => <button key={d.id} type="button" className={"s-" + d.status} onClick={() => jumpToSection(d.id)}>{i + 1}. {d.title}</button>)}</div>
@@ -739,10 +808,12 @@ function Editor(p: { name: string; g: GridConfig; grids: Record<string, GridConf
   );
 }
 
-export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Record<string, GridConfig>): void; issues: Issue[]; focus?: { n: number; grid?: string; section?: string; create?: boolean }; onFocusHandled?(n: number): void }) {
+export function GridsTab(p: { grids: Record<string, GridConfig>; calcs?: Calculation[]; onChange(g: Record<string, GridConfig>): void; issues: Issue[]; focus?: { n: number; grid?: string; section?: string; create?: boolean }; onFocusHandled?(n: number): void }) {
   const names = Object.keys(p.grids);
   const [sel, setSel] = React.useState(names[0] ?? "");
   const cur = names.includes(sel) ? sel : names[0];
+  const [askGrid, setAskGrid] = React.useState(false);
+  const gi = cur ? gridImpact({ grids: p.grids, calculations: p.calcs }, cur) : undefined;
   const add = () => {
     let n = 1; while (p.grids["Grid " + n]) n++;
     const name = "Grid " + n;
@@ -766,6 +837,8 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
   };
   return (
     <div className="split">
+      {askGrid && cur && gi && <ConfirmDialog title={`Delete grid “${cur}”?`} message="This removes the grid and its settings. Data already saved on work items is not deleted." counts={gi.counts} usedBy={gi.usedBy} confirmLabel="Delete grid"
+        onCancel={() => setAskGrid(false)} onConfirm={() => { const o = { ...p.grids }; delete o[cur]; p.onChange(o); setAskGrid(false); }} />}
       <div>
         <div className="list">
           {names.map(n => <div role="button" tabIndex={0} onKeyDown={activate} key={n} className={"item" + (n === cur ? " on" : "")} onClick={() => setSel(n)}>
@@ -773,13 +846,13 @@ export function GridsTab(p: { grids: Record<string, GridConfig>; onChange(g: Rec
           {!names.length && <div className="item muted">No grids yet</div>}
         </div>
         <div className="toolbar"><button className="btn primary" onClick={add}>+ New grid</button>
-          {cur && <button className="btn danger" onClick={() => { const o = { ...p.grids }; delete o[cur]; p.onChange(o); }}>Delete</button>}</div>
+          {cur && <button className="btn danger" onClick={() => setAskGrid(true)}>Delete</button>}</div>
       </div>
       <div className="card">
         {cur ? <>
           <label className="field"><span>Grid name (referenced by the form control)</span>
             <input defaultValue={cur} key={cur} onBlur={e => rename(cur, e.target.value.trim())} /></label>
-          <Editor key={cur} name={cur} grids={p.grids} g={p.grids[cur]} onChange={(g, f) => { const next = { ...p.grids, [cur]: g }; p.onChange(f?.renamed ? renameInDerivedGrids(next, cur, f.renamed.from, f.renamed.to) : next); }} issues={p.issues.filter(x => x.where === `Grid “${cur}”` || x.where.startsWith(`Grid “${cur}” ›`))} />
+          <Editor key={cur} name={cur} grids={p.grids} calcs={p.calcs} g={p.grids[cur]} onChange={(g, f) => { const next = { ...p.grids, [cur]: g }; p.onChange(f?.renamed ? renameInDerivedGrids(next, cur, f.renamed.from, f.renamed.to) : next); }} issues={p.issues.filter(x => x.where === `Grid “${cur}”` || x.where.startsWith(`Grid “${cur}” ›`))} />
         </> : <div className="muted">Create a grid to define columns, formulas, totals and child item creation.</div>}
       </div>
     </div>

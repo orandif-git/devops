@@ -1,4 +1,5 @@
 import type { ProgressSettings } from "./progress";
+import type { AccessConfig } from "./access";
 export type ColumnType = "string" | "number" | "boolean" | "date" | "dropdown" | "identity" | "calculated";
 export type StatusColor = "green" | "yellow" | "orange" | "red" | "blue" | "gray";
 
@@ -183,6 +184,8 @@ export interface GridConfig {
   review?: ReviewConfig;
   /** ready-made rows, loaded with the "Load preset" button */
   presets?: GridPreset[];
+  /** who may add, delete and change rows, which cells stay fixed, and the preset a new (empty) grid starts with: see core/access.ts */
+  access?: AccessConfig;
   /** let people save the current rows as a preset from the work item ("Save as preset") */
   presetSave?: { enabled: boolean; teams: { id: string; name: string }[]; admins: boolean };
   breakdowns?: Breakdown[];
@@ -214,6 +217,10 @@ export interface GridConfig {
 
 export interface GridRow {
   _id: string;
+  /** who added the row (sign-in name) and when: set when “Row owner” is on in the grid's Rows & access settings */
+  _by?: string; _byName?: string; _at?: string;
+  /** the columns the preset filled when it created this row (they can be kept fixed) */
+  _p?: string[];
   /** id of the child work item created from this row, once created */
   _childId?: number;
   [column: string]: unknown;

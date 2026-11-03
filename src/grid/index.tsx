@@ -11,6 +11,8 @@ import { emitFormEvent } from "./formWriter";
 import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
 import { GridConfig, GridPreset, GridRow, LookupTable } from "../core/types";
 import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upsertPreset } from "../core/presets";
+import { AccessWho, mayImport, startPresetFor, withOwner } from "../core/access";
+import { currentWho, loadAccessAdmin } from "../shared/accessWho";
 import { canSavePresets } from "../shared/presetAccess";
 import { loadActor } from "../shared/reviewAccess";
 import { Actor, freshReview, overallValue } from "../core/review";
@@ -93,6 +95,18 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   const [presetList, setPresetList] = React.useState<GridPreset[]>([]);
   const [canSave, setCanSave] = React.useState(false);
   const [actor, setActor] = React.useState<Actor>();
+  // Rows & access: who is looking (their name at once; whether they are an administrator when it is known) and each row as it was last saved
+  const [who, setWho] = React.useState<AccessWho>(() => currentWho());
+  const savedRef = React.useRef<Map<string, GridRow>>(new Map());
+  const takeSnapshot = React.useCallback(() => { savedRef.current = new Map(rowsRef.current.map(r => [r._id, { ...r }])); }, []);
+  const [presetsReady, setPresetsReady] = React.useState(false);
+  const [calm, setCalm] = React.useState<string[]>([]);
+  React.useEffect(() => {
+    if (!props.cfg.access) return;
+    let live = true;
+    loadAccessAdmin(props.projectId, props.cfg.access, currentWho()).then(a => { if (live) setWho(w => ({ ...w, isAdmin: a })); }).catch(() => undefined);
+    return () => { live = false; };
+  }, [props.cfg.access, props.projectId]);
   // secure approvals: decisions live in their own protected field; rows show (and totals use) only decisions that still match the row
   const secField = props.cfg.review?.secure?.dataField;
   const docRef = React.useRef(emptyReviewDoc());
@@ -169,9 +183,9 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       return;
     }
     if (!parsed.length && rawText) setWarn(`The data field contains text this grid cannot read (not valid grid JSON). Starts with: ${rawText.replace(/\s+/g, " ").slice(0, 140)}${rawText.length > 140 ? "…" : ""}  – If this field is rich text, recreate it as plain text (multiple lines), or clear it and re-enter the rows.`);
-    rowsRef.current = overlay(parsed); setRows(rowsRef.current);
+    rowsRef.current = overlay(parsed); setRows(rowsRef.current); takeSnapshot();                      // what was read from the work item is what was saved
     if (!syncedOnOpen.current && parsed.length && !cfg.readOnly) { syncedOnOpen.current = true; syncOutputs(rowsRef.current).catch(() => undefined); }
-  }, [cfg, writeNow, secField, overlay, syncOutputs]);
+  }, [cfg, writeNow, secField, overlay, syncOutputs, takeSnapshot]);
 
   const commit = React.useCallback((raw: GridRow[]) => {
     const next = overlay(raw);                                       // a row changed after its approval shows as pending at once
@@ -188,24 +202,25 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     SDK.register(SDK.getContributionId(), () => ({
       onLoaded: () => { resetCalcRunner(); readField().then(() => { setReady(true); applyCalculations(); }); emitFormEvent({ type: "loaded" }); },
       onFieldChanged: (a: { changedFields: Record<string, unknown> }) => { if (a.changedFields && changedRef.current.some(f => f in a.changedFields)) refreshRef.current?.().catch(() => undefined); if (a.changedFields && (cfg.dataField! in a.changedFields || (secField && secField in a.changedFields))) readField(); emitFormEvent({ type: "changed", changed: a.changedFields }); },
-      onSaved: () => { readField(); emitFormEvent({ type: "saved" }); },
+      onSaved: () => { readField().then(takeSnapshot); emitFormEvent({ type: "saved" }); },
       onReset: () => { lastWritten.current = null; readField(); emitFormEvent({ type: "reset" }); },
       onRefreshed: () => { readField(); emitFormEvent({ type: "refreshed" }); },
     }));
     readField().then(() => { setReady(true); applyCalculations(); }).catch(e => flash(e.message));
     // block save while rows are invalid
     return () => window.clearTimeout(timer.current);
-  }, [cfg, readField]);
+  }, [cfg, readField, takeSnapshot]);
 
   // presets offered on this work item (their rules read fields of the work item) and who may save new ones
   const ruleFields = React.useMemo(() => Array.from(new Set(presets.flatMap(x => (x.when ?? []).map(w => w.field).filter(Boolean)))), [presets]);
   const refreshPresets = React.useCallback(async () => {
-    if (!presets.length) { setPresetList([]); return; }
+    if (!presets.length) { setPresetList([]); setPresetsReady(true); return; }
     const svc = await getFormService();
     const values: Record<string, unknown> = {};
     for (const f of ruleFields) { try { values[f] = await svc.getFieldValue(f); } catch { values[f] = undefined; } }
     const text = (v: unknown) => (v && typeof v === "object" ? ((v as { displayName?: string; name?: string }).displayName ?? (v as { name?: string }).name ?? "") : v);
     setPresetList(presets.filter(x => presetApplies(x, f => text(values[f]))));
+    setPresetsReady(true);
   }, [presets, ruleFields]);
   React.useEffect(() => { if (ready) refreshPresets().catch(() => undefined); }, [ready, refreshPresets]);
   React.useEffect(() => { if (props.gridName && cfg.presetSave?.enabled) canSavePresets(props.projectId, cfg.presetSave).then(setCanSave).catch(() => setCanSave(false)); }, [props.gridName, props.projectId, cfg.presetSave]);
@@ -237,6 +252,16 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     flash(`Loaded ${res.added} row${res.added === 1 ? "" : "s"} from “${preset.name}”${res.skipped ? `; ${res.skipped} already there` : ""}. Now fill in the rest.`);
     return res.rows.filter(r => !before.has(r._id)).map(r => r._id);
   };
+  // Rows & access: a grid that is empty (a new work item, or an existing one) starts with the chosen preset, once, when the work item opens
+  const startedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!cfg.access?.startPreset || startedRef.current || !ready || !presetsReady) return;
+    startedRef.current = true;
+    commentOnlyP.then(co => {
+      const id = startPresetFor(cfg.access, { rows: rowsRef.current.length, readOnly: !!cfg.readOnly, derived: !!cfg.derived, commentOnly: co, offered: presetList });
+      if (id) setCalm(loadPreset(id, "add"));
+    }).catch(() => undefined);
+  });   // eslint-disable-line react-hooks/exhaustive-deps
   const savePreset = async (name: string) => {
     try {
       if (!props.gridName) throw new Error("this grid is configured inline, not by name");
@@ -352,10 +377,12 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
   };
 
   const onImport = async (file: File) => {
+    if (!mayImport(cfg.access)) return;
     try {
       const { rows: imported, unmatched } = await importFile(file, cfg);
       if (!imported.length) { flash("Nothing to import – is the first row a header row?"); return; }
-      commit([...rowsRef.current, ...(cfg.review ? imported.map(r => freshReview(r, cfg.review!)) : imported)]);      // imported rows must be reviewed (never arrive approved)
+      const owned = imported.map(r => withOwner(r, cfg.access, who));
+      commit([...rowsRef.current, ...(cfg.review ? owned.map(r => freshReview(r, cfg.review!)) : owned)]);      // imported rows must be reviewed (never arrive approved)
       flash(`Imported ${imported.length} row(s)` + (unmatched.length ? `; no matching header for: ${unmatched.join(", ")}` : ""));
     } catch (e) { flash("Import failed: " + (e as Error).message); }
   };
@@ -374,6 +401,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
       {calError && <div className="err" style={{ padding: "4px 8px", border: "1px solid var(--err)", margin: "4px 8px" }}>{calError}</div>}
       <Grid cfg={cfg} rows={rows} readOnly={!!cfg.readOnly || commentOnly} projectId={props.projectId} busyChildren={busy} status={status}
         review={cfg.review ? { actor, actorName: SDK.getUser().displayName, onDecide: secField ? onDecide : undefined } : undefined}
+        access={cfg.access ? { cfg: cfg.access, who, saved: savedRef.current } : undefined} calmIds={calm}
         onChange={commit} onImport={onImport} onExport={onExport}
         presetTools={presetList.length || canSave ? { presets: presetList.map(x => ({ id: x.id, name: x.name, count: x.rows.length })), onLoad: loadPreset, canSave, onSave: savePreset } : undefined}
         onCreateChild={id => createChildren([id])}

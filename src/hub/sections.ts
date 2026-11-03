@@ -2,12 +2,12 @@ import { ProjectConfig } from "../core/types";
 import { Issue } from "./validate";
 
 export type Tab = "rules" | "cascades" | "grids" | "mappings" | "calcs" | "capacity" | "readonly" | "controls" | "progress" | "backup" | "audit" | "security" | "diagnostics" | "json";
-export type SectionId = "storage" | "derived" | "columns" | "dates" | "review" | "presets" | "totals" | "child" | "preview";
+export type SectionId = "storage" | "derived" | "columns" | "dates" | "review" | "presets" | "access" | "totals" | "child" | "preview";
 
 /** Which part of the grid editor a validation message is about (so it can be shown next to it and jumped to). */
 export function issueSection(message: string, where = ""): SectionId {
   const m = message;
-  const tag = /› (storage|totals|child|preset)/.exec(where)?.[1];
+  const tag = /› (storage|totals|child|preset|access)/.exec(where)?.[1];
   if (tag) return tag === "preset" ? "presets" : (tag as SectionId);
   if (/Review|approver|approval|Approvals/i.test(m)) return "review";
   if (/preset/i.test(m)) return "presets";
