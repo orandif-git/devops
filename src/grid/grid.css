@@ -70,6 +70,7 @@
 /* Rows & access: a cell that is fixed (soft grey, no icon: read-only says it), the label of who added a row, and the question before a row is deleted */
 .wig .cell.fixed { background-color: rgba(120,120,130,.12); color: inherit; }
 .wig .badge.own { white-space: nowrap; margin-right: 6px; font-size: 11px; }
-.wig tr.confirm td { padding: 0; background: rgba(196,49,75,.06); }
-.wig .ask { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 8px 12px; }
-.wig .ask .acts { display: flex; gap: 8px; }
+.wig td.actions { position: relative; }
+/* the question before a row is deleted: a small pop-up on the row itself, over the row's buttons, so no row is inserted and the frame does not grow */
+.wig .dpop { position: absolute; right: 2px; top: 2px; bottom: 2px; z-index: 5; display: flex; align-items: center; gap: 6px; padding: 0 6px 0 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 3px 12px rgba(0,0,0,.2); white-space: nowrap; font-size: 12.5px; }
+.wig .dpop .q { font-weight: 600; margin-right: 2px; } .wig .dpop .btn { padding: 0 8px; line-height: 20px; font-size: 12px; }

@@ -119,6 +119,11 @@ export function Grid(p: GridProps) {
   };
   const addRow = () => { if (!canAdd) return; const r = withOwner(newRow(cfg), ax, who); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
   const delRow = (id: string) => { const t = rows.find(r => r._id === id); if (!canDel || (t && frozen(t))) return; setConfirmId(null); p.onChange(recomputeAll(rows.filter(r => r._id !== id), cfg)); };
+  React.useEffect(() => {
+    if (!confirmId) return;
+    const away = (e: MouseEvent) => { if (!(e.target as HTMLElement | null)?.closest?.(".dpop, button[aria-label='Delete row']")) setConfirmId(null); };
+    document.addEventListener("mousedown", away); return () => document.removeEventListener("mousedown", away);
+  }, [confirmId]);
   const askDelete = (id: string) => { if (ask) setConfirmId(id); else delRow(id); };
   /** the first typed value of a row, to say which row is about to be deleted */
   const rowName = (r: GridRow) => { for (const c of cfg.columns) { if (c.hidden || c.type === "boolean") continue; const v = r[c.id]; if ((typeof v === "string" && v.trim()) || typeof v === "number") return String(v).trim(); } return ""; };
@@ -315,17 +320,15 @@ export function Grid(p: GridProps) {
                       ? <span className="badge" title="Child work item">#{r._childId}</span>
                       : !lockedRows && <button className="btn icon" title={`Create ${cfg.child!.workItemType}`} disabled={p.busyChildren} onClick={() => p.onCreateChild(r._id)}>＋WI</button>)}
                     {!lockedRows && canDel && !frozen(r) && <button className="btn icon danger" title="Delete row" aria-label="Delete row" aria-expanded={confirmId === r._id} onClick={() => askDelete(r._id)}><IconTrash /></button>}
+                    {confirmId === r._id && (
+                      <div className="dpop" role="alertdialog" aria-label={rowName(r) ? `Delete “${rowName(r)}”?` : "Delete this row?"} onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setConfirmId(null); } }}>
+                        <span className="q" title={rowName(r) ? `“${rowName(r)}” will be removed from the grid` : undefined}>{rowName(r) ? `Delete “${rowName(r).length > 24 ? rowName(r).slice(0, 23) + "…" : rowName(r)}”?` : "Delete this row?"}</span>
+                        <button className="btn" autoFocus onClick={() => setConfirmId(null)}>Cancel</button><button className="btn danger" onClick={() => delRow(r._id)}>Delete</button>
+                      </div>
+                    )}
                   </td>
                 )}
               </tr>
-              {confirmId === r._id && (
-                <tr className="confirm"><td colSpan={shown.length + 1 + (showActions ? 1 : 0)}>
-                  <div className="ask" role="alertdialog" aria-label="Delete this row?" onKeyDown={e => { if (e.key === "Escape") { e.stopPropagation(); setConfirmId(null); } }}>
-                    <span><b>Delete this row?</b> {rowName(r) ? `“${rowName(r)}” will be removed from the grid.` : "It will be removed from the grid."}</span>
-                    <span className="acts"><button className="btn" autoFocus onClick={() => setConfirmId(null)}>Cancel</button><button className="btn danger" onClick={() => delRow(r._id)}>Delete</button></span>
-                  </div>
-                </td></tr>
-              )}
               {p.details && openRows.has(r._id) && p.details.lines(r).length > 0 && (() => {
                 const d = p.details!, ls = d.lines(r), at = d.column ? shown.findIndex(c => c.id === d.column) : -1, i0 = at < 0 ? 1 : at, rest = shown.length - i0 - 1 + (showActions ? 1 : 0);
                 const total = Math.round(ls.reduce((s, l) => s + l.hours, 0) * 100) / 100;

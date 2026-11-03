@@ -27,26 +27,30 @@ function mount(initial: GridRow[], access?: AccessConfig, who: AccessWho | undef
 }
 const btn = (host: HTMLElement, label: string) => host.querySelector(`button[aria-label="${label}"]`) as HTMLButtonElement | null;
 const text = (host: HTMLElement, label: string) => Array.from(host.querySelectorAll("button")).find(b => b.textContent?.trim().includes(label)) as HTMLButtonElement | undefined;
-const input = (host: HTMLElement, rowIdx: number, colIdx: number) => host.querySelectorAll("tbody tr:not(.confirm)")[rowIdx].querySelectorAll("td")[colIdx + 1].querySelector("input,select") as HTMLInputElement;
+const input = (host: HTMLElement, rowIdx: number, colIdx: number) => host.querySelectorAll("tbody tr")[rowIdx].querySelectorAll("td")[colIdx + 1].querySelector("input,select") as HTMLInputElement;
 
 describe("Deleting a row asks first", () => {
-  it("the trash button opens a question that names the row; Cancel keeps it, Delete removes it", () => {
+  it("the trash button opens a pop-up on the row that names it; Cancel keeps it, Delete removes it", () => {
     const m = mount([mk("a", { act: "Requirements" }), mk("b", { act: "Design review" })], undefined);
     act(() => { Simulate.click(btn(m.host, "Delete row")!); });
-    const ask = m.host.querySelector(".confirm [role=alertdialog]")!; expect(ask.textContent).toContain("Delete this row?"); expect(ask.textContent).toContain("“Requirements” will be removed from the grid."); expect(m.rows).toHaveLength(2);
-    act(() => { Simulate.click(text(m.host, "Cancel")!); }); expect(m.host.querySelector(".confirm")).toBeNull(); expect(m.rows).toHaveLength(2);
+    const ask = m.host.querySelector("[role=alertdialog]")!; expect(ask.textContent).toContain("Delete “Requirements”?"); expect(ask.closest("tr")).toBe(m.host.querySelectorAll("tbody tr")[0]); expect(m.host.querySelectorAll("tbody tr")).toHaveLength(2); expect(m.rows).toHaveLength(2);   // a pop-up on the row: no row is added
+    act(() => { Simulate.click(text(m.host, "Cancel")!); }); expect(m.host.querySelector("[role=alertdialog]")).toBeNull(); expect(m.rows).toHaveLength(2);
     act(() => { Simulate.click(btn(m.host, "Delete row")!); }); act(() => { Simulate.click(text(m.host, "Delete")!); });
-    expect(m.rows.map(r => r._id)).toEqual(["b"]); expect(m.host.querySelector(".confirm")).toBeNull();
+    expect(m.rows.map(r => r._id)).toEqual(["b"]); expect(m.host.querySelector("[role=alertdialog]")).toBeNull();
   });
   it("Escape closes the question without deleting", () => {
     const m = mount([mk("a", { act: "x" })], undefined); act(() => { Simulate.click(btn(m.host, "Delete row")!); });
-    act(() => { Simulate.keyDown(m.host.querySelector("[role=alertdialog]")!, { key: "Escape" }); }); expect(m.host.querySelector(".confirm")).toBeNull(); expect(m.rows).toHaveLength(1);
+    act(() => { Simulate.keyDown(m.host.querySelector("[role=alertdialog]")!, { key: "Escape" }); }); expect(m.host.querySelector("[role=alertdialog]")).toBeNull(); expect(m.rows).toHaveLength(1);
   });
   it("with “ask before deleting” off, the row goes at once", () => {
-    const m = mount([mk("a", { act: "x" })], { confirmDelete: false }); act(() => { Simulate.click(btn(m.host, "Delete row")!); }); expect(m.rows).toHaveLength(0); expect(m.host.querySelector(".confirm")).toBeNull();
+    const m = mount([mk("a", { act: "x" })], { confirmDelete: false }); act(() => { Simulate.click(btn(m.host, "Delete row")!); }); expect(m.rows).toHaveLength(0); expect(m.host.querySelector("[role=alertdialog]")).toBeNull();
+  });
+  it("clicking elsewhere closes the pop-up without deleting", () => {
+    const m = mount([mk("a", { act: "x" })], undefined); act(() => { Simulate.click(btn(m.host, "Delete row")!); });
+    act(() => { document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true })); }); expect(m.host.querySelector("[role=alertdialog]")).toBeNull(); expect(m.rows).toHaveLength(1);
   });
   it("a row with nothing typed is still asked about, without a name", () => {
-    const m = mount([mk("a")], undefined); act(() => { Simulate.click(btn(m.host, "Delete row")!); }); expect(m.host.querySelector("[role=alertdialog]")!.textContent).toContain("It will be removed from the grid.");
+    const m = mount([mk("a")], undefined); act(() => { Simulate.click(btn(m.host, "Delete row")!); }); expect(m.host.querySelector("[role=alertdialog]")!.textContent).toContain("Delete this row?");
   });
 });
 
