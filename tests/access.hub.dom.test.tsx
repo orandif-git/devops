@@ -81,6 +81,12 @@ describe("Rows & access settings", () => {
     act(() => { Simulate.change(Object.assign(box("Ask before deleting a row"), { checked: false }), { target: box("Ask before deleting a row") } as never); }); expect(m.grids.Resources.access).toMatchObject({ confirmDelete: false });
     act(() => { Simulate.change(Object.assign(sel, { value: "never" }), { target: sel } as never); }); expect(m.grids.Resources.access!.lockCells).toBeUndefined();
   });
+  it("a tick lets the rules bind administrators too, and says why", () => {
+    const m = mount({ Resources: { ...grids().Resources, access: { lockCells: "preset" } } }); const sec = open(m);
+    const box = Array.from(sec.querySelectorAll("label")).find(l => l.textContent?.includes("Administrators can change fixed cells"))!.querySelector("input") as HTMLInputElement;
+    expect(box.checked).toBe(true); expect(sec.textContent).toContain("If you test as an administrator, nothing looks fixed");
+    act(() => { Simulate.change(Object.assign(box, { checked: false }), { target: box } as never); }); expect(m.grids.Resources.access).toEqual({ lockCells: "preset", adminsBypass: false }); expect(sec.textContent).toContain("Nobody can");
+  });
   it("choosing a starting preset: the first preset is picked, another can be chosen, and Blank clears it", () => {
     const m = mount({ Resources: { ...grids().Resources, access: undefined } }); const sec = open(m);
     const radios = Array.from(sec.querySelectorAll("input[type=radio]")) as HTMLInputElement[];

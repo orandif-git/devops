@@ -16,6 +16,8 @@ export interface AccessConfig {
   rowOwner?: boolean;
   /** besides project administrators: may always change fixed cells and other people's rows */
   admins?: { teams: TeamRef[]; people: string[] };
+  /** administrators (project administrators and the ones listed) can change fixed cells and other people's rows (default: yes); off = nobody can, administrators included */
+  adminsBypass?: boolean;
   /** ask before a row is deleted (default: yes) */
   confirmDelete?: boolean;
 }
@@ -31,7 +33,7 @@ export function normAccess(raw: unknown): AccessConfig | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>, out: AccessConfig = {};
   if (typeof r.startPreset === "string" && r.startPreset.trim()) out.startPreset = r.startPreset.trim();
-  for (const k of ["allowAdd", "allowDelete", "allowMove", "allowImport", "confirmDelete"] as const) if (r[k] === false) out[k] = false;
+  for (const k of ["allowAdd", "allowDelete", "allowMove", "allowImport", "confirmDelete", "adminsBypass"] as const) if (r[k] === false) out[k] = false;
   if (r.lockCells === "preset" || r.lockCells === "filled") out.lockCells = r.lockCells;
   if (r.rowOwner === true) out.rowOwner = true;
   const a = r.admins as { teams?: unknown; people?: unknown } | undefined;
@@ -45,6 +47,8 @@ export const mayDelete = (a?: AccessConfig) => bool(a?.allowDelete, true);
 export const mayMove = (a?: AccessConfig) => bool(a?.allowMove, true);
 export const mayImport = (a?: AccessConfig) => bool(a?.allowImport, true);
 export const asksBeforeDelete = (a?: AccessConfig) => bool(a?.confirmDelete, true);
+/** Is this person an administrator who is allowed to bypass the fixed cells and the row owner rule? */
+export const bypasses = (a: AccessConfig | undefined, who: Pick<AccessWho, "isAdmin"> | undefined) => who?.isAdmin === true && bool(a?.adminsBypass, true);
 /** Every team id the access settings mention (so the loader knows which memberships to read). */
 export const accessTeamIds = (a?: AccessConfig): string[] => Array.from(new Set((a?.admins?.teams ?? []).map(t => t.id)));
 /** Is the sign-in name stored on a row the user's own? */
@@ -59,7 +63,7 @@ export function isAccessAdmin(a: AccessConfig | undefined, who: { keys: string[]
 export function ownerLocked(row: GridRow, a: AccessConfig | undefined, who: AccessWho | undefined): boolean {
   if (!a?.rowOwner || !row._by) return false;
   if (!who) return true;                                    // until we know who is looking, a row somebody added stays fixed
-  return !isMine(row, who) && who.isAdmin !== true;
+  return !isMine(row, who) && !bypasses(a, who);
 }
 
 /**
@@ -68,7 +72,7 @@ export function ownerLocked(row: GridRow, a: AccessConfig | undefined, who: Acce
  */
 export function cellFixed(row: GridRow, colId: string, a: AccessConfig | undefined, who: AccessWho | undefined, saved?: GridRow): boolean {
   const mode = a?.lockCells ?? "never";
-  if (mode === "never" || who?.isAdmin === true) return false;
+  if (mode === "never" || bypasses(a, who)) return false;
   if (filled(row[colId]) && row._p?.includes(colId)) return true;
   return mode === "filled" && !!saved && filled(saved[colId]) && filled(row[colId]);
 }

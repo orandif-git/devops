@@ -66,6 +66,12 @@ describe("Fixed cells", () => {
     expect(cellFixed({ ...now, _p: ["owner"] }, "owner", a, me, saved)).toBe(true);                // …but a preset cell is
     expect(cellFixed({ ...now, act: "" }, "act", a, me, saved)).toBe(false);                       // the value was cleared by an administrator earlier: blank cells are editable
   });
+  it("administrators bypass the fixed cells and the row owner rule, unless the setting says nobody can", () => {
+    const r = presetRows(preset(), cfg)[0], admin = { ...me, isAdmin: true };
+    expect(cellFixed(r, "act", { lockCells: "preset" }, admin)).toBe(false); expect(cellFixed(r, "act", { lockCells: "preset", adminsBypass: false }, admin)).toBe(true);
+    expect(ownerLocked(row({ _by: "sam@x.com" }), { rowOwner: true }, admin)).toBe(false); expect(ownerLocked(row({ _by: "sam@x.com" }), { rowOwner: true, adminsBypass: false }, admin)).toBe(true);
+    expect(normAccess({ adminsBypass: true })).toBeUndefined(); expect(normAccess({ adminsBypass: false })).toEqual({ adminsBypass: false });
+  });
   it("never fixes anything by default, and administrators can always change", () => {
     const r = presetRows(preset(), cfg)[0];
     expect(cellFixed(r, "act", undefined, me)).toBe(false); expect(cellFixed(r, "act", { lockCells: "never" }, me)).toBe(false); expect(cellFixed(r, "act", { lockCells: "preset" }, { ...me, isAdmin: true })).toBe(false);

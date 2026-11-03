@@ -554,7 +554,8 @@ function AccessEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
         <div className="help">Rows with no owner (existing rows, preset rows) can be changed by everyone. Who saved the grid is in the work item’s History. This is enforced in the grid; it does not stop someone who edits the field by other means.</div>
       </div></div>
       <div className="arow"><b>Administrators</b><div>
-        <div className="help">Project administrators, and these teams and people, can always change fixed cells and other people’s rows.</div>
+        <label><input type="checkbox" checked={a.adminsBypass !== false} onChange={e => set({ adminsBypass: e.target.checked ? undefined : false })} /> Administrators can change fixed cells and other people’s rows</label>
+        <div className="help">{a.adminsBypass === false ? "Nobody can: the fixed cells and other people’s rows stay fixed for administrators too. Untick this only when you want the rules to apply to everyone." : "Project administrators, and these teams and people. If you test as an administrator, nothing looks fixed: untick this to see the rules as everyone else does."}</div>
         <TeamChips all={teams} value={a.admins?.teams ?? []} onChange={v => set({ admins: { teams: v, people: a.admins?.people ?? [] } })} />
         <PeopleList value={a.admins?.people ?? []} projectId={projectId} onChange={v => set({ admins: { teams: a.admins?.teams ?? [], people: v } })} />
       </div></div>
