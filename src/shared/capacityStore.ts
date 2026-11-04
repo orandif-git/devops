@@ -1,3 +1,4 @@
+import { calendarFromTeams, WorkCalendar } from "../../planner/src/core/workdays";
 import { CapacityRecord, CapacityRegister, emptyRegister } from "../core/capacity";
 import { keyNorm } from "../core/keys";
 import { shortHash } from "./ids";
@@ -186,4 +187,11 @@ export async function checkCanEdit(projectId: string): Promise<{ canEdit: boolea
   if (status === "yes") return { canEdit: true, reason: "You are a project administrator, so you can edit." };
   if (status === "unknown") return { canEdit: true, reason: "Your permissions could not be checked, so editing is allowed. Only project administrators should edit capacity." };
   return { canEdit: false, reason: "Read-only: only project administrators can edit capacity." };
+}
+
+/** The working week and days off for "working days": the team calendar when capacity comes from Azure DevOps teams, else the extension's own calendar. Undefined when it cannot be read. */
+export async function loadWorkCalendar(projectId: string): Promise<WorkCalendar | undefined> {
+  const s = await loadSettings(projectId);
+  if (s.source === "teams") return s.capacityTeams.length ? calendarFromTeams((await readNativeCapacity(s.capacityTeams)).teams) : undefined;
+  return { working: s.calendar.workingDays, off: s.calendar.holidays.filter(h => h.start) };
 }

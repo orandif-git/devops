@@ -172,6 +172,8 @@ export interface ExecSettings {
   sizeField: string;
   /** an Epic not updated for this many days needs attention (0 = off) */
   staleDays: number;
+  /** count the day figures (slip, time in stage, days late, not updated) as calendar days or working days */
+  dayCount: "calendar" | "working";
   /** a field that flags a blocker or open risk (any value except empty, No, False, None or 0, or only the values listed) */
   blockerField: string; blockerValues: string[];
   /** what the period filter compares by default (the viewer can switch it), a date field of your own for the "your date field" choice, and a period the dashboard opens with ("" = all time) */
@@ -200,7 +202,7 @@ export const CHART_TYPES: ChartType[] = ["auto", "bars", "table"];
 export const defaultExec = (): ExecSettings => ({
   enabled: false, layout: "report", categoryFields: [], designs: defaultDesigns(), chartTypes: {}, goLiveField: "", progress: [],
   doneStates: ["Done", "Closed", "Completed", "Resolved"], holdStates: ["On Hold", "Hold", "Blocked"], notStartedStates: ["New", "Proposed", "To Do"], ignoreStates: ["Removed", "Cancelled"],
-  advanced: false, slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
+  advanced: false, dayCount: "calendar", slipAmberDays: 7, slipRedDays: 30, gapAmberPts: 15, gapRedPts: 25, minElapsedPct: 25, likelyPct: 60, queries: [], formulas: [],
   tolSlipAmberField: "", tolSlipRedField: "", tolGapAmberField: "", tolGapRedField: "", rules: [], declaredField: "", statusSource: "rag-check", ragGreen: [], ragAmber: [], ragRed: [], ragNone: [], sizeField: "", staleDays: 0, blockerField: "", blockerValues: [], accessTeams: [], periodBasis: "active", periodField: "", periodDefault: "", stages: defaultStages(), delivery: { enabled: true, source: "history", dateField: "", graceDays: 0, severeDays: 30, predictDays: 14, quarters: 6, recent: 4, show: ["rate", "late", "delivered", "predict", "chart", "delays"] }, resources: false,
 });
 

@@ -24,6 +24,7 @@ export interface LP {
   view: "rag" | "data" | "var"; canSwitch: boolean;
   /** delivery performance: when each Epic reached Done, and whether the card is open */
   /** how long each stage normally takes (median of the finished ones), when the stage dates are set up */ stageTypical?: Record<string, number>;
+  /** how days are counted and their unit ("d" or "wd") */ dayDiff?: (from: number, to: number) => number; unit?: "d" | "wd";
   deliveredAt?: Record<number, number>; showDelivery: boolean; onDelivery(on: boolean): void;
 }
 const DAY = 86400000;
@@ -112,7 +113,7 @@ export function ItemsTable({ lp, items, limit = 100 }: { lp: LP; items: Item[]; 
       <tbody>{rows.slice(0, more).map(i => <tr key={i.id} className="ex-row" tabIndex={0} onClick={() => lp.open(i)} onKeyDown={e => { if (e.key === "Enter") lp.open(i); }}>
         {v === "var" ? <td><RagPill i={i} /></td> : <td><StatusPill s={i.status} /></td>}{two && (v === "var" ? <td><StatusPill s={i.r.dataStatus} /></td> : v === "rag" ? <td><DataCheck i={i} /></td> : <td><RagPill i={i} /></td>)}<td><b>{i.title}</b><div className="muted">{i.id}</div></td><td>{i.r.dims[lp.fields[0]]}</td><td>{i.state}</td>
         <td><ProgressBar i={i} /> <span>{i.r.pct === undefined ? "–" : i.r.pct + "%"}</span></td><td>{lp.day(i.r.goLive)}</td>
-        <td>{i.status === "done" ? "–" : lp.day(i.r.forecast)}{i.r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{i.r.slip}d</span>}</td>{lp.historyOn && <td title={i.hist ? `Original ${lp.day(Date.parse(i.hist.baseline + "T00:00:00Z"))}` : undefined}>{i.sum.moves ? <><b>{i.sum.moves}×</b> <span className={i.sum.net > 0 ? "ex-slip" : "ex-good"}>{signed(i.sum.net)}d</span></> : "–"}</td>}<td>{i.r.conf === null ? "–" : i.r.conf + "%"}</td><td className="muted">{i.r.reasons[0]}</td>{lp.extra.map(c => <td key={c.key}>{c.get(i)}</td>)}</tr>)}</tbody></table>
+        <td>{i.status === "done" ? "–" : lp.day(i.r.forecast)}{i.r.slip > 0 && i.status !== "done" && <span className="ex-slip"> +{i.r.slip}{i.r.unit === "wd" ? "wd" : "d"}</span>}</td>{lp.historyOn && <td title={i.hist ? `Original ${lp.day(Date.parse(i.hist.baseline + "T00:00:00Z"))}` : undefined}>{i.sum.moves ? <><b>{i.sum.moves}×</b> <span className={i.sum.net > 0 ? "ex-slip" : "ex-good"}>{signed(i.sum.net)}d</span></> : "–"}</td>}<td>{i.r.conf === null ? "–" : i.r.conf + "%"}</td><td className="muted">{i.r.reasons[0]}</td>{lp.extra.map(c => <td key={c.key}>{c.get(i)}</td>)}</tr>)}</tbody></table>
       {rows.length > more && <div style={{ padding: 10 }}><button className="btn" onClick={() => setMore(more + 100)}>Show {Math.min(100, rows.length - more)} more ({rows.length - more} left)</button></div>}
       {!rows.length && <div className="muted" style={{ padding: 14 }}>No Epics match the filters.</div>}</div>
   );

@@ -1,3 +1,4 @@
+import { dayCounter } from "./workdays";
 import { AvailabilityLike, buildPeople, cellOf, noFilters } from "./model";
 import { GridDone, progressOf } from "./progress";
 import { Booking, EpicRecord, ExecSettings, PlannerSettings } from "./types";
@@ -37,6 +38,8 @@ export interface ExecEpic {
   late: boolean;
   hold: boolean;
   status: ExecStatus;
+  /** the unit of the day figures of this row: "d" (calendar days) or "wd" (working days) */
+  unit: "d" | "wd";
   reasons: string[];
   /** 0–100, null when not assessed */
   conf: number | null;
@@ -96,7 +99,7 @@ export interface ExecResult { rows: ExecEpic[]; ignored: number; noGoLive: numbe
 export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Record<string, GridDone | undefined>>; bookings: Booking[]; avail: AvailabilityLike; settings: PlannerSettings; today?: Date; /** when each Epic entered its current stage */ stageSince?: Record<number, number>; /** the go-live date history of each Epic, when it was read */ history?: Record<number, Hist> }): ExecResult {
   const s = p.settings, x = s.executive, st = x.stages, stOn = stagesOn(st);
   const now0 = p.today ?? new Date(), today = Date.UTC(now0.getFullYear(), now0.getMonth(), now0.getDate());   // the viewer's own day
-  const month = new Date(today).toISOString().slice(0, 7);
+  const dc = dayCounter(x.dayCount, p.avail.calendar), dd = dc.diff, month = new Date(today).toISOString().slice(0, 7);
   // who is over capacity this month, and on which Epics they have hours
   const overBy = new Map<number, string[]>();
   const people = buildPeople(p.bookings, p.epics, p.avail, [month], noFilters());
@@ -112,14 +115,14 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     const el0 = start !== undefined && goLive !== undefined && goLive > start ? (today - start) / (goLive - start) : undefined;
     const rs = stOn ? resolveStage(e, st) : undefined;
     const pr = stOn ? (rs?.kind === "stage" ? { pct: stageProgress(st, rs.idx, el0), from: "stage: " + rs.stage!.name } : undefined) : progressOf(e, x, p.gridDone[e.id], s.sources);
-    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, ...(rs ? { stage: rs.kind === "stage" ? rs.stage!.name : undefined, stageIdx: rs.kind === "stage" ? rs.idx : undefined, stageKind: rs.kind, stageValue: rs.value } : {}), limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
+    const row: ExecEpic = { epic: e, dims, start, goLive, pct: pr?.pct, pctFrom: pr?.from, slip: 0, unit: dc.short as "d" | "wd", over: overBy.get(e.id) ?? [], late: false, hold: has(x.holdStates, e.state), status: "unknown", reasons: [], conf: null, ...(rs ? { stage: rs.kind === "stage" ? rs.stage!.name : undefined, stageIdx: rs.kind === "stage" ? rs.idx : undefined, stageKind: rs.kind, stageValue: rs.value } : {}), limits: x.advanced ? limitsFor(e, x) : { slipAmber: x.slipAmberDays, slipRed: x.slipRedDays, gapAmber: x.gapAmberPts, gapRed: x.gapRedPts, from: [] }, dataStatus: "unknown", dataReasons: [], size: (x.sizeField ? numOf(valueOf(e, x.sizeField)) : undefined) ?? 1 };
     const lim = row.limits, own = lim.from.length ? ` (${lim.from.join("; ")})` : "";
     const dv0 = x.declaredField ? valueOf(e, x.declaredField) : "", dv = x.ragNone.some(o => same(o, dv0)) ? "" : dv0; row.declaredText = dv || undefined; row.declared = declaredOf(dv, x);
     const reasons = row.reasons;
-    { const since = p.stageSince?.[e.id]; if (since !== undefined && row.stage) row.stageDays = Math.max(0, Math.floor((today - since) / DAY)); }
+    { const since = p.stageSince?.[e.id]; if (since !== undefined && row.stage) row.stageDays = Math.max(0, dd(since, today)); }
     if (stageDatesOn(st)) {                       // when each stage started and ended, from the Epic's date fields; the time in the current stage comes from them first
       const isDone = has(x.doneStates, e.state), idx = rs?.kind === "stage" ? rs.idx : isDone ? st.stages.length - 1 : -1;
-      const sd = idx >= 0 ? computeStageDates({ st, extra: e.extra, curIdx: idx, done: isDone, since: p.stageSince?.[e.id], today }) : undefined;
+      const sd = idx >= 0 ? computeStageDates({ st, extra: e.extra, curIdx: idx, done: isDone, since: p.stageSince?.[e.id], today, diff: dd }) : undefined;
       if (sd) { row.stageDates = sd; if (sd.timeInStage !== undefined) row.stageDays = sd.timeInStage; }
     }
     if (goLive === undefined) noGoLive++;
@@ -133,21 +136,21 @@ export function buildExec(p: { epics: EpicRecord[]; gridDone: Record<number, Rec
     if (used !== undefined) row.elapsed = used / dur!;
     const prog = pr ? pr.pct / 100 : undefined;
     const gap = row.elapsed !== undefined && prog !== undefined ? Math.round((row.elapsed - prog) * 100) : 0;
-    if (prog !== undefined && prog > 0 && row.elapsed !== undefined && row.elapsed * 100 >= x.minElapsedPct && start !== undefined) { row.forecast = start + used! / prog; row.slip = Math.round((row.forecast - goLive) / DAY); }
+    if (prog !== undefined && prog > 0 && row.elapsed !== undefined && row.elapsed * 100 >= x.minElapsedPct && start !== undefined) { row.forecast = start + used! / prog; row.slip = dd(goLive, Math.round(row.forecast)); }
     let score = 0;
-    if (row.late) { score = 2; reasons.push(`Past its go-live date by ${Math.round((today - goLive) / DAY)} days and not done`); }
+    if (row.late) { score = 2; reasons.push(`Past its go-live date by ${dc.text(dd(goLive, today))} and not done`); }
     if (row.hold) { score = Math.max(score, 1); reasons.push("On hold"); }
-    if (x.advanced && !row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
-    else if (x.advanced && !row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${row.slip} days after go-live${own}`); }
+    if (x.advanced && !row.late && row.slip > lim.slipRed) { score = 2; reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${dc.text(row.slip)} after go-live${own}`); }
+    else if (x.advanced && !row.late && row.slip > lim.slipAmber) { score = Math.max(score, 1); reasons.push(`Forecast finish ${dayText(row.forecast!)} is ${dc.text(row.slip)} after go-live${own}`); }
     if (!stOn && x.advanced && !row.late && gap > lim.gapRed) { score = 2; reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     else if (!stOn && !row.late && gap > lim.gapAmber) { score = Math.max(score, 1); reasons.push(`Progress ${pr!.pct}% against ${Math.round(row.elapsed! * 100)}% of the time used${own}`); }
     if (stOn && rs?.kind === "stage") {
       if (st.lagRule && row.elapsed !== undefined && !row.late) { const exp = expectedIdx(st, row.elapsed), lag = exp - rs.idx; row.stageLag = Math.max(0, lag);
         if (lag >= st.lagRed) { score = 2; reasons.push(`In ${rs.stage!.name}, but ${st.stages[exp].name} was due by now (${lag} stages behind for the time used)`); }
         else if (lag >= st.lagAmber) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name}, but ${st.stages[exp].name} was due by now (${lag} stage${lag > 1 ? "s" : ""} behind for the time used)`); } }
-      if (st.stuckRule && row.stageDays !== undefined && row.stageDays > st.stuckDays) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name} for ${row.stageDays} days`); }
+      if (st.stuckRule && row.stageDays !== undefined && row.stageDays > st.stuckDays) { score = Math.max(score, 1); reasons.push(`In ${rs.stage!.name} for ${dc.text(row.stageDays)}`); }
     }
-    if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed); if (ch !== undefined && (today - ch) / DAY >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${Math.round((today - ch) / DAY)} days`); } }
+    if (x.staleDays > 0 && e.changed) { const ch = ts(e.changed); if (ch !== undefined && dd(ch, today) >= x.staleDays) { score = Math.max(score, 1); reasons.push(`Not updated for ${dc.text(dd(ch, today))}`); } }
     if (x.blockerField) { const bv = valueOf(e, x.blockerField); if (flagged(bv, x.blockerValues)) { score = Math.max(score, 1); reasons.push(`Flagged: ${dimLabel(x.blockerField)} = ${bv}`); } }
     const hs = p.history?.[e.id] ? summarize(p.history[e.id], today, s.history.windowDays) : undefined;
     if (hs && s.history.affectStatus && hs.recent >= s.history.movesAmber) { score = Math.max(score, 1); reasons.push(`Go-live date moved ${hs.recent} times in the last ${s.history.windowDays} days (${signed(hs.net)} days against the original date)`); }

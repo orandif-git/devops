@@ -22,7 +22,7 @@ export interface StageDatesResult { rows: StageDateRow[]; cur: number; /** the l
  * A stage can end when the next one starts and start when the previous one ends. Missing, out-of-order and skipped dates, and rework (the field is behind the dates) are found, not guessed.
  * `since` is when the Epic entered its current stage according to the history, used when the date is missing and for rework.
  */
-export function computeStageDates(p: { st: StageSettings; extra: Record<string, string>; curIdx: number; done: boolean; since?: number; today: number }): StageDatesResult | undefined {
+export function computeStageDates(p: { st: StageSettings; extra: Record<string, string>; curIdx: number; done: boolean; since?: number; today: number; /** how days are counted (default: calendar days) */ diff?: (from: number, to: number) => number }): StageDatesResult | undefined {
   const { st } = p; if (!stageDatesOn(st)) return undefined;
   const n = st.stages.length, defs = st.stages.map(d => st.dates.stages[d.name]), cur = Math.max(0, Math.min(n - 1, p.curIdx));
   const get = (f?: string) => (f ? parseDay(p.extra[f]) : undefined);
@@ -53,7 +53,7 @@ export function computeStageDates(p: { st: StageSettings; extra: Record<string, 
     if (r.start === undefined) return;
     let end = r.end; if (r.idx === cur && !p.done) { end = p.today; r.open = true; }
     if (end === undefined || r.order || end < r.start) return;
-    r.dur = Math.round((end - r.start) / DAY);
+    r.dur = p.diff ? p.diff(r.start, end) : Math.round((end - r.start) / DAY);
   });
   const issues: StageIssue[] = [];
   for (const r of rows) {

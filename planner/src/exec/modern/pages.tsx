@@ -20,7 +20,7 @@ const pctOf = (n: number, d: number) => (d ? Math.round(100 * n / d) : 0);
 export const StatusMark = ({ s }: { s: ExecStatus }) => <span className="exm-st"><Sw s={s} size={20} />{STATUS_NAME[s]}</span>;
 const Mix = ({ c, n }: { c: Record<ExecStatus, number>; n: number }) => <div className="exm-stk" aria-hidden="true">{SHOWN.filter(s => c[s]).map(s => <i key={s} style={{ width: `${c[s] / n * 100}%`, background: COLOR[s] }} title={`${STATUS_NAME[s]}: ${c[s]}`} />)}</div>;
 const why = (i: Item) => i.r.check ?? i.r.reasons[0] ?? "";
-const slipPill = (i: Item) => (i.r.slip > 0 && i.status !== "done" ? <span className={"exm-pill " + (i.status === "red" ? "r" : "a")}>+{i.r.slip} d</span> : <span className="exm-mut">–</span>);
+const slipPill = (i: Item) => (i.r.slip > 0 && i.status !== "done" ? <span className={"exm-pill " + (i.status === "red" ? "r" : "a")}>+{i.r.slip} {i.r.unit}</span> : <span className="exm-mut">–</span>);
 
 /** The Epics as a table in the modern look: sortable, a row opens the Epic panel. `cols` picks the columns; the calculated fields of the settings come last on the Epics page. */
 export function EpicTable({ lp, items, cols, compact, sel }: { lp: LP; items: Item[]; cols: string[]; compact?: boolean; sel?: number }) {
@@ -81,14 +81,14 @@ function DeliveryMini({ lp }: { lp: LP }) {
   const d = lp.settings.executive.delivery, p = lp.f.period;
   const window = React.useMemo(() => (p ? quartersIn(parseDay(p.from)!, parseDay(p.to)! + 86399999) : undefined), [p?.from, p?.to]);   // eslint-disable-line react-hooks/exhaustive-deps
   const base = React.useMemo(() => lp.all.filter(i => pass(i, lp.f, "period")), [lp.all, lp.f]);
-  const sum = React.useMemo(() => summarizeDelivery({ items: base.map(i => ({ id: i.id, title: i.title, goLive: i.r.goLive, moves: i.sum.moves, done: i.r.dataStatus === "done" })), all: base.map(i => ({ goLive: i.r.goLive })), doneAt: lp.deliveredAt ?? {}, s: d, now: new Date(), window }), [base, lp.deliveredAt, d, window]);
+  const sum = React.useMemo(() => summarizeDelivery({ items: base.map(i => ({ id: i.id, title: i.title, goLive: i.r.goLive, moves: i.sum.moves, done: i.r.dataStatus === "done" })), all: base.map(i => ({ goLive: i.r.goLive })), doneAt: lp.deliveredAt ?? {}, s: d, now: new Date(), window, diff: lp.dayDiff }), [base, lp.deliveredAt, d, window, lp.dayDiff]);
   if (!d.enabled) return null;
   const rate = sum.rate, R = 44, C = 2 * Math.PI * R, col = rate === undefined ? "#cbd5e1" : rate >= 70 ? COLOR.green : rate >= 50 ? COLOR.amber : COLOR.red;
   return (
     <section className="exm-card"><h3>Delivery performance</h3>
       {!lp.deliveredAt || sum.known === 0 ? <div className="exm-mut">Appears when Epics that reached Done have a go-live date to compare with (see Settings › Delivery performance).</div>
         : <div className="exm-dp"><div className="ring"><svg width="104" height="104" viewBox="0 0 104 104"><circle cx="52" cy="52" r={R} fill="none" stroke="#eee" strokeWidth="10" /><circle cx="52" cy="52" r={R} fill="none" stroke={col} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${C * (rate ?? 0) / 100} ${C}`} transform="rotate(-90 52 52)" /></svg><b>{rate === undefined ? "–" : rate + "%"}</b></div>
-          <dl><div><dt>On-time rate</dt><dd>{rate === undefined ? "–" : rate + "%"}</dd></div><div><dt>Average days late</dt><dd>{sum.avgLate === undefined ? "–" : sum.avgLate + " d"}</dd></div><div><dt>Delivered in {sum.lastQuarter}</dt><dd>{sum.delivered} of {sum.due}</dd></div></dl></div>}</section>
+          <dl><div><dt>On-time rate</dt><dd>{rate === undefined ? "–" : rate + "%"}</dd></div><div><dt>Average days late</dt><dd>{sum.avgLate === undefined ? "–" : sum.avgLate + " " + (lp.unit ?? "d")}</dd></div><div><dt>Delivered in {sum.lastQuarter}</dt><dd>{sum.delivered} of {sum.due}</dd></div></dl></div>}</section>
   );
 }
 

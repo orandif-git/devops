@@ -28,7 +28,7 @@ export function Inspector(p: { item?: Item; lp: LP; project: string; onClose(): 
         <div className="pg"><span>Progress</span><b>{r.pct === undefined ? "–" : r.pct + "%"}</b></div><div className="exm-prog big"><i style={{ width: (r.pct ?? 0) + "%", background: COLOR[i.status] }} /></div>
         <div className="kvs"><div><span>Go-live</span><b>{lp.day(r.goLive)}</b></div><div><span>Forecast</span><b className={r.slip > 0 && i.status !== "done" ? "bad" : ""}>{i.status === "done" ? "Delivered" : lp.day(r.forecast)}{r.slip > 0 && i.status !== "done" && <small> +{r.slip} d</small>}</b></div>
           {lp.fields.slice(0, 2).map(d => <div key={d}><span>{dimLabel(d)}</span><b>{r.dims[d]}</b></div>)}
-          {r.stage && <div><span>Stage</span><b>{r.stage}{r.stageDays !== undefined && <small className="mut"> {r.stageDays} d</small>}</b></div>}
+          {r.stage && <div><span>Stage</span><b>{r.stage}{r.stageDays !== undefined && <small className="mut"> {r.stageDays} {r.unit}</small>}</b></div>}
           {i.status === "done" && delivered !== undefined && <div><span>Delivered</span><b>{lp.day(delivered)}</b></div>}
           {r.declaredText && <div><span>Declared status</span><b>{r.declaredText}</b></div>}</div>
         {r.stageDates && <StageDatesSection item={i} st={st} day={lp.day} typical={lp.stageTypical} dateHist={p.dateHist} state={p.dateHistState} error={p.dateHistError} />}

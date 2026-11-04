@@ -112,7 +112,7 @@ export function Drawer(p: { stageDates?: { st: StageSettings; typical?: Record<s
           {r.declaredText && <><dt>Declared status</dt><dd>{r.declaredText}{r.compare && r.compare !== "same" ? ` · owner is more ${r.compare === "optimistic" ? "optimistic" : "cautious"} than the data` : r.compare === "same" ? " · matches the data" : ""}</dd></>}
           {r.dataStatus !== i.status && <><dt>Status from the data</dt><dd>{STATUS_NAME[r.dataStatus]}</dd></>}
           {r.limits.from.length > 0 && <><dt>Limits used</dt><dd>{r.limits.from.join("; ")}</dd></>}
-          {r.stage && <><dt>Stage</dt><dd>{r.stage}{r.stageDays !== undefined ? ` · ${r.stageDays} days` : ""}</dd></>}
+          {r.stage && <><dt>Stage</dt><dd>{r.stage}{r.stageDays !== undefined ? ` · ${r.stageDays} ${r.unit === "wd" ? "working days" : "days"}` : ""}</dd></>}
           <dt>Start</dt><dd>{p.day(r.start)}</dd><dt>Go-live</dt><dd>{p.day(r.goLive)}</dd>
           <dt>Confidence</dt><dd>{r.conf === null ? "–" : r.conf + " %"}</dd>
           {r.over.length > 0 && <><dt>Over capacity</dt><dd>{r.over.join(", ")}</dd></>}

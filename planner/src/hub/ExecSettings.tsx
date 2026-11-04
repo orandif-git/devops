@@ -148,6 +148,10 @@ export function ExecSettings(p: { s: PlannerSettings; fields: FieldInfo[]; teams
         <h4><span className="num">5</span> Status from the data (On track · Needs attention · At risk)</h4>
         <div className="why">Used when an Epic has no RAG, and as the check on the RAG. At risk = the go-live date has passed and the Epic is not done. Needs attention = progress is behind the time used.</div>
       <div className="row">
+        <label className="field" style={{ width: 240 }}><span>Count days as</span><select aria-label="Count days as" value={x.dayCount} onChange={e => setX({ dayCount: e.target.value === "working" ? "working" : "calendar" })}><option value="calendar">Calendar days</option><option value="working">Working days</option></select></label>
+      </div>
+      <div className="help">Applies to the day figures: forecast slip, days in a stage, days late, not updated for. The limits below are then in the same days. Working days use the working week and days off of the sprints of the selected teams. Dates and percentages stay as they are.</div>
+      <div className="row">
         {num("gapAmberPts", "Needs attention when progress is behind the time used by more than (points)", 380)}
       </div>
       <div className="help">Example: 60% of the time has passed and 40% is done = 20 points behind.</div>

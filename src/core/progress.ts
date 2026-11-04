@@ -2,6 +2,7 @@ import { computeStageDates } from "../../planner/src/core/stageDates";
 import { defaultStages, resolveStage, stageDateFields, stageDatesOn, StageSettings, stagesOn } from "../../planner/src/core/stages";
 import { normStages } from "../../planner/src/core/settings";
 import { parseDay } from "../../planner/src/core/execPeriod";
+import { DayCount, dayCounter, normDayCount, WorkCalendar } from "../../planner/src/core/workdays";
 
 /**
  * The “Delivery progress” control on the work item form: a compact one-line stepper of the delivery stages the work item has been through.
@@ -15,10 +16,11 @@ export interface ProgressSettings {
   /** the states that mean the work item is delivered */ doneStates: string[];
   /** show how long the work item has been in its current stage */ showTime: boolean;
   /** show a flag where the stage dates do not fit */ flags: boolean;
+  /** count the days shown as calendar days (default) or working days */ dayCount: DayCount;
   /** the date field with the go-live (finish line) of the work item; empty = no finish line */ goLiveField: string;
   /** what the extension last did to the layout: the process, the group and when */ layout?: { processId: string; processName: string; groupId: string; at: string };
 }
-export const defaultProgress = (): ProgressSettings => ({ enabled: false, workItemType: "Epic", groupLabel: "Delivery Progress", stages: defaultStages(), doneStates: ["Done", "Closed", "Completed", "Resolved"], showTime: true, flags: true, goLiveField: "Microsoft.VSTS.Scheduling.TargetDate" });
+export const defaultProgress = (): ProgressSettings => ({ enabled: false, workItemType: "Epic", groupLabel: "Delivery Progress", stages: defaultStages(), doneStates: ["Done", "Closed", "Completed", "Resolved"], showTime: true, flags: true, dayCount: "calendar", goLiveField: "Microsoft.VSTS.Scheduling.TargetDate" });
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 const list = (v: unknown, fb: string[]) => (Array.isArray(v) ? Array.from(new Set(v.map(str).filter(Boolean))) : fb);
@@ -26,7 +28,7 @@ export function normProgress(raw: unknown): ProgressSettings {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, d = defaultProgress(), l = r.layout && typeof r.layout === "object" ? (r.layout as Record<string, unknown>) : undefined;
   return {
     enabled: r.enabled === true, workItemType: str(r.workItemType) || d.workItemType, groupLabel: str(r.groupLabel) || d.groupLabel, stages: normStages(r.stages),
-    doneStates: list(r.doneStates, d.doneStates), showTime: r.showTime !== false, flags: r.flags !== false, goLiveField: typeof r.goLiveField === "string" ? r.goLiveField.trim() : d.goLiveField,
+    doneStates: list(r.doneStates, d.doneStates), showTime: r.showTime !== false, flags: r.flags !== false, dayCount: normDayCount(r.dayCount), goLiveField: typeof r.goLiveField === "string" ? r.goLiveField.trim() : d.goLiveField,
     ...(l && str(l.processId) && str(l.groupId) ? { layout: { processId: str(l.processId), processName: str(l.processName), groupId: str(l.groupId), at: str(l.at) } } : {}),
   };
 }
@@ -69,7 +71,6 @@ export const fmtDay = (t?: number) => { if (t === undefined) return "–"; const
 const DAY = 86400000;
 /** “27 Oct”, with the year (“6 Jan ’27”) when it is not the current year. */
 const shortDay = (t: number, year: number) => { const d = new Date(t), base = `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`; return d.getUTCFullYear() === year ? base : `${base} ’${String(d.getUTCFullYear()).slice(2)}`; };
-const days = (n: number) => `${n} ${n === 1 ? "day" : "days"}`;
 
 /** The icon of a stage, from its name (the stages are configurable), else from its place in the row. */
 export function stageIcon(name: string, i: number): StageIcon {
@@ -88,8 +89,8 @@ export function stageIcon(name: string, i: number): StageIcon {
  * `fields` holds the values read from the form (field reference name → text). Nothing is guessed: a stage whose dates are missing or do not fit is flagged.
  * Status: red when go-live has passed, two stages or more are behind the dates, or the stage is 14 days or more past its planned end; amber for one stage behind or a stage past its planned end; green otherwise.
  */
-export function buildProgress(p: { settings: ProgressSettings; fields: Record<string, string>; today: number }): ProgressModel {
-  const s = p.settings, st = s.stages, type = (p.fields["System.WorkItemType"] ?? "").trim().toLowerCase();
+export function buildProgress(p: { settings: ProgressSettings; fields: Record<string, string>; today: number; /** the working week and days off, for "working days" */ calendar?: WorkCalendar }): ProgressModel {
+  const s = p.settings, dc = dayCounter(s.dayCount, p.calendar), days = dc.text, dd = dc.diff, st = s.stages, type = (p.fields["System.WorkItemType"] ?? "").trim().toLowerCase();
   if (!s.enabled || !stagesOn(st) || (type && s.workItemType.toLowerCase() !== type)) return { kind: "hidden" };
   const state = (p.fields["System.State"] ?? "").trim(), extra: Record<string, string> = {}, today = p.today, n = st.stages.length;
   for (const f of progressFields(s)) extra[f] = p.fields[f] ?? "";
@@ -100,7 +101,7 @@ export function buildProgress(p: { settings: ProgressSettings; fields: Record<st
   const goLive = s.goLiveField ? parseDay(extra[s.goLiveField]) : undefined;
   const behind = sd && !done && cur >= 0 && sd.maxIdx > cur ? sd.maxIdx - cur : 0, expected = behind > 0 && sd ? sd.maxIdx : -1;
   const cr = sd && cur >= 0 ? sd.rows[cur] : undefined;
-  const lateDays = !done && cr && cr.declaredEnd !== undefined && cr.declaredEnd < today ? Math.round((today - cr.declaredEnd) / DAY) : 0;
+  const lateDays = !done && cr && cr.declaredEnd !== undefined && cr.declaredEnd < today ? Math.round((today - cr.declaredEnd) / DAY) : 0;   // the status rules always use calendar days
   const pastGoLive = !done && goLive !== undefined && goLive < today ? Math.round((today - goLive) / DAY) : 0;
 
   const stages: ProgressStage[] = st.stages.map((g, i) => {
@@ -112,7 +113,7 @@ export function buildProgress(p: { settings: ProgressSettings; fields: Record<st
       const future = a > today;
       parts.push(`${future ? "planned start" : "started"} ${fmtDay(a)}`);
       if (e !== undefined) parts.push(`${stateOf === "done" || e <= today && stateOf !== "current" ? "ended" : "planned end"} ${fmtDay(e)}`);
-      if (stateOf === "done" && e !== undefined && e >= a) parts.push(`took ${days(Math.round((e - a) / DAY))}`);
+      if (stateOf === "done" && e !== undefined && e >= a) parts.push(`took ${days(dd(a, e))}`);
     } else if (r) parts.push("no start date");
     return { name: g.name, icon: stageIcon(g.name, i), state: stateOf, due: i === expected, bad: !!r && s.flags && st.dates.consistency && (!!r.order || !!r.missing), title: parts.join(" · ") };
   });
@@ -121,16 +122,16 @@ export function buildProgress(p: { settings: ProgressSettings; fields: Record<st
   const delivered = done && sd ? (parseDay(extra[st.dates.delivered]) ?? sd.rows[cur]?.end ?? sd.rows[cur]?.declaredStart) : undefined;
   if (done) {
     rag = "done"; label = "Delivered";
-    text = delivered === undefined ? "" : goLive === undefined ? `on ${fmtDay(delivered)}` : goLive > delivered ? `${days(Math.round((goLive - delivered) / DAY))} before go-live` : goLive < delivered ? `${days(Math.round((delivered - goLive) / DAY))} after go-live` : "on the go-live date";
+    text = delivered === undefined ? "" : goLive === undefined ? `on ${fmtDay(delivered)}` : goLive > delivered ? `${days(dd(delivered, goLive))} before go-live` : goLive < delivered ? `${days(dd(goLive, delivered))} after go-live` : "on the go-live date";
   } else if (sd && cur >= 0) {
     const red = behind >= 2 || lateDays >= 14 || pastGoLive > 0, amber = behind === 1 || lateDays > 0;
     rag = red ? "red" : amber ? "amber" : "green"; label = red ? "At risk" : amber ? "Needs attention" : "On track";
-    if (pastGoLive > 0) text = `go-live was ${days(pastGoLive)} ago`;
+    if (pastGoLive > 0) text = `go-live was ${days(dd(goLive!, today))} ago`;
     else if (behind > 0) text = `${behind === 1 ? "one stage" : `${behind} stages`} behind schedule`;
-    else if (lateDays > 0) text = `${st.stages[cur].name} is ${days(lateDays)} past its planned end`;
+    else if (lateDays > 0) text = `${st.stages[cur].name} is ${days(dd(cr!.declaredEnd!, today))} past its planned end`;
     else {
       const next = sd.rows[cur + 1], ns = next?.declaredStart;
-      text = ns !== undefined && ns > today ? `${next.name} starts in ${days(Math.round((ns - today) / DAY))}` : goLive !== undefined && goLive > today ? `go-live in ${days(Math.round((goLive - today) / DAY))}` : "";
+      text = ns !== undefined && ns > today ? `${next.name} starts in ${days(dd(today, ns))}` : goLive !== undefined && goLive > today ? `go-live in ${days(dd(today, goLive))}` : "";
     }
   } else if (cur >= 0) text = `In ${st.stages[cur].name}`;
 
@@ -138,11 +139,11 @@ export function buildProgress(p: { settings: ProgressSettings; fields: Record<st
   if (done) since = `All ${n} stages complete`;
   else if (cur >= 0) {
     const a = cr?.declaredStart, name = st.stages[cur].name;
-    since = a === undefined ? `In ${name}` : a <= today ? `In ${name} since ${short(a)}${s.showTime ? ` (${days(Math.round((today - a) / DAY))})` : ""}` : `In ${name}, planned start ${short(a)}`;
+    since = a === undefined ? `In ${name}` : a <= today ? `In ${name} since ${short(a)}${s.showTime ? ` (${days(dd(a, today))})` : ""}` : `In ${name}, planned start ${short(a)}`;
   }
   let finish = "";
   if (done) finish = delivered !== undefined ? `Delivered ${fmtDay(delivered)}` : "";
-  else if (goLive !== undefined) finish = goLive > today ? `Go-live ${fmtDay(goLive)} · ${days(Math.round((goLive - today) / DAY))} left` : goLive === today ? "Go-live today" : `Go-live was ${fmtDay(goLive)} · ${days(pastGoLive)} ago`;
+  else if (goLive !== undefined) finish = goLive > today ? `Go-live ${fmtDay(goLive)} · ${days(dd(today, goLive))} left` : goLive === today ? "Go-live today" : `Go-live was ${fmtDay(goLive)} · ${days(dd(goLive, today))} ago`;
 
   // where the marker sits: inside its stage, by how much of the planned stage has passed
   let pos = 0;

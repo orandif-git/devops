@@ -1,3 +1,4 @@
+import { dayCounter } from "../core/workdays";
 import * as React from "react";
 import "./exec.css";
 import { IconExitFullScreen, IconFullScreen, IconMap, IconRefresh, IconReport, IconRoadmap, IconSearch } from "../../../src/shared/icons";
@@ -84,7 +85,7 @@ export function ExecDashboard(p: {
   const dateAllRead = historyOn && stageDatesOn(x.stages) && stageDateFields(x.stages).every(f => !!L?.history?.[f]);
   const dh = useStageDateHistory(chosen?.id, x.stages, chosen?.dateHist, dateAllRead, stageDatesOn(x.stages) && x.stages.dates.track);      // the history of the stage dates of the Epic whose panel is open
   const eh = useEpicHistory(chosen?.id, goLiveField, chosen?.hist, historyOn);                    // one Epic's history, read when its panel opens and the history of all Epics is not on
-  const lp: LP = { all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, stageTypical: typical, showDelivery, onDelivery: setShowDelivery };
+  const dcount = dayCounter(p.settings.executive.dayCount, L?.avail.calendar), lp: LP = { dayDiff: dcount.diff, unit: dcount.short as "d" | "wd", all, items, f: fx, setF: change, fields, settings: p.settings, open: i => setSel(i.id), day, extra, today, historyOn, snaps: view === defaultView ? L?.snapshots : undefined, view, canSwitch, deliveredAt: L?.deliveredAt, stageTypical: typical, showDelivery, onDelivery: setShowDelivery };
 
   // my saved views and a shared link
   const snapshot = (): ExecViewState => ({ layout, density, status: f.status, state: f.state, team: f.team, quarter: f.quarter, moved: f.moved, decl: f.decl, cell: f.cell, stage: f.stage, sdate: f.sdate, chart: f.chart, period: f.period, delivery: showDelivery, view: canSwitch ? view : "", dims: f.dims, text: f.text, savedId });

@@ -20,14 +20,14 @@ export function PipelineCard({ lp }: { lp: LP }) {
   return (
     <section className="ex-card ex-pipeline" aria-label="Delivery pipeline">
       <h4>Delivery pipeline <span>{inP} Epics in a stage{([[ign, STAGE_GAP.ignore, "ignored"], [unm, STAGE_GAP.unmapped, "not mapped"], [none, STAGE_GAP.none, "without a stage"]] as [number, string, string][]).filter(g => g[0] > 0).map(g => <React.Fragment key={g[1]}> · <button type="button" className={"ex-gap" + (f.stage.includes(g[1]) ? " on" : "")} aria-pressed={f.stage.includes(g[1])} title={`Show only the Epics that are ${g[2]}`} onClick={() => lp.setF({ ...f, stage: toggle(f.stage, g[1]) })}>{g[0]} {g[2]}</button></React.Fragment>)}</span></h4>
-      {worst ? <div className="ex-bn" role="status">⚠ <b>{worst.d.name}</b> is where work is piling up: {worst.a.length} Epics{worst.avg !== undefined ? `, ${worst.avg} days on average` : ""}{worst.stuck ? <>, <b>{worst.stuck}</b> stuck over {st.stuckDays} days</> : null}{worst.behind ? <>{worst.stuck ? " and " : ", "}<b>{worst.behind}</b> behind for the stage</> : null}.</div>
+      {worst ? <div className="ex-bn" role="status">⚠ <b>{worst.d.name}</b> is where work is piling up: {worst.a.length} Epics{worst.avg !== undefined ? `, ${worst.avg} ${worst.a[0]?.r.unit === "wd" ? "working days" : "days"} on average` : ""}{worst.stuck ? <>, <b>{worst.stuck}</b> stuck over {st.stuckDays} days</> : null}{worst.behind ? <>{worst.stuck ? " and " : ", "}<b>{worst.behind}</b> behind for the stage</> : null}.</div>
         : <div className="ex-bn ok" role="status">No stage has Epics stuck or behind.</div>}
       <div className="ex-pipe" style={{ gridTemplateColumns: `repeat(${Math.max(1, cols.length)}, minmax(0, 1fr))` }}>
         {cols.map(c => <button key={c.d.name} type="button" className={"ex-pcol" + (f.stage.includes(c.d.name) ? " on" : f.stage.length ? " dim" : "")} aria-pressed={f.stage.includes(c.d.name)} onClick={() => lp.setF({ ...f, stage: toggle(f.stage, c.d.name) })}>
           <div className="ph"><b>{c.d.name}</b><span>{c.a.length} Epics</span></div>
           <div className="pbar" aria-hidden="true">{SHOWN.filter(s => c.c[s]).map(s => <i key={s} style={{ flex: c.c[s], background: COLOR[s] }} title={`${STATUS_NAME[s]}: ${c.c[s]}`}>{c.c[s] / Math.max(1, c.a.length) > .14 ? (s === "done" ? "✓ " : "") + c.c[s] : ""}</i>)}</div>
           <div className="pk"><div><span>Avg time in stage</span><b>{c.avg === undefined ? "–" : c.avg + " d"}</b></div>
-            {st.stuckRule && <div><span>Stuck &gt; {st.stuckDays} d</span><b className={c.stuck ? "red" : ""}>{c.stuck}</b></div>}
+            {st.stuckRule && <div><span>Stuck &gt; {st.stuckDays} {base[0]?.r.unit ?? "d"}</span><b className={c.stuck ? "red" : ""}>{c.stuck}</b></div>}
             {st.lagRule && <div><span>Behind for stage</span><b className={c.behind ? "amb" : ""}>{c.behind}</b></div>}</div>
           <div className="pp"><span>Counts as</span><b>{c.d.pct}% done</b></div></button>)}
       </div>

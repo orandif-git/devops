@@ -12,7 +12,7 @@ export function DeliveryCard({ lp }: { lp: LP }) {
   const d = lp.settings.executive.delivery, grace = d.graceDays, p = lp.f.period;
   const window = React.useMemo(() => (p ? quartersIn(parseDay(p.from)!, parseDay(p.to)! + 86399999) : undefined), [p?.from, p?.to]);   // eslint-disable-line react-hooks/exhaustive-deps
   const base = React.useMemo(() => lp.all.filter(i => pass(i, lp.f, "period")), [lp.all, lp.f]);             // the other filters apply; the period sets the window instead
-  const sum = React.useMemo(() => summarizeDelivery({ items: base.map(i => ({ id: i.id, title: i.title, goLive: i.r.goLive, moves: i.sum.moves, done: i.r.dataStatus === "done" })), all: base.map(i => ({ goLive: i.r.goLive })), doneAt: lp.deliveredAt ?? {}, s: d, now: new Date(), window }), [base, lp.deliveredAt, d, window]);
+  const sum = React.useMemo(() => summarizeDelivery({ items: base.map(i => ({ id: i.id, title: i.title, goLive: i.r.goLive, moves: i.sum.moves, done: i.r.dataStatus === "done" })), all: base.map(i => ({ goLive: i.r.goLive })), doneAt: lp.deliveredAt ?? {}, s: d, now: new Date(), window, diff: lp.dayDiff }), [base, lp.deliveredAt, d, window, lp.dayDiff]);
   if (!d.enabled) return null;
   const open = lp.showDelivery, show = (k: string) => d.show.includes(k), tiles = ["rate", "late", "delivered", "predict"].filter(show);
   const name = window ? `${window[0].label} – ${window[window.length - 1].label}` : `last ${d.quarters} quarters`;
@@ -30,7 +30,7 @@ export function DeliveryCard({ lp }: { lp: LP }) {
           <div className="ex-dp" style={{ gridTemplateColumns: panels === 3 ? "34% 1fr 28%" : panels === 2 ? "1fr 1fr" : "1fr" }}>
             {tiles.length > 0 && <div className="ex-dptiles">
               {show("rate") && <Tile id="rate" label="On-time delivery rate" v={sum.rate === undefined ? "–" : sum.rate + "%"} note={<>{dRate !== undefined && <span className={dRate >= 0 ? "up" : "dn"}>{dRate >= 0 ? "▲ " : "▼ "}{sgn(dRate)} pts</span>} {dRate !== undefined ? "vs the quarters before" : `${sum.recentCount} delivered, on or before go-live${grace ? ` + ${grace} d` : ""}`}</>} />}
-              {show("late") && <Tile id="late" label="Average days late" v={sum.avgLate === undefined ? "–" : sum.avgLate + " d"} note={<>{dLate !== undefined && <span className={dLate <= 0 ? "up" : "dn"}>{dLate <= 0 ? "▼ " : "▲ "}{sgn(dLate)} d</span>} for Epics delivered late</>} />}
+              {show("late") && <Tile id="late" label="Average days late" v={sum.avgLate === undefined ? "–" : sum.avgLate + " " + (lp.unit ?? "d")} note={<>{dLate !== undefined && <span className={dLate <= 0 ? "up" : "dn"}>{dLate <= 0 ? "▼ " : "▲ "}{sgn(dLate)} {lp.unit ?? "d"}</span>} for Epics delivered late</>} />}
               {show("delivered") && <Tile id="delivered" label={`Delivered in ${sum.lastQuarter}`} v={<>{sum.delivered} <span className="of">of {sum.due} due</span></>} note={sum.due ? `${Math.round(100 * sum.delivered / sum.due)}% of the Epics with a go-live that quarter` : "no Epic had its go-live that quarter"} />}
               {show("predict") && <Tile id="predict" label={`Delivered within ±${d.predictDays} days`} v={sum.predictable === undefined ? "–" : sum.predictable + "%"} note="how predictable go-live dates are" />}
             </div>}

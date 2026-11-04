@@ -2,6 +2,7 @@ import { CapacityRecord } from "../../../src/core/capacity";
 import { keyNorm } from "../../../src/core/keys";
 import { recordsFromNative, NativeReport } from "../../../src/core/nativeCapacity";
 import { readNativeCapacity } from "../../../src/shared/capacityStore";
+import { calendarFromTeams, WorkCalendar } from "../core/workdays";
 import { TeamRef } from "../core/types";
 
 export interface Availability {
@@ -11,6 +12,8 @@ export interface Availability {
   hours(person: string, month: string): number | null;
   /** the team name(s) the person has capacity in */
   team(person: string): string;
+  /** the working week and days off of the teams */
+  calendar?: WorkCalendar;
 }
 
 /** Available hours per person and month from Azure DevOps team capacity, read with the same code Grid & Rules uses on Server 2020. */
@@ -20,7 +23,7 @@ export async function loadAvailability(teams: TeamRef[], force = false): Promise
   const records = recordsFromNative(native);
   const byKey = new Map(records.map(r => [keyNorm(r.key), r]));
   return {
-    records, report,
+    records, report, calendar: calendarFromTeams(native),
     hours: (person, month) => { const r = byKey.get(keyNorm(person)); const v = r?.overrides[month]; return v === undefined ? null : v; },
     team: person => byKey.get(keyNorm(person))?.team ?? "",
   };

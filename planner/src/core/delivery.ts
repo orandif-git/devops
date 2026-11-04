@@ -51,10 +51,10 @@ const rateOf = (a: Delivered[], grace: number) => (a.length ? Math.round(100 * a
 const avgOf = (a: Delivered[], grace: number) => { const l = a.filter(e => e.late > grace); return l.length ? Math.round(l.reduce((x, e) => x + e.late, 0) / l.length) : 0; };
 
 /** Everything the card shows. `window` is the chart's quarters (the last n, or the quarters of a chosen period). */
-export function summarizeDelivery(p: { items: DeliveryInput[]; all: { goLive?: number }[]; doneAt: Record<number, number>; s: DeliverySettings; now: Date; window?: QuarterSpan[] }): DeliverySummary {
+export function summarizeDelivery(p: { items: DeliveryInput[]; all: { goLive?: number }[]; doneAt: Record<number, number>; s: DeliverySettings; now: Date; window?: QuarterSpan[]; /** how days late are counted (default: calendar days) */ diff?: (from: number, to: number) => number }): DeliverySummary {
   const { s } = p, win = p.window?.length ? p.window : lastQuarters(p.now, s.quarters);
   const list: Delivered[] = [];
-  for (const i of p.items) { const t = p.doneAt[i.id]; if (!i.done || t === undefined || i.goLive === undefined) continue; list.push({ id: i.id, title: i.title, goLive: i.goLive, doneAt: t, late: Math.round((startOfDay(t) - i.goLive) / DAY), moves: i.moves }); }
+  for (const i of p.items) { const t = p.doneAt[i.id]; if (!i.done || t === undefined || i.goLive === undefined) continue; list.push({ id: i.id, title: i.title, goLive: i.goLive, doneAt: t, late: p.diff ? p.diff(i.goLive, startOfDay(t)) : Math.round((startOfDay(t) - i.goLive) / DAY), moves: i.moves }); }
   const inQ = (e: Delivered, q: QuarterSpan) => e.doneAt >= q.from && e.doneAt <= q.to;
   const columns: Column[] = win.map(q => { const a = list.filter(e => inQ(e, q)); return { label: q.label, on: a.filter(e => e.late <= s.graceDays).length, late1: a.filter(e => e.late > s.graceDays && e.late <= s.severeDays).length, late2: a.filter(e => e.late > s.severeDays).length, total: a.length, rate: rateOf(a, s.graceDays) }; });
   const recentQs = win.slice(-s.recent), from = recentQs[0].from, to = recentQs[recentQs.length - 1].to, span = to - from + 1;

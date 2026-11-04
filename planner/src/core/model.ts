@@ -4,6 +4,7 @@ import { Booking, EpicRecord, Thresholds } from "./types";
 
 /** Available hours and teams, as the capacity reader provides them. */
 export interface AvailabilityLike {
+  /** the working week and days off of the teams, for "working days" */ calendar?: import("./workdays").WorkCalendar;
   records: { key: string; name: string }[];
   hours(person: string, month: string): number | null;
   team(person: string): string;
