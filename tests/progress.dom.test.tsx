@@ -121,3 +121,17 @@ describe("Delivery Progress control: the layout keeps its shape", () => {
     expect(Array.from(h.querySelectorAll(".dp-foot span")).every(x => x.getAttribute("title") === x.textContent)).toBe(true); expect(Array.from(h.querySelectorAll(".dp-seg")).every(x => !!x.getAttribute("title"))).toBe(true);
   });
 });
+
+describe("Delivery progress settings tab: look and wording", () => {
+  it("lets the admin choose the design and the wording, and warns about an unknown placeholder", async () => {
+    const f = fakeRest(); const seen: ProgressSettings[] = []; const h = tab(f.rest, { ...defaultProgress(), enabled: true }, v => seen.push(v)); await flush();
+    const sel = h.querySelector("select[aria-label=Design]") as HTMLSelectElement; expect(sel.value).toBe("bar");
+    expect((h.querySelector("select[aria-label='Stage names']") as HTMLSelectElement).disabled).toBe(true);   // the bar always shows the names under the track
+    act(() => { sel.value = "thick"; Simulate.change(sel); });
+    expect(seen[seen.length - 1].design).toBe("thick");
+    const inp = h.querySelector("input[aria-label='Status: needs attention']") as HTMLInputElement; expect(inp.placeholder).toBe("Needs attention");
+    act(() => { inp.value = "Behind plan"; Simulate.blur(inp); });
+    expect(seen[seen.length - 1].words).toEqual({ attention: "Behind plan" });
+  });
+});
+

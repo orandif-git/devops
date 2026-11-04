@@ -30,7 +30,7 @@ function App(p: { settings: ProgressSettings; calendar?: WorkCalendar }) {
     fit(); const ro = typeof ResizeObserver !== "undefined" && ref.current ? new ResizeObserver(fit) : undefined; ro?.observe(ref.current!); window.addEventListener("resize", fit);
     return () => { ro?.disconnect(); window.removeEventListener("resize", fit); };
   }, [model]);
-  return <div ref={ref}><ProgressControl model={model} /></div>;
+  return <div ref={ref}><ProgressControl model={model} look={{ design: p.settings.design, names: p.settings.names, status: p.settings.status, detail: p.settings.detail }} /></div>;
 }
 
 async function main() {

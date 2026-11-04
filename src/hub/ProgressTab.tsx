@@ -1,5 +1,5 @@
 import * as React from "react";
-import { normProgress, ProgressSettings } from "../core/progress";
+import { normProgress, ProgressSettings, WORDS, wordingProblems } from "../core/progress";
 import { normalizeSettings } from "../../planner/src/core/settings";
 import { StageSettings } from "../../planner/src/core/stages";
 import { isDateType } from "../../planner/src/core/fieldTypes";
@@ -92,6 +92,26 @@ export function ProgressTab(p: { projectId: string; progress: ProgressSettings; 
         <div className="help">{s.dayCount === "working" ? "Day counts skip the days off, using the working week and days off of the capacity calculator chosen in Capacity (team calendar or the extension’s calendar). Dates stay calendar dates; the status rules (14 days past) stay in calendar days." : "Day counts include weekends and holidays."}</div>
         <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.showTime} onChange={e => set({ showTime: e.target.checked })} /> Show the days in the current stage (“In Development since 27 Oct (7 days)”)</label>
         <label style={{ display: "block", margin: "6px 0" }}><input type="checkbox" checked={s.flags} onChange={e => set({ flags: e.target.checked })} /> Flag stage dates that do not fit (a start date missing, out of order, a skipped stage)</label>
+      </div>
+      <div className="card"><h3 style={{ marginTop: 0 }}>Look and wording</h3>
+        <div className="row">
+          <label className="field" style={{ width: 280 }}><span>Design</span><select aria-label="Design" value={s.design} onChange={e => set({ design: e.target.value as ProgressSettings["design"] })}>
+            <option value="bar">Speech-bubble bar (default)</option><option value="steps">Numbered steps</option><option value="compact">Compact segmented bar</option><option value="thick">Thick open segments</option></select></label>
+          <label className="field" style={{ width: 240 }}><span>Stage names</span><select aria-label="Stage names" value={s.names} onChange={e => set({ names: e.target.value as ProgressSettings["names"] })} disabled={s.design === "bar"}>
+            <option value="name">Name</option><option value="number">Number + name</option><option value="icon">Icon + name</option><option value="current">Current stage only</option><option value="none">None (on hover only)</option></select></label>
+          <label className="field" style={{ width: 240 }}><span>Status</span><select aria-label="Status" value={s.status} onChange={e => set({ status: e.target.value as ProgressSettings["status"] })}>
+            <option value="right">{s.design === "bar" ? "Speech bubble" : "Right of the bar"}</option>{s.design !== "bar" && <option value="left">Left of the bar</option>}<option value="hidden">Hidden</option></select></label>
+          <label className="field" style={{ width: 260 }}><span>Lines under the control</span><select aria-label="Lines under the control" value={s.detail} onChange={e => set({ detail: e.target.value as ProgressSettings["detail"] })}>
+            <option value="both">Time in stage and go-live</option><option value="time">Time in stage only</option><option value="golive">Go-live only</option><option value="none">None</option></select></label>
+        </div>
+        <div className="help">{s.design === "bar" ? "The speech-bubble bar always shows the stage names under the track." : s.design === "steps" ? "Numbered circles joined by a line; done stages are green with a tick, the current stage takes the status colour." : s.design === "compact" ? "A thin segmented bar with the stage names in one small line under it." : "Thicker rounded segments with the stage names inside them."} The status colours (green, amber, red) are fixed.</div>
+        <details style={{ marginTop: 8 }}><summary><b>Wording</b> (change any sentence; leave it empty for the default)</summary>
+          <div className="help">Placeholders: {"{stage}"} {"{next}"} {"{days}"} (with its unit, such as “7 working days”) {"{date}"} {"{golive}"} {"{count}"}. Each sentence only knows the placeholders shown next to it.</div>
+          <div className="row" style={{ flexWrap: "wrap" }}>{Object.entries(WORDS).map(([k, w]) => <label key={k} className="field" style={{ width: 300 }}><span>{w.label}{w.vars.length ? ` (${w.vars.map(v => `{${v}}`).join(" ")})` : ""}</span>
+            <input aria-label={w.label} key={(s.words[k] ?? "") + k} defaultValue={s.words[k] ?? ""} placeholder={w.text} onBlur={e => { const v = e.target.value.trim(), words = { ...s.words }; if (v) words[k] = v; else delete words[k]; set({ words }); }} /></label>)}</div>
+          {wordingProblems(s.words).map(t => <div key={t} className="help" style={{ color: "#b3303a" }} role="alert">{t}</div>)}
+          {Object.keys(s.words).length > 0 && <button type="button" className="btn" onClick={() => set({ words: {} })}>Reset all wording to the default</button>}
+        </details>
       </div>
       <div className="card"><h3 style={{ marginTop: 0 }}>Stages and dates</h3>
         <div className="help">The same setup as in the Executive Dashboard (Resource Planner &amp; Heatmap), so one {s.workItemType} gets the same answer in both. Choose where the stage comes from, the stages in order, which value is which stage, and the date fields.</div>
