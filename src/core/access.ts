@@ -14,6 +14,8 @@ export interface AccessConfig {
   lockCells?: "never" | "preset" | "filled";
   /** only the person who added a row (and administrators) may change or delete it; rows with no owner stay open to everyone */
   rowOwner?: boolean;
+  /** with “row owner” on: members of the owner's team (the Azure DevOps teams chosen in Capacity) may change the row too */
+  rowTeam?: boolean;
   /** besides project administrators: may always change fixed cells and other people's rows */
   admins?: { teams: TeamRef[]; people: string[] };
   /** administrators (project administrators and the ones listed) can change fixed cells and other people's rows (default: yes); off = nobody can, administrators included */
@@ -23,7 +25,7 @@ export interface AccessConfig {
 }
 
 /** The person looking at the grid. `isAdmin` is undefined until it is known: until then they count as an ordinary user. */
-export interface AccessWho { keys: string[]; /** the sign-in name stored on rows they add */ key: string; name: string; isAdmin?: boolean }
+export interface AccessWho { keys: string[]; /** the sign-in name stored on rows they add */ key: string; name: string; isAdmin?: boolean; /** the names (normalised) of the people who share a capacity team with them, once known */ mates?: string[] }
 
 const bool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
 const filled = (v: unknown) => v !== undefined && v !== null && v !== "" && v !== false;
@@ -35,7 +37,7 @@ export function normAccess(raw: unknown): AccessConfig | undefined {
   if (typeof r.startPreset === "string" && r.startPreset.trim()) out.startPreset = r.startPreset.trim();
   for (const k of ["allowAdd", "allowDelete", "allowMove", "allowImport", "confirmDelete", "adminsBypass"] as const) if (r[k] === false) out[k] = false;
   if (r.lockCells === "preset" || r.lockCells === "filled") out.lockCells = r.lockCells;
-  if (r.rowOwner === true) out.rowOwner = true;
+  if (r.rowOwner === true) { out.rowOwner = true; if (r.rowTeam === true) out.rowTeam = true; }   // the team option only means something with the owner rule
   const a = r.admins as { teams?: unknown; people?: unknown } | undefined;
   const teams = Array.isArray(a?.teams) ? (a!.teams as TeamRef[]).filter(t => t && typeof t.id === "string") : [], people = Array.isArray(a?.people) ? (a!.people as unknown[]).filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
   if (teams.length || people.length) out.admins = { teams, people };
@@ -53,17 +55,19 @@ export const bypasses = (a: AccessConfig | undefined, who: Pick<AccessWho, "isAd
 export const accessTeamIds = (a?: AccessConfig): string[] => Array.from(new Set((a?.admins?.teams ?? []).map(t => t.id)));
 /** Is the sign-in name stored on a row the user's own? */
 export const isMine = (row: GridRow, who: Pick<AccessWho, "keys">) => !!row._by && who.keys.includes(keyNorm(row._by));
+/** Did somebody on the user's team (a capacity team they are in) add this row? */
+export const isTeammate = (row: GridRow, who: Pick<AccessWho, "mates"> | undefined) => !!who?.mates?.length && [row._by, row._byName].some(n => !!n && who.mates!.includes(keyNorm(n)));
 /** Does a configured administrator list contain this user? */
 export function isAccessAdmin(a: AccessConfig | undefined, who: { keys: string[]; teamIds: string[] }): boolean {
   const people = (a?.admins?.people ?? []).map(keyNorm).filter(Boolean);
   return people.some(p => who.keys.includes(p)) || (a?.admins?.teams ?? []).some(t => who.teamIds.includes(t.id));
 }
 
-/** A row somebody else added, while “Row owner” is on: it can be read but not changed, moved or deleted (administrators can, and so can everyone when the row has no owner). */
+/** A row somebody else added, while “Row owner” is on: it can be read but not changed, moved or deleted (administrators can, so can the owner's team when that is on, and so can everyone when the row has no owner). */
 export function ownerLocked(row: GridRow, a: AccessConfig | undefined, who: AccessWho | undefined): boolean {
   if (!a?.rowOwner || !row._by) return false;
   if (!who) return true;                                    // until we know who is looking, a row somebody added stays fixed
-  return !isMine(row, who) && !bypasses(a, who);
+  return !isMine(row, who) && !bypasses(a, who) && !(a.rowTeam && isTeammate(row, who));
 }
 
 /**

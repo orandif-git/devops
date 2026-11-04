@@ -12,7 +12,7 @@ import { applyCalculations, resetCalcRunner } from "../shared/calcRunner";
 import { GridConfig, GridPreset, GridRow, LookupTable } from "../core/types";
 import { defaultPresetColumns, mergePreset, presetApplies, presetFromRows, upsertPreset } from "../core/presets";
 import { AccessWho, mayImport, startPresetFor, withOwner } from "../core/access";
-import { currentWho, loadAccessAdmin } from "../shared/accessWho";
+import { currentWho, loadAccessAdmin, loadTeammates } from "../shared/accessWho";
 import { canSavePresets } from "../shared/presetAccess";
 import { loadActor } from "../shared/reviewAccess";
 import { Actor, freshReview, overallValue } from "../core/review";
@@ -105,6 +105,7 @@ function App(props: { cfg: GridConfig; derived: Resolved["derived"]; notice?: st
     if (!props.cfg.access) return;
     let live = true;
     loadAccessAdmin(props.projectId, props.cfg.access, currentWho()).then(a => { if (live) setWho(w => ({ ...w, isAdmin: a })); }).catch(() => undefined);
+    if (props.cfg.access.rowOwner && props.cfg.access.rowTeam) loadTeammates(props.projectId, currentWho()).then(m => { if (live) setWho(w => ({ ...w, mates: m })); }).catch(() => undefined);
     return () => { live = false; };
   }, [props.cfg.access, props.projectId]);
   // secure approvals: decisions live in their own protected field; rows show (and totals use) only decisions that still match the row

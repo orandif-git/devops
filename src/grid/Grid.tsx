@@ -5,7 +5,7 @@ import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, va
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 import { Actor, canDecide, decide, freshReview, isLocked, resetOnEdit, reviewColumns, stateOf } from "../core/review";
-import { AccessConfig, AccessWho, asksBeforeDelete, cellFixed, compactName, isMine, mayAdd, mayDelete, mayImport, mayMove, ownerLocked, withOwner, withoutPreset } from "../core/access";
+import { AccessConfig, AccessWho, asksBeforeDelete, cellFixed, compactName, isMine, isTeammate, mayAdd, mayDelete, mayImport, mayMove, ownerLocked, withOwner, withoutPreset } from "../core/access";
 
 export interface GridProps {
   cfg: GridConfig;
@@ -310,7 +310,7 @@ export function Grid(p: GridProps) {
                       {stateOf(r, rv) !== "approved" && <button className="btn" title="Approve this row" onClick={() => doDecide([r._id], "approved")}>Approve</button>}
                       {stateOf(r, rv) !== "rejected" && <button className="btn" title="Reject this row (type the reason in the comment column first, if you like)" onClick={() => doDecide([r._id], "rejected")}>Reject</button>}
                     </>}
-                    {ownerTags && r._by && (() => { const mine = isMine(r, who ?? { keys: [] }), full = (r._byName || r._by) + (r._byName && !r._byName.includes("<") ? ` <${r._by}>` : ""); return <span className="badge own" title={mine ? "You added this row" : `Added by ${full}. Only they and administrators can change this row`}>{mine ? "You added this" : `Added by ${compactName(r._byName || r._by)}`}</span>; })()}
+                    {ownerTags && r._by && (() => { const mine = isMine(r, who ?? { keys: [] }), mate = !mine && !!ax?.rowTeam && isTeammate(r, who), full = (r._byName || r._by) + (r._byName && !r._byName.includes("<") ? ` <${r._by}>` : ""); return <span className="badge own" title={mine ? "You added this row" : mate ? `Added by ${full}, who is on your team. You can change this row` : `Added by ${full}. Only they ${ax?.rowTeam ? "their team " : ""}and administrators can change this row`}>{mine ? "You added this" : `Added by ${compactName(r._byName || r._by)}${mate ? " · your team" : ""}`}</span>; })()}
                     {!lockedRows && canMove && !frozen(r) && !sort && !filter && <>
                       <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}><IconUp /></button>
                       <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}><IconDown /></button>

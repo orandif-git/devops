@@ -124,3 +124,19 @@ describe("The name on the “Added by” label", () => {
   it("shortens a long name to the first name and the initial of the last", () => { expect(compactName("Muzaffer Gokhan Songul Ozkaya")).toBe("Muzaffer O."); expect(compactName("Ann A")).toBe("Ann A"); expect(compactName("Supercalifragilisticexpialidocious")).toBe("Supercalifragilistice…"); });
   it("a row stores the display name without the sign-in part", () => { expect(withOwner(row(), { rowOwner: true }, { key: "a@x.com", name: "Ann A <a@x.com>" })._byName).toBe("Ann A"); });
 });
+
+describe("row owner: the owner's team", () => {
+  const withTeam: AccessConfig = { rowOwner: true, rowTeam: true };
+  const mate: AccessWho = { ...me, mates: ["sam@x.com", "sam s", "ann@x.com"] };
+  it("is kept only together with the owner rule, and is off by default", () => {
+    expect(normAccess({ rowOwner: true, rowTeam: true })).toEqual({ rowOwner: true, rowTeam: true });
+    expect(normAccess({ rowTeam: true })).toBeUndefined(); expect(normAccess({ rowOwner: true })).toEqual({ rowOwner: true });
+  });
+  it("lets the owner's team members change the row, and nobody else", () => {
+    expect(ownerLocked(row({ _by: "Sam@x.com" }), withTeam, mate)).toBe(false);          // same team
+    expect(ownerLocked(row({ _by: "zed@x.com", _byName: "Zed Z" }), withTeam, mate)).toBe(true);   // another team
+    expect(ownerLocked(row({ _by: "sam@x.com" }), { rowOwner: true }, mate)).toBe(true);    // the team option is off
+    expect(ownerLocked(row({ _by: "sam@x.com" }), withTeam, me)).toBe(true);                // the team is not known (yet, or none chosen)
+    expect(ownerLocked(row({ _by: "x@x.com", _byName: "Sam S" }), withTeam, mate)).toBe(false);   // found by display name
+  });
+});

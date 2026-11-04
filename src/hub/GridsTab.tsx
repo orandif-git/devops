@@ -518,7 +518,7 @@ function accessSummary(g: GridConfig): string | undefined {
   if (a.startPreset) parts.push(`starts with “${(g.presets ?? []).find(x => x.id === a.startPreset)?.name ?? "?"}”`);
   if (a.allowAdd === false || a.allowDelete === false) parts.push("rows fixed");
   if (a.lockCells && a.lockCells !== "never") parts.push("cells fixed");
-  if (a.rowOwner) parts.push("row owner");
+  if (a.rowOwner) parts.push(a.rowTeam ? "row owner + team" : "row owner");
   return parts.join(" · ") || "Ask before deleting a row: off";
 }
 
@@ -551,6 +551,8 @@ function AccessEditor(p: { g: GridConfig; onChange(g: GridConfig): void }) {
       </div></div>
       <div className="arow"><b>Row owner</b><div>
         <label><input type="checkbox" checked={!!a.rowOwner} onChange={e => set({ rowOwner: e.target.checked || undefined })} /> Only the person who added a row (and administrators) can change or delete it</label>
+        <label style={{ display: "block", marginTop: 6, opacity: a.rowOwner ? 1 : .55 }}><input type="checkbox" disabled={!a.rowOwner} checked={!!a.rowTeam} onChange={e => set({ rowTeam: e.target.checked || undefined })} /> Members of the owner’s team can change or delete it too</label>
+        {a.rowOwner && a.rowTeam && <div className="help">The team is the same as for the capacity calculator: the Azure DevOps teams chosen under Capacity (the sprint teams). If the person who added a row is in one of those teams, everyone in that team can change it; people outside the team cannot. If no team is chosen there, only the owner (and administrators) can.</div>}
         <div className="help">Rows with no owner (existing rows, preset rows) can be changed by everyone. Who saved the grid is in the work item’s History. This is enforced in the grid; it does not stop someone who edits the field by other means.</div>
       </div></div>
       <div className="arow"><b>Administrators</b><div>
