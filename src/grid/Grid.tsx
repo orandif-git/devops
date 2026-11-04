@@ -5,7 +5,7 @@ import { cellBand, columnTotals, newRow, optionsFor, recomputeAll, summaries, va
 import { ColumnDef, GridConfig, GridRow } from "../core/types";
 import { IdentityInput } from "./IdentityInput";
 import { Actor, canDecide, decide, freshReview, isLocked, resetOnEdit, reviewColumns, stateOf } from "../core/review";
-import { AccessConfig, AccessWho, asksBeforeDelete, cellFixed, compactName, isMine, isTeammate, mayAdd, mayDelete, mayImport, mayMove, ownerLocked, withOwner, withoutPreset } from "../core/access";
+import { AccessConfig, AccessWho, asksBeforeDelete, cellFixed, compactName, isMine, withEditor, mayAdd, mayDelete, mayImport, mayMove, ownerLocked, withOwner, withoutPreset } from "../core/access";
 
 export interface GridProps {
   cfg: GridConfig;
@@ -114,7 +114,7 @@ export function Grid(p: GridProps) {
     if (pristine.has(rowId)) setPristine(s => { const n = new Set(s); n.delete(rowId); return n; });
     const adjustable = cfg.columns.find(c => c.id === col)?.derive?.adjustable;       // derived grids: remember the typed value as an adjustment
     const patch = adjustable ? { [col]: value, ["_adj_" + col]: value } : { [col]: value };
-    const next = recomputeAll(rows.map(r => (r._id === rowId ? { ...r, ...patch } : r)), cfg);
+    const next = recomputeAll(rows.map(r => (r._id === rowId ? withEditor({ ...r, ...patch }, ax, who) : r)), cfg);
     p.onChange(rv && !rv.secure ? resetOnEdit(rows, next, cfg) : next);          // an edited approved / rejected row goes back to pending review (when configured)
   };
   const addRow = () => { if (!canAdd) return; const r = withOwner(newRow(cfg), ax, who); setPristine(s => new Set(s).add(r._id)); p.onChange(recomputeAll([...rows, r], cfg)); };
@@ -136,7 +136,7 @@ export function Grid(p: GridProps) {
     const i = rows.findIndex(r => r._id === id);
     if (!canAdd || i < 0 || frozen(rows[i])) return;
     const copy = withoutPreset({ ...newRow(cfg), ...rows[i], _id: newRow(cfg)._id } as GridRow);       // a copy is a new row: no child, no preset cells, and its owner is whoever copied it
-    delete copy._childId; delete copy._by; delete copy._byName; delete copy._at;
+    delete copy._childId; delete copy._by; delete copy._byName; delete copy._at; delete copy._ed; delete copy._edName; delete copy._edAt;
     const owned = withOwner(copy, ax, who), next = [...rows]; next.splice(i + 1, 0, rv ? freshReview(owned, rv) : owned); p.onChange(recomputeAll(next, cfg));
   };
 
@@ -310,7 +310,7 @@ export function Grid(p: GridProps) {
                       {stateOf(r, rv) !== "approved" && <button className="btn" title="Approve this row" onClick={() => doDecide([r._id], "approved")}>Approve</button>}
                       {stateOf(r, rv) !== "rejected" && <button className="btn" title="Reject this row (type the reason in the comment column first, if you like)" onClick={() => doDecide([r._id], "rejected")}>Reject</button>}
                     </>}
-                    {ownerTags && r._by && (() => { const mine = isMine(r, who ?? { keys: [] }), mate = !mine && !!ax?.rowTeam && isTeammate(r, who), full = (r._byName || r._by) + (r._byName && !r._byName.includes("<") ? ` <${r._by}>` : ""); return <span className="badge own" title={mine ? "You added this row" : mate ? `Added by ${full}, who is on your team. You can change this row` : `Added by ${full}. Only they ${ax?.rowTeam ? "their team " : ""}and administrators can change this row`}>{mine ? "You added this" : `Added by ${compactName(r._byName || r._by)}`}</span>; })()}
+                    {ownerTags && r._by && (() => { const mine = isMine(r, who ?? { keys: [] }), when = (t?: string) => { const d = t ? new Date(t) : undefined; return d && !isNaN(+d) ? ` on ${d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}` : ""; }, full = (r._byName || r._by) + (r._byName && !r._byName.includes("<") ? ` <${r._by}>` : ""), edited = r._ed ? `Last changed by ${r._edName || r._ed}${when(r._edAt)}` : ""; return <span className="badge own" title={[mine ? `You added this row${when(r._at)}` : `Added by ${full}${when(r._at)}`, edited].filter(Boolean).join(". ")}>{mine ? "You added this" : `Added by ${compactName(r._byName || r._by)}`}</span>; })()}
                     {!lockedRows && canMove && !frozen(r) && !sort && !filter && <>
                       <button className="btn icon" title="Move up" aria-label="Move up" onClick={() => move(r._id, -1)}><IconUp /></button>
                       <button className="btn icon" title="Move down" aria-label="Move down" onClick={() => move(r._id, 1)}><IconDown /></button>

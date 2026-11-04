@@ -225,6 +225,7 @@ export interface GridRow {
   _id: string;
   /** who added the row (sign-in name) and when: set when “Row owner” is on in the grid's Rows & access settings */
   _by?: string; _byName?: string; _at?: string;
+  /** who last changed the row when it was somebody else than its owner (sign-in, name, time) */ _ed?: string; _edName?: string; _edAt?: string;
   /** the columns the preset filled when it created this row (they can be kept fixed) */
   _p?: string[];
   /** id of the child work item created from this row, once created */

@@ -101,6 +101,14 @@ export function withOwner<T extends GridRow>(row: T, a: AccessConfig | undefined
   return { ...row, _by: who.key, _byName: String(who.name ?? "").replace(/\s*<[^>]*>\s*$/, "").trim() || who.key, _at: now.toISOString() };   // the display name without a “<sign-in>” part
 }
 
+/** Stamps who changed a row: when somebody other than its owner edits it, their name and the time are kept on the row; when the owner edits it again the stamp is cleared. Only with “Row owner” on, and only for rows that have an owner. */
+export function withEditor<T extends GridRow>(row: T, a: AccessConfig | undefined, who: Pick<AccessWho, "keys" | "key" | "name"> | undefined, now = new Date()): T {
+  if (!a?.rowOwner || !who || !row._by) return row;
+  const { _ed, _edName, _edAt, ...rest } = row; void _ed; void _edName; void _edAt;
+  if (isMine(row, who)) return rest as T;
+  return { ...rest, _ed: who.key, _edName: String(who.name ?? "").replace(/\s*<[^>]*>\s*$/, "").trim() || who.key, _edAt: now.toISOString() } as T;
+}
+
 /** The columns a preset filled in a row (a copy of the row is a new row: nothing in it is the preset's any more). */
 export const withoutPreset = <T extends GridRow>(row: T): T => { const { _p, ...rest } = row; void _p; return rest as T; };
 

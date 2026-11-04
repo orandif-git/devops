@@ -120,6 +120,7 @@ export function normalizeRow(src: Record<string, unknown>, cfg: GridConfig): Gri
   const row: GridRow = { _id: typeof src._id === "string" ? src._id : newId() };
   if (typeof src._childId === "number") row._childId = src._childId;
   if (typeof src._by === "string" && src._by) { row._by = src._by; if (typeof src._byName === "string") row._byName = src._byName; if (typeof src._at === "string") row._at = src._at; }   // who added the row
+  if (typeof src._ed === "string" && src._ed) { row._ed = src._ed; if (typeof src._edName === "string") row._edName = src._edName; if (typeof src._edAt === "string") row._edAt = src._edAt; }   // and who last changed it, when that was not the owner
   if (Array.isArray(src._p)) { const p = src._p.filter((x): x is string => typeof x === "string"); if (p.length) row._p = p; }                     // the cells a preset filled
   for (const k of Object.keys(src)) if (k.startsWith("_tf_") && typeof src[k] === "string") row[k] = src[k];   // what the team column was last filled for
   for (const k of Object.keys(src)) if (k.startsWith("_adj_") && typeof src[k] === "number") row[k] = src[k];   // manual adjustments of derived columns

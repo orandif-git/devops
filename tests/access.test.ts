@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accessProblems, AccessConfig, compactName, startPresetFor, AccessWho, asksBeforeDelete, cellFixed, isAccessAdmin, isMine, mayAdd, mayDelete, mayImport, mayMove, normAccess, ownerLocked, withOwner, withoutPreset } from "../src/core/access";
+import { accessProblems, AccessConfig, compactName, startPresetFor, AccessWho, asksBeforeDelete, cellFixed, isAccessAdmin, isMine, mayAdd, mayDelete, mayImport, mayMove, normAccess, ownerLocked, withEditor, withOwner, withoutPreset } from "../src/core/access";
 import { columnImpact, gridImpact, presetImpact } from "../src/core/impact";
 import { newRow, normalizeRow } from "../src/core/gridModel";
 import { normalizeGrid } from "../src/core/normalize";
@@ -139,4 +139,21 @@ describe("row owner: the owner's team", () => {
     expect(ownerLocked(row({ _by: "sam@x.com" }), withTeam, me)).toBe(true);                // the team is not known (yet, or none chosen)
     expect(ownerLocked(row({ _by: "x@x.com", _byName: "Sam S" }), withTeam, mate)).toBe(false);   // found by display name
   });
+});
+
+describe("who last changed a row", () => {
+  const sam: AccessWho = { keys: ["sam@x.com"], key: "sam@x.com", name: "Sam S <sam@x.com>" };
+  const a: AccessConfig = { rowOwner: true, rowTeam: true };
+  const now = new Date("2026-11-04T10:00:00Z");
+  it("stamps a change by somebody other than the owner, and clears it when the owner changes the row", () => {
+    const r = withEditor(row({ _by: "ann@x.com", _byName: "Ann A" }), a, sam, now);
+    expect(r).toMatchObject({ _ed: "sam@x.com", _edName: "Sam S", _edAt: "2026-11-04T10:00:00.000Z" });
+    expect(withEditor(r, a, me, now)._ed).toBeUndefined();
+  });
+  it("does nothing without the owner rule, without a who, or on a row with no owner", () => {
+    expect(withEditor(row({ _by: "ann@x.com" }), {}, sam, now)._ed).toBeUndefined();
+    expect(withEditor(row({ _by: "ann@x.com" }), a, undefined, now)._ed).toBeUndefined();
+    expect(withEditor(row(), a, sam, now)._ed).toBeUndefined();
+  });
+  it("is kept when the row is read back", () => { expect(normalizeRow({ _id: "a", _by: "ann@x.com", _ed: "sam@x.com", _edName: "Sam S", _edAt: "2026-11-04T10:00:00.000Z" }, cfg)).toMatchObject({ _ed: "sam@x.com", _edName: "Sam S" }); });
 });
