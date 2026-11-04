@@ -96,9 +96,10 @@ describe("Row owner", () => {
     expect(input(m.host, 0, 0).disabled).toBe(false); expect(input(m.host, 1, 0).disabled).toBe(true); expect(input(m.host, 1, 2).disabled).toBe(true); expect(input(m.host, 2, 0).disabled).toBe(false);
     const badges = Array.from(m.host.querySelectorAll(".badge.own")).map(b => b.textContent); expect(badges).toEqual(["You added this", "Added by Sam"]);
   });
-  it("the label is compact: no sign-in or email, a long name is shortened, the whole name is in the hover text", () => {
+  it("the label is compact: no sign-in or email, a long name is shortened, the hover text has the whole name but no address", () => {
     const m = mount([mk("a", { act: "x", _by: "asulthan@cbq.com.qa", _byName: "Amanulla Sulthan <asulthan@cbq.com.qa>" }), mk("b", { act: "y", _by: "mo@cbq.com.qa", _byName: "Muzaffer Gokhan Songul Ozkaya" })], { rowOwner: true });
-    const b = Array.from(m.host.querySelectorAll(".badge.own")); expect(b.map(x => x.textContent)).toEqual(["Added by Amanulla Sulthan", "Added by Muzaffer O."]); expect(b[0].getAttribute("title")).toContain("asulthan@cbq.com.qa");
+    const b = Array.from(m.host.querySelectorAll(".badge.own")); expect(b.map(x => x.textContent)).toEqual(["Added by Amanulla Sulthan", "Added by Muzaffer O."]); expect(b[0].getAttribute("title")).toContain("Added by Amanulla Sulthan"); expect(b[0].getAttribute("title")).not.toContain("@");   // names only, also in the hover text
+    expect(b[1].getAttribute("title")).toContain("Muzaffer Gokhan Songul Ozkaya");
   });
   it("another person's row has no move, copy or delete buttons; mine has", () => {
     const rows = Array.from(mount([mine, theirs], { rowOwner: true }).host.querySelectorAll("tbody tr")).map(tr => ({ del: !!tr.querySelector("button[aria-label='Delete row']"), dup: !!tr.querySelector("button[aria-label='Duplicate row']"), up: !!tr.querySelector("button[aria-label='Move up']") }));
